@@ -1,0 +1,42 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Swift ${{ matrix.swift }}
+    runs-on: windows-2025
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported (swift-tools-version) and newest release.
+        swift: ["6.2.4", "6.4.1"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@v0.5.0
+        with:
+          swift-version: swift-${{ matrix.swift }}-release
+          swift-build: ${{ matrix.swift }}-RELEASE
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Test
+        run: swift test --skip-build --skip Live
