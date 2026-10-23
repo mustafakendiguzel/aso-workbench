@@ -109,6 +109,7 @@ The app is macOS only. Everything else (`ASOCore`, `ASOProviders`, `ASOEngine` a
 | Platform | Builds | Toolchain |
 |---|---|---|
 | macOS 15+ | everything, plus the `.app` bundle | Xcode 26 (Swift 6.2) |
+| Linux | `ASOCore`, `ASOProviders` and their tests | Swift 6.2 or newer (CI: 6.2 and 6.4 on Ubuntu 24.04) |
 
 Code in `ASOCore` and `ASOProviders` must stay portable: import `FoundationNetworking` next to `Foundation` when using `URLSession`, use `#if canImport(CryptoKit)` / `import Crypto` for cryptography, and avoid Apple-only frameworks.
 
