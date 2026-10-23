@@ -60,7 +60,10 @@ let package = Package(
         ),
         .target(
             name: "CSQLite",
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [
+                .linkedLibrary("sqlite3", .when(platforms: [.macOS, .linux])),
+                .linkedLibrary("winsqlite3", .when(platforms: [.windows])),
+            ]
         ),
         .target(
             name: "ASOEngine",

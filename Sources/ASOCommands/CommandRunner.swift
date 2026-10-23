@@ -921,9 +921,9 @@ public struct CommandRunner: Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 
-    /// Date and time for tables.
+    /// Date and time for tables, in the system's time zone even where Foundation reports GMT (see DisplayTimeZone).
     static func shortDate(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .shortened)
+        date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, timeZone: DisplayTimeZone.current))
     }
 
     /// The inspector in text: summary, difficulty, the latest top ten and the last attempts.

@@ -40,3 +40,17 @@ jobs:
 
       - name: Test
         run: swift test --skip-build --skip Live
+
+      - name: Package the aso command (release, with its Swift runtime DLLs)
+        if: matrix.swift == '6.4.1'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-windows.ps1
+
+      - name: Upload the aso command
+        if: matrix.swift == '6.4.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-windows-x86_64
+          path: |
+            dist/aso-windows-x86_64.zip
+            dist/aso-windows-x86_64.sha256
+          if-no-files-found: error

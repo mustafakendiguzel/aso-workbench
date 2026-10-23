@@ -13,6 +13,8 @@ swift build -c release --product aso
 
 See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system libraries each platform needs.
 
+**Windows:** `scripts\package-windows.ps1` builds `dist\aso-windows-x86_64.zip`: `aso.exe` with exactly the Swift runtime DLLs it loads, checked by running it with nothing but Windows on `PATH`. Unzip it anywhere and run `aso.exe`; no Swift toolchain is needed. CI builds one for every pull request (artifact `aso-windows-x86_64`).
+
 ## Commands
 
 | Command | What it does |
@@ -133,7 +135,7 @@ The data file is `engine.sqlite` in the data folder:
 |---|---|
 | macOS | `~/Library/Application Support/ASO Workbench/` |
 | Linux | `$XDG_DATA_HOME/ASO Workbench/` (usually `~/.local/share/ASO Workbench/`) |
-| Windows | the user's application data folder, `ASO Workbench\` |
+| Windows | `%LOCALAPPDATA%\ASO Workbench\` |
 
 `ASO_DATA_DIR` or `--data-dir PATH` choose another folder. The file is plain SQLite: back it up by copying it while `aso` is not running, start over by deleting it. On macOS it sits next to the app's `store.sqlite` but never shares its format; the app does not read it.
 
