@@ -26,7 +26,8 @@ Sources/
 ├── ASOCore/
 │   ├── Models/        Storefront (50 countries, Apple IDs), AppLocale, StorefrontIndexing (which languages each
 │   │                  store indexes), RankOutcome, SearchResultApp, MetadataFields, Popularity, DataOrigin…
-│   ├── Analysis/      DifficultyScore, CompetitionSignals, CompetitorAggregation, TitleMatch
+│   ├── Analysis/      DifficultyScore, CompetitionSignals, CompetitorAggregation, TitleMatch,
+│   │                  RankHistory (Δ and before/after), KeywordJudgement (brand, golden, lead), IdeaGap
 │   ├── Validation/    ASORules (review + repair), MetadataValidator, MetadataDiff, TextMeasure,
 │   │                  LegalFooter, ReleaseNotesDefaults
 │   ├── Training/      PublicFeatures / JevFeatures → model columns, evaluation metrics

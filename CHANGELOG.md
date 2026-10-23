@@ -14,6 +14,7 @@ The in-app updater shows the section of the new version as its release notes.
 - Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
 - `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
 - Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.
+- Rank history (Δ and before/after), keyword verdicts (brand, golden, lead) and idea gaps moved from the app's data model into `ASOCore`, with tests, so every platform computes them the same way. Nothing changes in the app.
 
 ### Docs
 - README in English, Turkish, Simplified Chinese, Japanese, Korean, Spanish and German.
