@@ -10,6 +10,11 @@ The in-app updater shows the section of the new version as its release notes.
 - The AI writer no longer uses em or en dashes as punctuation, and list lines in descriptions and What's New start with "•".
 - Interface text uses commas, colons and periods instead of em dashes.
 
+### Development
+- Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
+- `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
+- Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.
+
 ### Docs
 - README in English, Turkish, Simplified Chinese, Japanese, Korean, Spanish and German.
 - Demo video in the README.

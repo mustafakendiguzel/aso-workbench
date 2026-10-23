@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import ASOCore
 
 /// Minimal URLSession wrapper with host allow-listing. Credentials are only ever
