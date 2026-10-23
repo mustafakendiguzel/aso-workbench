@@ -86,6 +86,16 @@ Everything is stored as **dated observations** that are added, never overwritten
 - Every number carries a `SourceBadge`; empty states are `ContentUnavailableView`s that say what to do next.
 - Keyboard shortcuts live in the menu bar (`.commands`) and reach views through notifications, so each shortcut is defined once.
 
+## Platforms
+
+The app is macOS only. The two lower layers have no Apple-only dependencies, so they can also be built and tested on other platforms. `Package.swift` picks the package graph by build host: on macOS it is dependency-free; elsewhere the app target is left out and Apple's API-compatible [swift-crypto](https://github.com/apple/swift-crypto) stands in for CryptoKit. CI builds and tests every pull request on each platform below (`.github/workflows/`).
+
+| Platform | Builds | Toolchain |
+|---|---|---|
+| macOS 15+ | everything, plus the `.app` bundle | Xcode 26 (Swift 6.2) |
+
+Code in `ASOCore` and `ASOProviders` must stay portable: import `FoundationNetworking` next to `Foundation` when using `URLSession`, use `#if canImport(CryptoKit)` / `import Crypto` for cryptography, and avoid Apple-only frameworks.
+
 ## Adding things
 
 - **A new data source:** a provider in `ASOProviders` with its own `HTTPClient(allowedHosts:)`, a service in `ASOWorkbench/Services`, a line in `AppEnvironment`, and an entry in [SECURITY.md](../SECURITY.md).
