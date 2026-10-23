@@ -27,9 +27,9 @@ public struct Engine: Sendable {
             throw EngineError.notFound("No app with ID \(link.trackID) in the \(storefront.name) App Store.")
         }
         let createdAt = try await store.app(trackID: found.trackID)?.createdAt ?? Date()
-        let record = AppRecord(found, createdAt: createdAt)
-        try await store.upsertApp(record)
-        return record
+        try await store.upsertApp(AppRecord(found, createdAt: createdAt))
+        // Return what was stored, so callers see the same values a later read gives them.
+        return try await app(found.trackID)
     }
 
     public func app(_ trackID: Int) async throws -> AppRecord {
