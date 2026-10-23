@@ -13,6 +13,8 @@ swift build -c release --product aso
 
 See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system libraries each platform needs.
 
+**Linux:** install the SQLite header first (`sudo apt install libsqlite3-dev` on Debian and Ubuntu). For a single binary that runs without a Swift toolchain, add `--static-swift-stdlib`; it then needs only the system's SQLite and libcurl, which common distributions include. CI builds one for every pull request (artifact `aso-linux-x86_64`).
+
 ## Commands
 
 | Command | What it does |

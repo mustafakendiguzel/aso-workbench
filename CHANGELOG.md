@@ -45,7 +45,7 @@ The in-app updater shows the section of the new version as its release notes.
 - Mining keyword phrases from listing text moved from the app's discovery into `ASOCore`, with tests. Nothing changes in the app.
 - Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
 - `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
-- Continuous integration on Linux builds and tests `ASOCore` and `ASOProviders` with Swift 6.2 and 6.4.
+- Linux: continuous integration builds and tests everything but the macOS app with Swift 6.2 and 6.4, and builds the `aso` command as a single binary with the Swift runtime linked in (needs only the system SQLite and libcurl).
 - Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.
 - The impact weighting (keyword value, the visibility curve, gains and value tiers) moved from the app's Changes view into `ASOCore`, with tests. Nothing changes in the app.
 - The ratings trend (latest count, change, last new rating) and the rule for skipping a repeated reading moved from the app into `ASOCore`, with tests. Nothing changes in the app.
