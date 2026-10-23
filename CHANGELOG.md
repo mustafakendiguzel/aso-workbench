@@ -6,6 +6,9 @@ The in-app updater shows the section of the new version as its release notes.
 
 ## [Unreleased]
 
+### Added
+- `aso`, the engine on the command line: track apps and keywords, measure ranks, list them with Δ, difficulty and brand verdicts, and look up search results, autocomplete, difficulty and metadata limits. Text or `--json` output; its own SQLite data file. See [docs/CLI.md](docs/CLI.md).
+
 ### Changed
 - The AI writer no longer uses em or en dashes as punctuation, and list lines in descriptions and What's New start with "•".
 - Interface text uses commas, colons and periods instead of em dashes.

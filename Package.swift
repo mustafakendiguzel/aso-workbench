@@ -4,9 +4,11 @@
 // Layering (compile-time enforced by SwiftPM targets):
 //   ASOCore       pure domain: models, provider contracts, validation, analysis. No Foundation networking, no UI.
 //   ASOProviders  infrastructure: Apple public search, App Store hints, Apple Ads Platform API v1, App Store Connect.
-//   ASOWorkbench     the macOS app: SwiftData persistence, orchestration services, SwiftUI features.
+//   ASOWorkbench  the macOS app: SwiftData persistence, orchestration services, SwiftUI features.
+//   ASOEngine     the platform-neutral workbench: an SQLite store (the platform's own SQLite, via CSQLite) and jobs.
+//   ASOCommands   the `aso` command line on top of ASOEngine; ASOCLI is its thin executable.
 //
-// Platforms: the whole package builds on macOS with zero dependencies. ASOCore and ASOProviders also build on
+// Platforms: the whole package builds on macOS with zero dependencies. Everything but the macOS app also builds on
 // Linux and Windows; there CryptoKit is replaced by Apple's API-compatible swift-crypto, and the macOS app target
 // is left out. The manifest is evaluated on the build host, so `#if os(macOS)` selects the host's package graph.
 import PackageDescription
@@ -42,6 +44,8 @@ let package = Package(
     products: platformProducts + [
         .library(name: "ASOCore", targets: ["ASOCore"]),
         .library(name: "ASOProviders", targets: ["ASOProviders"]),
+        .library(name: "ASOEngine", targets: ["ASOEngine"]),
+        .executable(name: "aso", targets: ["ASOCLI"]),
     ],
     dependencies: platformDependencies,
     targets: platformTargets + [
@@ -54,7 +58,27 @@ let package = Package(
             dependencies: ["ASOCore"] + cryptoDependencies,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .target(
+            name: "CSQLite",
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
+        .target(
+            name: "ASOEngine",
+            dependencies: ["ASOCore", "ASOProviders", "CSQLite"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "ASOCommands",
+            dependencies: ["ASOCore", "ASOProviders", "ASOEngine"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "ASOCLI",
+            dependencies: ["ASOCommands"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .testTarget(name: "ASOCoreTests", dependencies: ["ASOCore"]),
         .testTarget(name: "ASOProvidersTests", dependencies: ["ASOProviders", "ASOCore"] + cryptoDependencies),
+        .testTarget(name: "ASOEngineTests", dependencies: ["ASOEngine", "ASOCommands", "ASOCore"]),
     ]
 )

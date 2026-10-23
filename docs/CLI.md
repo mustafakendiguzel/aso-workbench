@@ -1,0 +1,64 @@
+# Command line (`aso`)
+
+`aso` is the ASO Workbench engine without the macOS interface. It uses the same rules as the app (`ASOCore`) and the same App Store adapters (`ASOProviders`), keeps its own data file, and is the foundation for the Windows and Linux versions. It builds on every platform listed under [Platforms](ARCHITECTURE.md#platforms).
+
+The same honesty rules apply: "> 200" means *not in the top 200 results* (never rank 201), a failed request is stored as a failure, and a number that has no source is left empty instead of guessed.
+
+## Build
+
+```bash
+swift build -c release --product aso
+.build/release/aso --help
+```
+
+See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system libraries each platform needs.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `aso app add <App Store link or ID> [--country CC]` | Starts tracking an app (looked up in the link's country, else `--country`, else US). |
+| `aso app list` | Tracked apps. |
+| `aso app remove <app ID>` | Stops tracking an app and deletes its keywords and measurements. |
+| `aso keywords add <app ID> <keyword>... --country CC [--device iphone\|ipad\|mac]` | Tracks keywords in one market. Duplicates (ignoring case and spacing) are skipped. |
+| `aso keywords remove <app ID> <keyword>... --country CC [--device ...]` | Stops tracking keywords. |
+| `aso keywords list <app ID> [--country CC] [--device ...] [--delta previous\|first\|week]` | Latest rank, Δ, difficulty and brand verdict per keyword. |
+| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200]` | A fresh rank check for every keyword, about 3 seconds each (Apple limits public search). Progress goes to stderr. |
+| `aso search <term> --country CC [--device ...] [--limit 1-200]` | Top results for a term right now. Nothing is stored. |
+| `aso hints <seed> --country CC` | App Store autocomplete for a prefix. |
+| `aso difficulty <term> --country CC [--device ...]` | Difficulty (0–100) from the top ten results, with every component. |
+| `aso validate [--title T] [--subtitle S] [--keywords K]` | Checks metadata against the App Store limits; exits with 1 when a hard limit is broken. |
+
+A quick start:
+
+```bash
+aso app add "https://apps.apple.com/us/app/keynote/id361285480"
+aso keywords add 361285480 "presentation" "slides maker" --country US
+aso measure 361285480
+aso keywords list 361285480
+```
+
+Keywords that start with `-` go after `--`: `aso keywords add 361285480 --country US -- -keyword`.
+
+## Output and exit codes
+
+- Text by default; `--json` prints machine-readable JSON on stdout (dates in ISO 8601, absent values as `null`). Progress, warnings and errors always go to stderr, so JSON output can be piped.
+- Exit codes: `0` success, `1` the command failed (the message says why), `64` the command was called wrongly (the usage follows).
+
+## Data
+
+The data file is `engine.sqlite` in the data folder:
+
+| Platform | Default folder |
+|---|---|
+| macOS | `~/Library/Application Support/ASO Workbench/` |
+| Linux | `$XDG_DATA_HOME/ASO Workbench/` (usually `~/.local/share/ASO Workbench/`) |
+| Windows | the user's application data folder, `ASO Workbench\` |
+
+`ASO_DATA_DIR` or `--data-dir PATH` choose another folder. The file is plain SQLite: back it up by copying it while `aso` is not running, start over by deleting it. On macOS it sits next to the app's `store.sqlite` but never shares its format; the app does not read it.
+
+The schema is versioned (`PRAGMA user_version`) and migrated forward automatically. A data file written by a newer version is refused rather than rewritten.
+
+## Not yet in the command line
+
+Popularity (Apple Ads), publishing (App Store Connect), the AI writer (OpenRouter) and revenue (RevenueCat) need keys and arrive in later steps. Until then `popularity` is `null` and no keyword is marked golden, because golden needs a popularity value.
