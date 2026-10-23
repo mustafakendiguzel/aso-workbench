@@ -15,14 +15,19 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Swift ${{ matrix.swift }}
-    runs-on: windows-2025
+    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # Oldest supported (swift-tools-version) and newest release.
-        swift: ["6.2.4", "6.4.1"]
+        # Oldest supported (swift-tools-version) and newest release, each with the Visual Studio of its time:
+        # the C++ headers of Visual Studio 2026 (MSVC 14.51) require Clang 20, newer than the one in Swift 6.2.
+        include:
+          - swift: "6.2.4"
+            os: windows-2022
+          - swift: "6.4.1"
+            os: windows-2025
     steps:
       - uses: actions/checkout@v4
 

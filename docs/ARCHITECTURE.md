@@ -109,7 +109,7 @@ The app is macOS only. Everything else (`ASOCore`, `ASOProviders`, `ASOEngine` a
 | Platform | Builds | Toolchain |
 |---|---|---|
 | macOS 15+ | everything, plus the `.app` bundle | Xcode 26 (Swift 6.2) |
-| Windows 10+ | everything but the app: the libraries, their tests and `aso.exe` (SQLite is Windows' own `winsqlite3`) | Swift 6.2 or newer with the Visual Studio C++ build tools and Windows SDK; CI: 6.2.4 and 6.4.1 on Windows Server 2025 |
+| Windows 10+ | everything but the app: the libraries, their tests and `aso.exe` (SQLite is Windows' own `winsqlite3`) | Swift 6.2 or newer with the Visual Studio C++ build tools and Windows SDK (Swift 6.2 needs Visual Studio 2022: the C++ headers of Visual Studio 2026 require a newer Clang); CI: 6.2.4 on Windows Server 2022, 6.4.1 on Windows Server 2025 |
 
 Code in `ASOCore` and `ASOProviders` must stay portable: import `FoundationNetworking` next to `Foundation` when using `URLSession`, use `#if canImport(CryptoKit)` / `import Crypto` for cryptography, and avoid Apple-only frameworks.
 
