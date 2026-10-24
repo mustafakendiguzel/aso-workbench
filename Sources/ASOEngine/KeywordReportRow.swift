@@ -21,7 +21,16 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     public let difficulty: Double?
     /// "Easy" … "Very hard", from the difficulty score.
     public let difficultyTier: String?
+    /// Apple's 1–100 score from the country list, relative within the country.
     public let popularity: Int?
+    /// "list" (on Apple's country list) · "belowRange" (not on it) · absent before the first refresh.
+    public let popularitySource: String?
+    /// For "belowRange": the lowest score on the list that month, which the term is under (when it could be read).
+    public let popularityBelow: Int?
+    /// Raw Apple Ads genre of the list the score comes from.
+    public let popularityGenre: String?
+    /// First day of the month the popularity describes.
+    public let popularityMonth: Date?
     public let opportunity: Double?
     public let brandLike: Bool
     public let golden: Bool
@@ -40,7 +49,7 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     public let failure: String?
     public let note: String
 
-    init(keyword: KeywordRecord, market: MarketRecord, app: AppRecord, observations: [RankObservationRecord],
+    init(keyword: KeywordRecord, market: MarketRecord, app: AppRecord, observations: [RankObservationRecord], popularity reading: PopularityReading?,
          deltaReference: DeltaReference, golden thresholds: GoldenThresholds, markers: [Marker] = []) {
         let history = RankHistory(observations) { $0.point }
         let latest = observations.max { $0.fetchedAt < $1.fetchedAt }
@@ -49,7 +58,7 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
         let judgement = KeywordJudgement(term: keyword.text, ownApp: app.ownApp,
                                          measurement: measured.map { .init(results: $0.results, signals: signals) },
                                          brandProbability: keyword.brandProbability, navigational: keyword.navigational,
-                                         fitProbability: keyword.fitProbability, popularity: nil)
+                                         fitProbability: keyword.fitProbability, popularity: reading?.popularity)
         let delta = history.delta(reference: deltaReference, markers: markers)
         let difficulty = judgement.difficulty
 
@@ -65,6 +74,10 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
         self.difficulty = difficulty?.score
         difficultyTier = difficulty?.tier
         popularity = judgement.popularity
+        popularitySource = reading?.source
+        popularityBelow = reading?.upperBound
+        popularityGenre = reading?.genre
+        popularityMonth = reading?.periodStart
         opportunity = judgement.opportunity
         brandLike = judgement.isBrandLike
         golden = judgement.isGolden(minPopularity: thresholds.minPopularity, maxDifficulty: thresholds.maxDifficulty)
@@ -80,8 +93,8 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     }
 }
 
-/// The macOS app's CSV export, column for column, so spreadsheets built on it keep working. Values the engine does
-/// not have yet (popularity) are empty, with the source "unavailable".
+/// The macOS app's CSV export, column for column, so spreadsheets built on it keep working. A keyword without a
+/// popularity reading has the source "unavailable".
 public enum KeywordCSV {
     public static let header = "keyword,storefront,device,rank,observed_count,delta,popularity_1_100,popularity_source,popularity_genre,fit_probability,difficulty,difficulty_tier,rating_mass_median_top10,title_matches_top10,measured_at,provider"
 
@@ -97,8 +110,8 @@ public enum KeywordCSV {
         fields.append(String(r.observedCount ?? 0))
         fields.append(r.delta.map(String.init) ?? "")
         fields.append(r.popularity.map(String.init) ?? "")
-        fields.append(r.popularity == nil ? "unavailable" : "")
-        fields.append("")
+        fields.append(popularitySource(r))
+        fields.append(r.popularitySource == "list" ? r.popularityGenre ?? "" : "")
         fields.append(r.fit.map { String(format: "%.2f", $0) } ?? "")
         fields.append(r.difficulty.map { String(Int($0.rounded())) } ?? "")
         fields.append(r.difficultyTier ?? "")
@@ -107,6 +120,15 @@ public enum KeywordCSV {
         fields.append(r.measuredAt?.ISO8601Format() ?? "")
         fields.append(r.provider ?? "")
         return fields
+    }
+
+    /// The macOS app's names for where the number came from.
+    static func popularitySource(_ r: KeywordReportRow) -> String {
+        switch r.popularitySource {
+        case "list": "apple_ads_country_list"
+        case "belowRange": "below_published_range" + (r.popularityBelow.map { "_lt_\($0)" } ?? "")
+        default: "unavailable"
+        }
     }
 
     /// RFC 4180: quote a field that contains a comma, quote or line break, doubling its quotes.

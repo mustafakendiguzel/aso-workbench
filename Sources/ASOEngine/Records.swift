@@ -91,6 +91,28 @@ public struct RankObservationRecord: Sendable, Hashable {
     public var point: RankPoint { RankPoint(fetchedAt: fetchedAt, outcome: outcome, provider: provider) }
 }
 
+/// One popularity reading for a keyword, as the macOS app stores it: Apple's 1–100 score from the country list
+/// ("list"), or "below the published range" ("belowRange") when the term is not on the list, with the list's lowest
+/// score that month as the bound when it could be read. The score is relative within the country.
+public struct PopularityReading: Sendable, Codable, Equatable {
+    public let fetchedAt: Date
+    public let country: String
+    /// Raw `AppleAdsGenre` of the list; for "belowRange", the app's genre (nil when every genre was searched).
+    public let genre: String?
+    /// The month the reading describes.
+    public let periodStart: Date
+    public let periodEnd: Date
+    public let popularity: Int?
+    public let popularity1to5: Int?
+    public let popularityInGenre: Int?
+    public let rankInGenre: Int?
+    /// "list" · "belowRange"
+    public let source: String
+    public let upperBound: Int?
+    /// Every genre was searched, so "belowRange" means the term is on none of the lists.
+    public let anyGenre: Bool
+}
+
 /// How outcomes are stored: a kind plus the numbers that kind carries (the same shape the macOS app uses).
 enum StoredOutcome {
     static func columns(_ outcome: RankOutcome) -> (kind: String, position: Int?, observedCount: Int, failureReason: String?) {

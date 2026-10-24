@@ -39,9 +39,12 @@ public struct CommandRunner: Sendable {
                       input: { String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self) },
                       makeEngine: { directory in
                           let settings = try EngineSettings.load(from: directory)
+                          // Keys that cannot be read leave Apple Ads unconnected; `aso connections` says why.
+                          let ads = (try? CredentialStore(directory: directory).appleAds()).flatMap { $0 }
                           return Engine(store: try Store(url: EngineEnvironment.storeURL(in: directory)),
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
-                                        suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider())
+                                        suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider(),
+                                        popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) })
                       })
     }
 
@@ -234,10 +237,23 @@ public struct CommandRunner: Sendable {
                                                          depth: depth, keywords: only, progress: report)
                 nothing = "Nothing to measure. Add keywords with: aso keywords add \(id) <keyword>... --country US"
             }
-            write(args, summary) {
-                $0.measured == 0 ? nothing
-                    : "Measured \($0.measured): \($0.found) ranked, \($0.outside) outside the results, \($0.failed) failed."
+            write(args, summary) { s in
+                guard s.measured > 0 else { return nothing }
+                var text = "Measured \(s.measured): \(s.found) ranked, \(s.outside) outside the results, \(s.failed) failed."
+                if let refreshes = s.popularity { text += "\n" + Self.popularityText(refreshes) }
+                if let error = s.popularityError { text += "\nPopularity was not refreshed: \(error)" }
+                return text
             }
+        case ("popularity", _):
+            try args.allow(["country", "device", "keywords"])
+            let id = try args.integer(1, "app ID")
+            let only = args.option("keywords").map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+            if only?.isEmpty == true { throw UsageError("--keywords needs at least one keyword.") }
+            let errors = self.errors
+            let quiet = args.flag("json")
+            let refreshes = try await engine(args).refreshPopularity(appID: id, countryCode: args.option("country"), device: try deviceOption(args),
+                                                                     keywords: only) { step in if !quiet { errors("Reading \(step)") } }
+            write(args, refreshes) { $0.isEmpty ? "No keywords yet. Add some with: aso keywords add \(id) <keyword>... --country US" : Self.popularityText($0) }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -545,6 +561,15 @@ public struct CommandRunner: Sendable {
         text += "Latest \(row.rankLabel)  ·  best \(s.best.map { "#\($0)" } ?? "—")  ·  \(s.measurements) measurement(s), \(s.outside) outside the results"
         if let d = row.delta { text += "  ·  Δ \(d > 0 ? "+\(d)" : String(d)) (\(row.deltaAgainst))" }
         if !row.note.isEmpty { text += "\nNote: \(row.note)" }
+        if let month = row.popularityMonth {
+            let label = popularityLabel(row)
+            let genre: AppleAdsGenre? = row.popularityGenre.flatMap(AppleAdsGenre.init(rawValue:))
+            var source = ", not on the list"
+            if row.popularitySource == "list" { source = genre.map { ", \($0.displayName) list" } ?? "" }
+            text += "\nPopularity \(label.isEmpty ? "—" : label) (Apple Ads, \(Self.month(month))\(source))"
+            if let opportunity = row.opportunity { text += String(format: "  ·  opportunity %.0f", opportunity) }
+            if row.golden { text += "  ·  golden" }
+        }
         if let difficulty = detail.difficulty {
             text += "\n\nDifficulty \(Int(difficulty.score.rounded())) of 100 (\(difficulty.tier))"
             if let mass = row.ratingMass { text += "  ·  rating mass \(mass)" }
@@ -591,14 +616,26 @@ public struct CommandRunner: Sendable {
 
     static func keywordTable(_ rows: [KeywordReportRow], reference: DeltaReference) -> String {
         guard !rows.isEmpty else { return "No keywords yet. Add some with: aso keywords add <app ID> <keyword>... --country US" }
-        var table = TextTable([.init("Keyword"), .init("Market"), .init("Rank", .right), .init("Δ", .right), .init("Difficulty", .right),
-                               .init("Brand"), .init("Measured")])
+        var table = TextTable([.init("Keyword"), .init("Market"), .init("Rank", .right), .init("Δ", .right), .init("Popularity", .right),
+                               .init("Difficulty", .right), .init("Brand"), .init("Measured")])
         for row in rows {
-            table.add([row.keyword, "\(row.country) \(row.device)", row.rankLabel, row.delta.map { $0 > 0 ? "+\($0)" : String($0) } ?? "",
-                       row.difficulty.map { String(Int($0.rounded())) } ?? "", row.brandLike ? "yes" : "",
-                       row.measuredAt.map(Self.shortDate) ?? "never"])
+            let delta: String = row.delta.map { $0 > 0 ? "+\($0)" : String($0) } ?? ""
+            let difficulty: String = row.difficulty.map { String(Int($0.rounded())) } ?? ""
+            table.add([row.keyword, "\(row.country) \(row.device)", row.rankLabel, delta, Self.popularityLabel(row), difficulty,
+                       row.brandLike ? "yes" : "", row.measuredAt.map(Self.shortDate) ?? "never"])
         }
-        return table.render() + "\n\nΔ: \(reference.title); positive = moved up."
+        var text = table.render() + "\n\nΔ: \(reference.title); positive = moved up."
+        if rows.contains(where: { $0.popularitySource == "belowRange" }) {
+            text += "\nPopularity \"< N\": not on Apple's list that month, so below its lowest published score N."
+        }
+        return text
+    }
+
+    /// "62", "< 31" below the published range, "< list" when the list's lowest score was not read, "" before the first refresh.
+    static func popularityLabel(_ row: KeywordReportRow) -> String {
+        if let value = row.popularity { return String(value) }
+        guard row.popularitySource == "belowRange" else { return "" }
+        return row.popularityBelow.map { "< \($0)" } ?? "< list"
     }
 
     static func ratingsTable(_ rows: [Engine.RatingRow], appID: Int) -> String {
@@ -654,6 +691,25 @@ public struct CommandRunner: Sendable {
         return table.render() + "\n\nThe effect of one: aso impact \(appID) <marker ID>"
     }
 
+    /// "September 2026", in UTC: the period starts at midnight UTC, which is the previous day west of Greenwich.
+    static func month(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: date)
+    }
+
+    static func popularityText(_ refreshes: [Engine.PopularityRefresh]) -> String {
+        refreshes.map { r in
+            let list = r.genre.flatMap(AppleAdsGenre.init(rawValue:))?.displayName ?? "all \(AppleAdsGenre.allCases.count) genres"
+            var text = "\(r.country): \(r.onList) of \(r.keywords) keyword(s) on Apple's list (\(list), \(Self.month(r.periodStart)))"
+            if !r.genresFound.isEmpty { text += ", found in \(r.genresFound.joined(separator: ", "))" }
+            if r.belowRange > 0 { text += "; \(r.belowRange) below the published range" + (r.floor.map { " (under \($0))" } ?? "") }
+            return text + "."
+        }.joined(separator: "\n")
+    }
+
     static func impactText(_ report: Engine.ImpactReport) -> String {
         let head = "Effect of \(report.marker.title) · \(Self.shortDate(report.marker.date))"
         guard !report.rows.isEmpty else {
@@ -705,6 +761,8 @@ public struct CommandRunner: Sendable {
           measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b,…]
                                                           Fresh rank check for each keyword (about 3 s each)
           measure --stale [--stale-hours N]               Every market not measured in the last N hours (setting staleHours)
+          popularity <app ID> [--country CC] [--device ...] [--keywords a,b,…]
+                                                          Apple Ads popularity (needs the Apple Ads keys); measure refreshes it too
 
         Ratings, reviews and competitors
           ratings check <app ID> [--country CC,… | --all]  Rating count and average per storefront (default: the app's markets)

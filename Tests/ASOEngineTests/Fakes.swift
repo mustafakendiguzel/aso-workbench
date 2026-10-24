@@ -1,5 +1,6 @@
 import Foundation
 import ASOCore
+import ASOProviders
 @testable import ASOEngine
 
 /// App Store search without the network: canned results per term, terms that fail, apps by ID.
@@ -43,6 +44,34 @@ struct FakeReviews: CustomerReviewProvider {
     }
 }
 
+/// Apple Ads popularity without the network: each genre's list as term → 1–100 score, for the month before `now`.
+struct FakePopularity: PopularityProvider {
+    let id: ProviderID = .appleAdsPopularity
+    var lists: [AppleAdsGenre: [String: Int]] = [:]
+    var failing = false
+    var now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    var isConfigured: Bool { true }
+
+    func genreDataset(country: String, genre: AppleAdsGenre, monthsBack: Int) async throws -> [PopularityRecord] {
+        if failing { throw ASOError.network("offline") }
+        let (start, end) = AppleAdsPopularityProvider.lastFullMonth(monthsBack: monthsBack, now: now)
+        return (lists[genre] ?? [:]).sorted { $0.key < $1.key }.map { term, score in
+            PopularityRecord(searchTerm: term, countryCode: country, genre: genre, popularity1to100: score, popularity1to5: nil,
+                             popularityInGenre: nil, rankInGenre: nil, periodStart: start, periodEnd: end, fetchedAt: now)
+        }
+    }
+
+    func popularity(terms: [String], country: String, genre: AppleAdsGenre, monthsBack: Int) async throws -> [PopularityRecord] {
+        let wanted = Set(terms.map { $0.lowercased() })
+        return try await genreDataset(country: country, genre: genre, monthsBack: monthsBack).filter { wanted.contains($0.searchTerm) }
+    }
+
+    func keywordSuggestions(appID: Int, seeds: [String], country: String) async throws -> [KeywordSuggestion] { [] }
+
+    func capabilities() async -> ProviderCapabilities { ProviderCapabilities(maxPageSize: 200) }
+}
+
 func makeReview(_ id: String, _ country: String = "US", rating: Int = 5, title: String? = nil, body: String = "Works well.",
                 date: Date? = nil) -> CustomerReview {
     CustomerReview(id: id, countryCode: country, title: title ?? "Review \(id)", body: body, rating: rating, author: "Reader \(id)", version: "2.0",
@@ -58,8 +87,8 @@ func makeApp(_ id: Int, _ name: String, seller: String? = nil, ratings: Int? = 1
 let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
-                reviews: FakeReviews = FakeReviews()) throws -> Engine {
-    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews)
+                reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil) throws -> Engine {
+    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity)
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

@@ -8,12 +8,16 @@ public struct Engine: Sendable {
     public let search: any SearchRankProvider
     public let suggestions: any SuggestionProvider
     public let reviews: any CustomerReviewProvider
+    /// Apple Ads popularity; nil when no keys are stored.
+    public let popularity: (any PopularityProvider)?
 
-    public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider) {
+    public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
+                popularity: (any PopularityProvider)? = nil) {
         self.store = store
         self.search = search
         self.suggestions = suggestions
         self.reviews = reviews
+        self.popularity = popularity
     }
 
     // MARK: Apps
@@ -142,27 +146,43 @@ public struct Engine: Sendable {
         public var found = 0
         public var outside = 0
         public var failed = 0
+        /// The popularity refresh that follows a measurement when Apple Ads is connected, or why it failed.
+        public var popularity: [PopularityRefresh]?
+        public var popularityError: String?
     }
 
     /// Measures every keyword of the app's markets (optionally one country or device) with fresh searches, one after
     /// another; the provider paces requests. Every outcome is stored, failures included.
     /// `keywords`, when given, limits the run to those keywords (compared normalized); unknown ones are an error, so a
     /// typo never passes for "nothing to measure".
+    /// With Apple Ads connected, the measured keywords' popularity is refreshed afterwards, as in the macOS app; a failed
+    /// refresh is reported in the summary and does not undo the measurement.
     public func measure(appID: Int, countryCode: String? = nil, device: DeviceContext? = nil, depth: Int = 200, keywords: [String]? = nil,
                         progress: @Sendable (MeasureProgress) -> Void = { _ in }) async throws -> MeasureSummary {
         _ = try await app(appID)
         let markets = try await selectedMarkets(appID: appID, countryCode: countryCode, device: device)
-        var only: Set<String>?
-        if let keywords {
-            let wanted = Set(keywords.map(KeywordText.normalize).filter { !$0.isEmpty })
-            var known = Set<String>()
-            for market in markets { known.formUnion(try await store.keywords(marketID: market.id).map(\.normalized)) }
-            if let missing = wanted.subtracting(known).sorted().first {
-                throw EngineError.notFound("\"\(missing)\" is not tracked in the chosen market(s).")
+        let only = try await keywordFilter(keywords, in: markets)
+        var summary = try await measure(markets: markets, depth: depth, only: only, readCatalog: true, progress: progress)
+        if summary.measured > 0, let popularity, await popularity.isConfigured {
+            do {
+                summary.popularity = try await refreshPopularity(appID: appID, countryCode: countryCode, device: device, keywords: keywords)
+            } catch {
+                summary.popularityError = error.localizedDescription
             }
-            only = wanted
         }
-        return try await measure(markets: markets, depth: depth, only: only, readCatalog: true, progress: progress)
+        return summary
+    }
+
+    /// The normalized keywords to limit a job to, or nil for all of them; a keyword the markets do not track is an error.
+    func keywordFilter(_ keywords: [String]?, in markets: [MarketRecord]) async throws -> Set<String>? {
+        guard let keywords else { return nil }
+        let wanted = Set(keywords.map(KeywordText.normalize).filter { !$0.isEmpty })
+        var known = Set<String>()
+        for market in markets { known.formUnion(try await store.keywords(marketID: market.id).map(\.normalized)) }
+        if let missing = wanted.subtracting(known).sorted().first {
+            throw EngineError.notFound("\"\(missing)\" is not tracked in the chosen market(s).")
+        }
+        return wanted
     }
 
     // MARK: Keyword detail and notes
@@ -182,7 +202,8 @@ public struct Engine: Sendable {
         let app = try await app(appID)
         let (market, keyword) = try await trackedKeyword(text, appID: appID, countryCode: countryCode, device: device)
         let observations = try await store.observations(keywordID: keyword.id)
-        let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, deltaReference: deltaReference, golden: golden,
+        let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations,
+                                   popularity: try await store.latestPopularity(keywordID: keyword.id), deltaReference: deltaReference, golden: golden,
                                    markers: try await rankMarkers(appID: appID))
         return KeywordDetail(row: row, app: app, observations: observations)
     }
@@ -254,7 +275,8 @@ public struct Engine: Sendable {
         for market in try await selectedMarkets(appID: appID, countryCode: countryCode, device: device) {
             for keyword in try await store.keywords(marketID: market.id) {
                 let observations = try await store.observations(keywordID: keyword.id)
-                rows.append(KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations,
+                let popularity = try await store.latestPopularity(keywordID: keyword.id)
+                rows.append(KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, popularity: popularity,
                                              deltaReference: deltaReference, golden: golden, markers: markers))
             }
         }
@@ -288,7 +310,7 @@ public struct Engine: Sendable {
 
     static func title(_ market: MarketRecord) -> String { "\(market.countryCode) · \(market.device.rawValue)" }
 
-    private func selectedMarkets(appID: Int, countryCode: String?, device: DeviceContext?) async throws -> [MarketRecord] {
+    func selectedMarkets(appID: Int, countryCode: String?, device: DeviceContext?) async throws -> [MarketRecord] {
         let country = try countryCode.map { try Self.storefront($0).countryCode }
         return try await store.markets(appID: appID).filter {
             (country == nil || $0.countryCode == country) && (device == nil || $0.device == device)

@@ -98,6 +98,26 @@ public actor Store {
         CREATE INDEX markers_app ON markers (app_id, date);
         ALTER TABLE apps ADD COLUMN release_checked_version TEXT;
         """,
+        // 5: popularity readings from Apple Ads, kept like rank observations (added, never overwritten).
+        """
+        CREATE TABLE popularity_readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword_id INTEGER NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
+            fetched_at REAL NOT NULL,
+            country_code TEXT NOT NULL,
+            genre TEXT,
+            period_start REAL NOT NULL,
+            period_end REAL NOT NULL,
+            popularity INTEGER,
+            popularity_1to5 INTEGER,
+            popularity_in_genre INTEGER,
+            rank_in_genre INTEGER,
+            source TEXT NOT NULL,
+            upper_bound INTEGER,
+            any_genre INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX popularity_readings_keyword ON popularity_readings (keyword_id, fetched_at);
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -306,6 +326,31 @@ public actor Store {
                                                                  failureReason: row.optionalText(8)),
                                   resultsData: row.blob(9), signalsData: row.optionalBlob(10))
         }
+    }
+
+    // MARK: Popularity
+
+    public func addPopularity(_ reading: PopularityReading, keywordID: Int) throws {
+        try db.query("""
+            INSERT INTO popularity_readings (keyword_id, fetched_at, country_code, genre, period_start, period_end, popularity, popularity_1to5,
+                popularity_in_genre, rank_in_genre, source, upper_bound, any_genre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [.int(keywordID), SQLValue(reading.fetchedAt), .text(reading.country), SQLValue(reading.genre), SQLValue(reading.periodStart),
+                  SQLValue(reading.periodEnd), SQLValue(reading.popularity), SQLValue(reading.popularity1to5), SQLValue(reading.popularityInGenre),
+                  SQLValue(reading.rankInGenre), .text(reading.source), SQLValue(reading.upperBound), .int(reading.anyGenre ? 1 : 0)])
+    }
+
+    /// The keyword's newest popularity reading.
+    public func latestPopularity(keywordID: Int) throws -> PopularityReading? {
+        try db.rows("""
+            SELECT fetched_at, country_code, genre, period_start, period_end, popularity, popularity_1to5, popularity_in_genre, rank_in_genre,
+                source, upper_bound, any_genre
+            FROM popularity_readings WHERE keyword_id = ? ORDER BY fetched_at DESC, id DESC LIMIT 1
+            """, [.int(keywordID)]) { row in
+            PopularityReading(fetchedAt: row.date(0), country: row.text(1), genre: row.optionalText(2), periodStart: row.date(3), periodEnd: row.date(4),
+                              popularity: row.optionalInt(5), popularity1to5: row.optionalInt(6), popularityInGenre: row.optionalInt(7),
+                              rankInGenre: row.optionalInt(8), source: row.text(9), upperBound: row.optionalInt(10), anyGenre: row.int(11) == 1)
+        }.first
     }
 
     // MARK: Ratings

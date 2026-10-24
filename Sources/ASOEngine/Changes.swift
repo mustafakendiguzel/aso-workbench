@@ -90,7 +90,9 @@ extension Engine {
             for keyword in try await store.keywords(marketID: market.id) {
                 let observations = try await store.observations(keywordID: keyword.id)
                 guard let pair = RankHistory(observations, point: { $0.point }).beforeAfter(marker.date) else { continue }
-                let report = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations,
+                // Worth is today's: the latest popularity, as the macOS Changes view weighs it.
+                let popularity = try await store.latestPopularity(keywordID: keyword.id)
+                let report = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, popularity: popularity,
                                               deltaReference: .previous, golden: .standard)
                 rows.append(Self.impactRow(report, before: pair.before.point, after: pair.after.point))
             }

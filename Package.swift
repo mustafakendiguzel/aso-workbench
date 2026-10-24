@@ -79,6 +79,6 @@ let package = Package(
         ),
         .testTarget(name: "ASOCoreTests", dependencies: ["ASOCore"]),
         .testTarget(name: "ASOProvidersTests", dependencies: ["ASOProviders", "ASOCore"] + cryptoDependencies),
-        .testTarget(name: "ASOEngineTests", dependencies: ["ASOEngine", "ASOCommands", "ASOCore"]),
+        .testTarget(name: "ASOEngineTests", dependencies: ["ASOEngine", "ASOCommands", "ASOCore", "ASOProviders"]),
     ]
 )

@@ -43,7 +43,7 @@ Sources/
 ├── CSQLite/           the platform's own SQLite as a Swift module (no package dependency)
 ├── ASOEngine/         platform-neutral workbench: Store (SQLite, versioned schema), Engine (add app, keywords,
 │                      measure, reports), Catalog (ratings, reviews, competitors), Changes (release markers,
-│                      notes, impact), KeywordReportRow and
+│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), KeywordReportRow and
 │                      KeywordDetail, EngineSettings (settings.json), CredentialStore and
 │                      Connections (credentials.json, verify), data folder and version
 ├── ASOCommands/       the `aso` command line: arguments, commands, text tables and JSON (see docs/CLI.md)

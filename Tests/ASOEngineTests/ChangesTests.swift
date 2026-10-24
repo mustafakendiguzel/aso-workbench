@@ -39,7 +39,7 @@ struct ChangesTests {
             try db.execute("INSERT INTO apps (track_id, name, seller_name, store_version, created_at) VALUES (42, 'Old App', 'Old Seller', '3.1', 0)")
         }
         let store = try Store(url: url)
-        #expect(try await store.schemaVersion == 4)
+        #expect(try await store.schemaVersion == Store.migrations.count)
         #expect(try await store.app(trackID: 42)?.storeVersion == "3.1")
         // The first look records the current release even though the app already knew its version.
         #expect(try await store.recordRelease(version: "3.1", date: start, countryCode: "US", appID: 42)?.title == "v3.1")
