@@ -132,6 +132,18 @@ public actor Store {
         return market
     }
 
+    /// Every market that has keywords, with its newest measurement of any outcome (nil when never measured).
+    public func marketsWithKeywords() throws -> [(market: MarketRecord, lastMeasuredAt: Date?)] {
+        try db.rows("""
+            SELECT m.id, m.app_id, m.country_code, m.device, m.created_at, MAX(o.fetched_at)
+            FROM markets m
+            JOIN keywords k ON k.market_id = m.id
+            LEFT JOIN rank_observations o ON o.keyword_id = k.id
+            GROUP BY m.id
+            ORDER BY m.app_id, m.country_code, m.device
+            """) { row in (Self.market(row), row.isNull(5) ? nil : row.date(5)) }
+    }
+
     public func markets(appID: Int) throws -> [MarketRecord] {
         try db.rows("SELECT \(Self.marketColumns) FROM markets WHERE app_id = ? ORDER BY country_code, device", [.int(appID)], map: Self.market)
     }

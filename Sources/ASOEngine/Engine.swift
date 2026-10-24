@@ -81,18 +81,31 @@ public struct Engine: Sendable {
     /// another; the provider paces requests. Every outcome is stored, failures included.
     public func measure(appID: Int, countryCode: String? = nil, device: DeviceContext? = nil, depth: Int = 200,
                         progress: @Sendable (MeasureProgress) -> Void = { _ in }) async throws -> MeasureSummary {
-        let app = try await app(appID)
+        _ = try await app(appID)
         let markets = try await selectedMarkets(appID: appID, countryCode: countryCode, device: device)
-        var work: [(MarketRecord, Storefront, KeywordRecord)] = []
+        return try await measure(markets: markets, depth: depth, progress: progress)
+    }
+
+    /// Measures every market, across all apps, whose newest measurement is older than `staleHours` or that was never
+    /// measured (markets without keywords are skipped), as the macOS app does when it opens.
+    public func measureStale(staleHours: Int, depth: Int = 200, now: Date = Date(),
+                             progress: @Sendable (MeasureProgress) -> Void = { _ in }) async throws -> MeasureSummary {
+        let threshold = now.addingTimeInterval(-Double(staleHours) * 3600)
+        let stale = try await store.marketsWithKeywords().filter { ($0.lastMeasuredAt ?? .distantPast) < threshold }.map(\.market)
+        return try await measure(markets: stale, depth: depth, progress: progress)
+    }
+
+    private func measure(markets: [MarketRecord], depth: Int, progress: @Sendable (MeasureProgress) -> Void) async throws -> MeasureSummary {
+        var work: [(MarketRecord, Storefront, Int, KeywordRecord)] = []
         for market in markets {
             let storefront = try Self.storefront(market.countryCode)
-            for keyword in try await store.keywords(marketID: market.id) { work.append((market, storefront, keyword)) }
+            for keyword in try await store.keywords(marketID: market.id) { work.append((market, storefront, market.appID, keyword)) }
         }
         var summary = MeasureSummary()
-        for (market, storefront, keyword) in work {
+        for (market, storefront, ownTrackID, keyword) in work {
             try Task.checkCancellation()
             let sample = await RankSample.measure(keyword: keyword.text, storefront: storefront, device: market.device,
-                                                  ownTrackID: app.trackID, depth: depth, provider: search)
+                                                  ownTrackID: ownTrackID, depth: depth, provider: search)
             try await store.addObservation(sample, keywordID: keyword.id)
             summary.measured += 1
             switch sample.outcome {
