@@ -29,6 +29,11 @@ public sealed partial class MainViewModel : ObservableObject
         Changes = new ChangesViewModel(client, Status);
         Keywords.MarketsChanged = KeywordsChangedAsync;
         Ratings.Checked = () => Status.QuietlyAsync(Changes.ReloadAsync);
+        // Popularity can be read once the Apple Ads keys are stored, and not after they are removed.
+        Settings.AppleAds.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Keywords.AdsConnected = Settings.AppleAds.IsConfigured;
+        };
     }
 
     public StatusViewModel Status { get; } = new();

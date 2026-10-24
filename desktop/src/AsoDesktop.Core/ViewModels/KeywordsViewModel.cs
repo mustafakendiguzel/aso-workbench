@@ -17,6 +17,13 @@ public sealed record KeywordRow(KeywordReportRow Report)
 
     public string Delta => Report.Delta is { } d ? (d > 0 ? $"+{d}" : d.ToString(CultureInfo.CurrentCulture)) : "";
     public string DeltaAgainst => Report.DeltaAgainst;
+    public string Popularity => Report.PopularityLabel;
+
+    /// <summary>For sorting only: every score, then "below N" (a higher N first; it may be under any score), then never read.</summary>
+    public double PopularityOrder => Report.Popularity
+        ?? (Report.PopularitySource == "belowRange" ? -1 + (Report.PopularityBelow ?? 0) / 1000.0 : -2);
+
+    public string Golden => Report.Golden ? "golden" : "";
     public string Difficulty => Report.Difficulty is { } d ? Math.Round(d).ToString(CultureInfo.CurrentCulture) : "";
     public double DifficultyOrder => Report.Difficulty ?? double.MaxValue;
     public string DifficultyTier => Report.DifficultyTier ?? "";
@@ -56,6 +63,7 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
             OnPropertyChanged(nameof(SelectionText));
             MeasureSelectedCommand.NotifyCanExecuteChanged();
             RemoveSelectedCommand.NotifyCanExecuteChanged();
+            RefreshPopularitySelectedCommand.NotifyCanExecuteChanged();
         }
     }
     private IReadOnlyList<KeywordRow> selectedRows = [];
@@ -110,7 +118,7 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
 
     /// <summary>The market whose keywords are shown, added and measured, as in the macOS app.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddKeywordsCommand), nameof(MeasureCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddKeywordsCommand), nameof(MeasureCommand), nameof(RefreshCommand), nameof(RefreshPopularityCommand))]
     public partial MarketSummary? Market { get; set; }
 
     [ObservableProperty]
@@ -122,6 +130,11 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
 
     [ObservableProperty]
     public partial KeywordRow? SelectedRow { get; set; }
+
+    /// <summary>Apple Ads keys are stored, so popularity can be read (and a measurement reads it too).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RefreshPopularityCommand), nameof(RefreshPopularitySelectedCommand))]
+    public partial bool AdsConnected { get; set; }
 
     [ObservableProperty]
     public partial double MeasureFraction { get; set; }
@@ -170,9 +183,7 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
                     .ConfigureAwait(true);
                 await ReloadAsync(app, market).ConfigureAwait(true);
                 await NotifyMarketsAsync().ConfigureAwait(true);
-                status.Info(summary.Measured == 0
-                    ? "Nothing to measure. Add keywords first."
-                    : $"Measured {summary.Measured}: {summary.Found} ranked, {summary.Outside} outside the results, {summary.Failed} failed.");
+                status.Info(summary.Measured == 0 ? "Nothing to measure. Add keywords first." : Describe(summary));
             }
             finally
             {
@@ -224,13 +235,52 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
                                                                 new Progress<MeasureStep>(ShowStep), cancellationToken).ConfigureAwait(true);
                 await ReloadAsync(app, market).ConfigureAwait(true);
                 await NotifyMarketsAsync().ConfigureAwait(true);
-                status.Info($"Measured {summary.Measured}: {summary.Found} ranked, {summary.Outside} outside the results, {summary.Failed} failed.");
+                status.Info(Describe(summary));
             }
             finally
             {
                 MeasureStepText = null;
             }
         });
+
+    private bool CanRefreshPopularity() => HasMarket() && AdsConnected;
+
+    /// <summary>Apple Ads popularity for every keyword of the market (the macOS app's Refresh popularity).</summary>
+    [RelayCommand(CanExecute = nameof(CanRefreshPopularity))]
+    private Task RefreshPopularityAsync() => RefreshPopularity(null);
+
+    private bool CanRefreshPopularitySelected() => CanRefreshPopularity() && SelectedRows.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanRefreshPopularitySelected))]
+    private Task RefreshPopularitySelectedAsync() => RefreshPopularity(SelectedRows.Select(r => r.Keyword).ToList());
+
+    private Task RefreshPopularity(IReadOnlyList<string>? keywords) => App is not { } app || Market is not { } market ? Task.CompletedTask :
+        status.RunAsync("Reading popularity from Apple Ads…", async () =>
+        {
+            var refreshes = await client.PopularityAsync(app.TrackId, market.Country, market.Device, keywords).ConfigureAwait(true);
+            await ReloadAsync(app, market).ConfigureAwait(true);
+            // Popularity changes what each keyword is worth in the Changes report.
+            await NotifyMarketsAsync().ConfigureAwait(true);
+            status.Info(refreshes.Count == 0 ? "No keywords to read." : Describe(refreshes));
+        });
+
+    /// <summary>The measurement as aso words it, with the popularity refresh that followed it.</summary>
+    public static string Describe(MeasureSummary summary)
+    {
+        var text = $"Measured {summary.Measured}: {summary.Found} ranked, {summary.Outside} outside the results, {summary.Failed} failed.";
+        if (summary.Popularity is { Count: > 0 } refreshes) text += " " + Describe(refreshes);
+        if (summary.PopularityError is { } error) text += $" Popularity was not refreshed: {error}";
+        return text;
+    }
+
+    /// <summary>"US: 12 of 20 keyword(s) on Apple's list (September 2026); 8 below the published range (under 31)."</summary>
+    public static string Describe(IReadOnlyList<PopularityRefresh> refreshes) => string.Join(" ", refreshes.Select(r =>
+        $"{r.Country}: {r.OnList} of {r.Keywords} keyword(s) on Apple's list ({Month(r.PeriodStart)})"
+        + (r.BelowRange > 0 ? $"; {r.BelowRange} below the published range" + (r.Floor is { } f ? $" (under {f})" : "") : "")
+        + "."));
+
+    /// <summary>"September 2026", in UTC, where the month starts.</summary>
+    public static string Month(DateTimeOffset date) => date.UtcDateTime.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
 
     /// <summary>Removes the selected keywords with their measurements (the view asks first).</summary>
     [RelayCommand(CanExecute = nameof(HasSelection))]

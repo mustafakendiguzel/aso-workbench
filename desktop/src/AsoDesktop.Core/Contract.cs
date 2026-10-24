@@ -58,7 +58,16 @@ public sealed record KeywordReportRow(
     int? TitleMatchesTop10 = null,
     int? DistinctSellersTop10 = null,
     string? Provider = null,
-    string Note = "");
+    string Note = "",
+    string? PopularitySource = null,
+    int? PopularityBelow = null,
+    string? PopularityGenre = null,
+    DateTimeOffset? PopularityMonth = null)
+{
+    /// <summary>On Apple's list the score; not on it "&lt; N" (below its lowest score N); empty before the first refresh.</summary>
+    public string PopularityLabel => Popularity is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        : PopularitySource == "belowRange" ? (PopularityBelow is { } below ? $"< {below}" : "< list") : "";
+}
 
 /// <summary>Everything the inspector shows for one keyword (<c>aso keywords show</c>).</summary>
 public sealed record KeywordDetail(
@@ -86,7 +95,21 @@ public sealed record TopResult(
 
 public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, IReadOnlyList<string> AlreadyTracked);
 
-public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed);
+/// <summary>A measurement run; with Apple Ads connected, the popularity refresh that followed it, or why it failed.</summary>
+public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed,
+    IReadOnlyList<PopularityRefresh>? Popularity = null, string? PopularityError = null);
+
+/// <summary>What one popularity refresh found in one country (<c>aso popularity</c>).</summary>
+public sealed record PopularityRefresh(
+    string Country,
+    string? Genre,
+    DateTimeOffset PeriodStart,
+    DateTimeOffset PeriodEnd,
+    int Keywords,
+    int OnList,
+    int BelowRange,
+    int? Floor,
+    IReadOnlyList<string> GenresFound);
 
 /// <summary>One line of <c>measure --json</c> progress on stderr.</summary>
 public sealed record MeasureStep(int Completed, int Total, string Market, string Keyword, string Outcome, string Status);

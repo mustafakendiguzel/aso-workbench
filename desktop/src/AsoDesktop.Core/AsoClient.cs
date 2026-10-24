@@ -62,6 +62,13 @@ public sealed class AsoClient(IAsoCli cli)
         RunAsync<MeasureSummary>(["measure", Id(appId), "--country", country, "--device", device, "--keywords", string.Join(',', keywords)], ct,
                                  line => { if (ParseStep(line) is { } step) progress?.Report(step); });
 
+    /// <summary>Apple Ads popularity for the market's keywords, or only <paramref name="keywords"/> when given.</summary>
+    public Task<IReadOnlyList<PopularityRefresh>> PopularityAsync(long appId, string country, string device,
+                                                                 IReadOnlyCollection<string>? keywords = null, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<PopularityRefresh>>(
+            ["popularity", Id(appId), "--country", country, "--device", device,
+             .. Option("keywords", keywords is { Count: > 0 } ? string.Join(',', keywords) : null)], ct);
+
     /// <summary>The market's keywords in the macOS app's CSV format.</summary>
     public async Task<string> KeywordsCsvAsync(long appId, string country, string device, string delta, CancellationToken ct = default)
     {

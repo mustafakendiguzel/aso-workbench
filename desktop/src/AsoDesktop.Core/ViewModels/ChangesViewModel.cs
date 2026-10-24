@@ -105,7 +105,7 @@ public sealed partial class ChangesViewModel(AsoClient client, StatusViewModel s
     public string Counts => Report is { } r ? $"{r.Improved} · {r.Worsened} · {r.Same}" : "";
     public string Shown => Report is { } r ? $"{Visible.Count} of {r.Rows.Count}" : "";
 
-    /// <summary>Without popularity (Apple Ads, a later step) every keyword is worth 0 and the totals stay at 0; the moves still show.</summary>
+    /// <summary>Without popularity (Apple Ads not connected or not read yet) every keyword is worth 0 and the totals stay at 0; the moves still show.</summary>
     public bool NoValues => Report is { Rows.Count: > 0 } r && r.Rows.All(row => row.Value == 0);
 
     partial void OnAppChanged(AppRecord? oldValue, AppRecord? newValue)

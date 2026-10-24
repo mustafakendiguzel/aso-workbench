@@ -194,8 +194,13 @@ public sealed class SettingsViewModelTests
             Assert.NotEmpty(guide.Unlocks);
             Assert.NotEmpty(guide.Steps);
             Assert.StartsWith("https://", guide.Link, StringComparison.Ordinal);
-            Assert.Equal(ConnectionGuide.NotYetUsed, guide.Availability);
             Assert.DoesNotContain("Mac", guide.DataFlow, StringComparison.Ordinal);
+        }
+        // Apple Ads powers popularity; the other keys are stored and tested only.
+        Assert.StartsWith("This version reads popularity", ConnectionGuides.AppleAds.Availability, StringComparison.Ordinal);
+        foreach (var guide in new[] { ConnectionGuides.AppStoreConnect, ConnectionGuides.OpenRouter, ConnectionGuides.RevenueCat })
+        {
+            Assert.Equal(ConnectionGuide.NotYetUsed, guide.Availability);
         }
     }
 }

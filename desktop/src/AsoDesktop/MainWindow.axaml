@@ -264,6 +264,8 @@
                     ToolTip.Tip="Only the selected keywords (Ctrl+Shift+R)" />
             <Button Content="Stop" Command="{Binding Keywords.MeasureCancelCommand}" IsVisible="{Binding Keywords.MeasureCommand.IsRunning}" />
             <Button Content="Stop" Command="{Binding Keywords.MeasureSelectedCancelCommand}" IsVisible="{Binding Keywords.MeasureSelectedCommand.IsRunning}" />
+            <Button Content="Popularity" Command="{Binding Keywords.RefreshPopularityCommand}" HotKey="Ctrl+Shift+P"
+                    ToolTip.Tip="Apple Ads popularity for every keyword of this market (Ctrl+Shift+P); needs the Apple Ads connection" />
             <Button Content="Refresh" Command="{Binding Keywords.RefreshCommand}" />
             <Button Content="Export CSV…" Click="ExportCsv" HotKey="Ctrl+Shift+E" ToolTip.Tip="This market's keywords in the macOS app's CSV format" />
             <TextBlock Text="Δ against" VerticalAlignment="Center" Margin="8,0,0,0" />
@@ -298,6 +300,9 @@
                   <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Keywords.Inspector.Detail.Row.Failure, FallbackValue=''}" />
                   <ComboBox HorizontalAlignment="Right" ItemsSource="{x:Static vm:InspectorViewModel.Ranges}" SelectedItem="{Binding Keywords.Inspector.Range}" />
                   <local:RankChart Height="190" Points="{Binding Keywords.Inspector.ChartPoints}" />
+
+                  <TextBlock Classes="label" Text="Popularity" />
+                  <TextBlock TextWrapping="Wrap" Text="{Binding Keywords.Inspector.PopularityText}" />
 
                   <TextBlock Classes="label" Text="Difficulty" />
                   <TextBlock Text="{Binding Keywords.Inspector.Detail.Difficulty.Score, StringFormat='{}{0:0} of 100', FallbackValue='not measured yet'}" />
@@ -365,7 +370,7 @@
                          PlaceholderText="One per line or separated by commas" />
                 <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Add" Command="{Binding Keywords.AddKeywordsCommand}" />
                 <TextBlock Classes="hint" Margin="0,12,0,0" TextWrapping="Wrap"
-                           Text="&quot;&gt; 200&quot; means not in the top 200 results, never rank 201. Popularity needs the Apple Ads connection, which this version does not use yet." />
+                           Text="&quot;&gt; 200&quot; means not in the top 200 results, never rank 201. Popularity is Apple's 1–100 score from last month's list (needs the Apple Ads connection); &quot;&lt; N&quot; means not on the list, below its lowest score N." />
               </StackPanel>
             </ScrollViewer>
           </Border>
@@ -377,6 +382,7 @@
               <ContextMenu>
                 <MenuItem Header="Copy keywords" Click="CopyKeywords" InputGesture="Ctrl+C" />
                 <MenuItem Header="Measure selected" Command="{Binding Keywords.MeasureSelectedCommand}" />
+                <MenuItem Header="Refresh popularity for selected" Command="{Binding Keywords.RefreshPopularitySelectedCommand}" />
                 <Separator />
                 <MenuItem Header="Remove selected…" Click="ConfirmRemoveSelected" />
               </ContextMenu>
@@ -386,11 +392,13 @@
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="" Binding="{Binding HasNote}" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Rank" Binding="{Binding Rank}" SortMemberPath="RankOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Δ" Binding="{Binding Delta}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Popularity" Binding="{Binding Popularity}" SortMemberPath="PopularityOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Difficulty" Binding="{Binding Difficulty}" SortMemberPath="DifficultyOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Tier" Binding="{Binding DifficultyTier}" SortMemberPath="DifficultyOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Rating mass" Binding="{Binding RatingMass}" SortMemberPath="RatingMassOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Title match" Binding="{Binding TitleMatches}" SortMemberPath="TitleMatchesOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Brand" Binding="{Binding Brand}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Golden" Binding="{Binding Golden}" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Measured" Binding="{Binding Measured}" Width="*" />
             </DataGrid.Columns>
           </DataGrid>
@@ -605,7 +613,7 @@
             </StackPanel>
             <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,6,0,0" IsVisible="{Binding Changes.HasRows}">
               <TextBlock Classes="hint" IsVisible="{Binding Changes.NoValues}"
-                         Text="Every keyword is worth 0 here because popularity (Apple Ads) is not in this version yet, so the totals stay at 0; the rank moves are still listed." />
+                         Text="Every keyword here is worth 0 (no popularity score from Apple Ads, or a brand or unrelated term), so the totals stay at 0; the rank moves are still listed. Popularity is read on the Keywords tab when Apple Ads is connected." />
               <TextBlock Classes="hint"
                          Text="Value = popularity × (1 − (difficulty/100)²) × fit, 0 for brands and unrelated terms. Visibility = share of searchers who see a position (#1 100 … #10 50 … #50 8). Gain = visibility change × value; keywords with no value move the totals by nothing." />
             </StackPanel>

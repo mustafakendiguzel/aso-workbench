@@ -33,7 +33,11 @@ public static class ConnectionGuides
             "Here: fill Client ID, Key ID and Org ID, choose aso-ads-private.pem, press Save, then Test connection.",
         ],
         LinkTitle: "Open Apple Ads",
-        Link: "https://app-ads.apple.com/cm/app");
+        Link: "https://app-ads.apple.com/cm/app")
+    {
+        Availability = "This version reads popularity with the key (Keywords tab, and after every measurement). Campaign results and other "
+                       + "countries come to Windows and Linux in later versions; until then they need the macOS app.",
+    };
 
     public static ConnectionGuide AppStoreConnect { get; } = new(
         Need: "Optional",
