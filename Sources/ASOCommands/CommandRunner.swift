@@ -47,7 +47,8 @@ public struct CommandRunner: Sendable {
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
                                         suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider(),
                                         popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) },
-                                        judge: openRouter.map { JevClient(apiKey: $0) })
+                                        judge: openRouter.map { JevClient(apiKey: $0) },
+                                        ads: ads.map { AppleAdsCampaignProvider(credentials: $0) })
                       })
     }
 
@@ -277,6 +278,17 @@ public struct CommandRunner: Sendable {
                                     : (step.total > 0 ? "[\(step.completed + 1)/\(step.total)] " : "") + step.step)
             }
             write(args, report) { Self.discoveryText($0, appID: id) }
+        case ("ads", "sync"):
+            try args.allow(["days"])
+            let sync = try await engine(args).syncAds(days: try args.integerOption("days", default: 30, range: 1...90))
+            write(args, sync) { s in
+                "\(s.campaigns) campaign(s) in the account, \(s.matched) for tracked apps; \(s.rows) keyword × storefront row(s) for "
+                    + "\(Self.day(s.periodStart)) to \(Self.day(s.periodEnd))."
+            }
+        case ("ads", "list"):
+            try args.allow([])
+            let id = try args.integer(2, "app ID")
+            write(args, try await engine(args).adsReport(appID: id)) { Self.adsText($0) }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -606,6 +618,10 @@ public struct CommandRunner: Sendable {
             if let opportunity = row.opportunity { text += String(format: "  ·  opportunity %.0f", opportunity) }
             if row.golden { text += "  ·  golden" }
         }
+        if let ads = row.ads {
+            text += "\nYour Apple Ads: \(ads.impressions) impressions, \(ads.taps) taps, \(ads.installs) installs, "
+                + String(format: "%.2f %@ spent", ads.spend, ads.currency)
+        }
         if let difficulty = detail.difficulty {
             text += "\n\nDifficulty \(Int(difficulty.score.rounded())) of 100 (\(difficulty.tier))"
             if let mass = row.ratingMass { text += "  ·  rating mass \(mass)" }
@@ -736,6 +752,39 @@ public struct CommandRunner: Sendable {
         return formatter.string(from: date)
     }
 
+    /// "2026-10-24", in UTC.
+    static func day(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    static func adsText(_ report: Engine.AdsReport) -> String {
+        guard let synced = report.syncedAt, let start = report.periodStart, let end = report.periodEnd else {
+            return "No campaign results stored for this app. Read them with: aso ads sync"
+        }
+        var text = "Your Apple Ads results, \(Self.day(start)) to \(Self.day(end)) (synced \(Self.shortDate(synced)))\n\n"
+        var storefronts = TextTable([.init("Storefront"), .init("Impressions", .right), .init("Taps", .right), .init("Installs", .right),
+                                     .init("Spend", .right), .init("Cost / install", .right), .init("Tap → install", .right)])
+        for s in report.storefronts {
+            let cpi: String = s.costPerInstall.map { String(format: "%.2f", $0) } ?? "—"
+            let rate: String = s.tapToInstall.map { String(format: "%.0f%%", $0 * 100) } ?? "—"
+            storefronts.add(["\(s.countryName) (\(s.country))", String(s.impressions), String(s.taps), String(s.installs),
+                             String(format: "%.2f %@", s.spend, s.currency), cpi, rate])
+        }
+        text += storefronts.render()
+        var keywords = TextTable([.init("Keyword"), .init("Storefront"), .init("Match"), .init("Impressions", .right), .init("Taps", .right),
+                                  .init("Installs", .right), .init("Spend", .right), .init("Campaign")])
+        for k in report.keywords.prefix(30) {
+            keywords.add([k.keyword, k.country, k.matchType.lowercased(), String(k.impressions), String(k.taps), String(k.installs),
+                          String(format: "%.2f %@", k.spend, k.currency), k.campaignName])
+        }
+        text += "\n\nKeywords by spend" + (report.keywords.count > 30 ? " (top 30 of \(report.keywords.count))" : "") + "\n" + keywords.render()
+        return text
+    }
+
     static func popularityText(_ refreshes: [Engine.PopularityRefresh]) -> String {
         refreshes.map { r in
             let list = r.genre.flatMap(AppleAdsGenre.init(rawValue:))?.displayName ?? "all \(AppleAdsGenre.allCases.count) genres"
@@ -833,6 +882,10 @@ public struct CommandRunner: Sendable {
           competitors <app ID> --country CC [--device ...] [--depth 1-50]
                                                           Apps in the latest results of your tracked keywords (default top 10)
           measure reads ratings and new reviews in the measured storefronts first.
+
+        Apple Ads campaigns (your own results, same keys as popularity)
+          ads sync [--days 1-90]                          Read the last N days (30) of every campaign for a tracked app
+          ads list <app ID>                               Impressions, taps, installs and spend per storefront and keyword
 
         Releases and changes
           markers list <app ID>                           Releases (seen when measuring or checking ratings) and notes

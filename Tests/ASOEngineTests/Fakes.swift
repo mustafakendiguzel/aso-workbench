@@ -79,6 +79,24 @@ struct FakePopularity: PopularityProvider {
     func capabilities() async -> ProviderCapabilities { ProviderCapabilities(maxPageSize: 200) }
 }
 
+/// Apple Ads campaigns without the network: the account's campaigns and each one's keyword report.
+struct FakeAds: AdsCampaignSource {
+    var list: [AppleAdsCampaignProvider.Campaign] = []
+    var reports: [Int: [AppleAdsCampaignProvider.KeywordStat]] = [:]
+
+    var isConfigured: Bool { true }
+    func campaigns() async throws -> [AppleAdsCampaignProvider.Campaign] { list }
+    func keywordReport(campaignID: Int, start: Date, end: Date) async throws -> [AppleAdsCampaignProvider.KeywordStat] { reports[campaignID] ?? [] }
+}
+
+func makeStat(_ keyword: String, _ country: String, campaign: Int = 1, match: String = "EXACT", impressions: Int, taps: Int, installs: Int,
+              spend: Double) -> AppleAdsCampaignProvider.KeywordStat {
+    AppleAdsCampaignProvider.KeywordStat(campaignID: campaign, adGroupName: "Group", keywordID: impressions, keyword: keyword, matchType: match,
+                                         status: "ACTIVE", country: country, bid: 1.5, currency: "USD", impressions: impressions, taps: taps,
+                                         installs: installs, spend: spend, ttr: nil, conversionRate: nil, avgCPT: nil, avgCPI: nil, bidMin: nil,
+                                         bidMax: nil)
+}
+
 /// Jev without the network: brands, unnatural phrases and terms that do not fit the app, by name; every call counted.
 final class FakeJudge: KeywordJudge, @unchecked Sendable {
     let brands: Set<String>
@@ -133,8 +151,9 @@ func makeApp(_ id: Int, _ name: String, seller: String? = nil, ratings: Int? = 1
 let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
-                reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil) throws -> Engine {
-    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge)
+                reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil,
+                ads: FakeAds? = nil) throws -> Engine {
+    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads)
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

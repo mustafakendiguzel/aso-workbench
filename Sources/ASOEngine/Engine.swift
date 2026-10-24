@@ -12,15 +12,18 @@ public struct Engine: Sendable {
     public let popularity: (any PopularityProvider)?
     /// Jev through OpenRouter (brand, naturalness, fit); nil when no key is stored.
     public let judge: (any KeywordJudge)?
+    /// The advertiser's own Apple Ads campaigns; nil when no keys are stored.
+    public let ads: (any AdsCampaignSource)?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
-                popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil) {
+                popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil) {
         self.store = store
         self.search = search
         self.suggestions = suggestions
         self.reviews = reviews
         self.popularity = popularity
         self.judge = judge
+        self.ads = ads
     }
 
     // MARK: Apps
@@ -205,9 +208,10 @@ public struct Engine: Sendable {
         let app = try await app(appID)
         let (market, keyword) = try await trackedKeyword(text, appID: appID, countryCode: countryCode, device: device)
         let observations = try await store.observations(keywordID: keyword.id)
+        let ads = try await adsTotals(appID: appID)["\(keyword.normalized)|\(market.countryCode)"]
         let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations,
                                    popularity: try await store.latestPopularity(keywordID: keyword.id), deltaReference: deltaReference, golden: golden,
-                                   markers: try await rankMarkers(appID: appID))
+                                   markers: try await rankMarkers(appID: appID), ads: ads)
         return KeywordDetail(row: row, app: app, observations: observations)
     }
 
@@ -274,13 +278,15 @@ public struct Engine: Sendable {
                               deltaReference: DeltaReference = .previous, golden: GoldenThresholds = .standard) async throws -> [KeywordReportRow] {
         let app = try await app(appID)
         let markers = try await rankMarkers(appID: appID)
+        let ads = try await adsTotals(appID: appID)
         var rows: [KeywordReportRow] = []
         for market in try await selectedMarkets(appID: appID, countryCode: countryCode, device: device) {
             for keyword in try await store.keywords(marketID: market.id) {
                 let observations = try await store.observations(keywordID: keyword.id)
                 let popularity = try await store.latestPopularity(keywordID: keyword.id)
                 rows.append(KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, popularity: popularity,
-                                             deltaReference: deltaReference, golden: golden, markers: markers))
+                                             deltaReference: deltaReference, golden: golden, markers: markers,
+                                             ads: ads["\(keyword.normalized)|\(market.countryCode)"]))
             }
         }
         return rows

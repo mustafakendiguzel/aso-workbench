@@ -113,6 +113,32 @@ public struct PopularityReading: Sendable, Codable, Equatable {
     public let anyGenre: Bool
 }
 
+/// One keyword × storefront row of the advertiser's own Apple Ads report, for one campaign and the synced window
+/// (the macOS app's AdsKeywordStat).
+public struct AdsKeywordStatRecord: Sendable, Codable, Equatable {
+    public let campaignID: Int
+    public let campaignName: String
+    public let adGroupName: String
+    public let keywordID: Int
+    public let keyword: String
+    public let matchType: String
+    public let status: String
+    public let country: String
+    public let bid: Double?
+    public let currency: String
+    public let impressions: Int
+    public let taps: Int
+    public let installs: Int
+    public let spend: Double
+    public let ttr: Double?
+    public let conversionRate: Double?
+    public let avgCPT: Double?
+    public let avgCPI: Double?
+    public let periodStart: Date
+    public let periodEnd: Date
+    public let fetchedAt: Date
+}
+
 /// How outcomes are stored: a kind plus the numbers that kind carries (the same shape the macOS app uses).
 enum StoredOutcome {
     static func columns(_ outcome: RankOutcome) -> (kind: String, position: Int?, observedCount: Int, failureReason: String?) {

@@ -48,9 +48,11 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     /// Why the latest request failed, when it did.
     public let failure: String?
     public let note: String
+    /// Your own Apple Ads results for this exact keyword in this storefront over the synced window; absent without any.
+    public let ads: AdsTotals?
 
     init(keyword: KeywordRecord, market: MarketRecord, app: AppRecord, observations: [RankObservationRecord], popularity reading: PopularityReading?,
-         deltaReference: DeltaReference, golden thresholds: GoldenThresholds, markers: [Marker] = []) {
+         deltaReference: DeltaReference, golden thresholds: GoldenThresholds, markers: [Marker] = [], ads: AdsTotals? = nil) {
         let history = RankHistory(observations) { $0.point }
         let latest = observations.max { $0.fetchedAt < $1.fetchedAt }
         let measured = history.latestMeasured
@@ -90,6 +92,7 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
         provider = measured?.provider.rawValue
         if case .requestFailed(let reason) = latest?.outcome { failure = reason } else { failure = nil }
         note = keyword.note
+        self.ads = ads
     }
 }
 

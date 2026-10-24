@@ -118,6 +118,37 @@ public actor Store {
         );
         CREATE INDEX popularity_readings_keyword ON popularity_readings (keyword_id, fetched_at);
         """,
+        // 6: the advertiser's own Apple Ads keyword results, one row per campaign keyword and storefront for the synced
+        // window; a sync replaces a campaign's rows.
+        """
+        CREATE TABLE ads_keyword_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            campaign_id INTEGER NOT NULL,
+            campaign_name TEXT NOT NULL,
+            ad_group_name TEXT NOT NULL,
+            keyword_id INTEGER NOT NULL,
+            keyword TEXT NOT NULL,
+            normalized TEXT NOT NULL,
+            match_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            country_code TEXT NOT NULL,
+            bid REAL,
+            currency TEXT NOT NULL,
+            impressions INTEGER NOT NULL,
+            taps INTEGER NOT NULL,
+            installs INTEGER NOT NULL,
+            spend REAL NOT NULL,
+            ttr REAL,
+            conversion_rate REAL,
+            avg_cpt REAL,
+            avg_cpi REAL,
+            period_start REAL NOT NULL,
+            period_end REAL NOT NULL,
+            fetched_at REAL NOT NULL
+        );
+        CREATE INDEX ads_keyword_stats_app ON ads_keyword_stats (app_id, normalized, country_code);
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -351,6 +382,42 @@ public actor Store {
                               popularity: row.optionalInt(5), popularity1to5: row.optionalInt(6), popularityInGenre: row.optionalInt(7),
                               rankInGenre: row.optionalInt(8), source: row.text(9), upperBound: row.optionalInt(10), anyGenre: row.int(11) == 1)
         }.first
+    }
+
+    // MARK: Apple Ads campaigns
+
+    /// Replaces one campaign's rows for the app with a fresh sync, in one transaction.
+    public func replaceAdsStats(_ stats: [AdsKeywordStatRecord], campaignID: Int, appID: Int) throws {
+        try db.transaction {
+            try db.query("DELETE FROM ads_keyword_stats WHERE app_id = ? AND campaign_id = ?", [.int(appID), .int(campaignID)])
+            for s in stats {
+                try db.query("""
+                    INSERT INTO ads_keyword_stats (app_id, campaign_id, campaign_name, ad_group_name, keyword_id, keyword, normalized, match_type,
+                        status, country_code, bid, currency, impressions, taps, installs, spend, ttr, conversion_rate, avg_cpt, avg_cpi,
+                        period_start, period_end, fetched_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, [.int(appID), .int(campaignID), .text(s.campaignName), .text(s.adGroupName), .int(s.keywordID), .text(s.keyword),
+                          .text(KeywordText.normalize(s.keyword)), .text(s.matchType), .text(s.status), .text(s.country), SQLValue(s.bid),
+                          .text(s.currency), .int(s.impressions), .int(s.taps), .int(s.installs), SQLValue(s.spend), SQLValue(s.ttr),
+                          SQLValue(s.conversionRate), SQLValue(s.avgCPT), SQLValue(s.avgCPI), SQLValue(s.periodStart), SQLValue(s.periodEnd),
+                          SQLValue(s.fetchedAt)])
+            }
+        }
+    }
+
+    /// The app's stored campaign rows, biggest spend first.
+    public func adsStats(appID: Int) throws -> [AdsKeywordStatRecord] {
+        try db.rows("""
+            SELECT campaign_id, campaign_name, ad_group_name, keyword_id, keyword, match_type, status, country_code, bid, currency, impressions,
+                taps, installs, spend, ttr, conversion_rate, avg_cpt, avg_cpi, period_start, period_end, fetched_at
+            FROM ads_keyword_stats WHERE app_id = ? ORDER BY spend DESC, impressions DESC, id
+            """, [.int(appID)]) { row in
+            AdsKeywordStatRecord(campaignID: row.int(0), campaignName: row.text(1), adGroupName: row.text(2), keywordID: row.int(3), keyword: row.text(4),
+                                 matchType: row.text(5), status: row.text(6), country: row.text(7), bid: row.optionalDouble(8), currency: row.text(9),
+                                 impressions: row.int(10), taps: row.int(11), installs: row.int(12), spend: row.double(13), ttr: row.optionalDouble(14),
+                                 conversionRate: row.optionalDouble(15), avgCPT: row.optionalDouble(16), avgCPI: row.optionalDouble(17),
+                                 periodStart: row.date(18), periodEnd: row.date(19), fetchedAt: row.date(20))
+        }
     }
 
     // MARK: Ratings
