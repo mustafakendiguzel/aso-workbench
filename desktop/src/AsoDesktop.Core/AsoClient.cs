@@ -69,6 +69,12 @@ public sealed class AsoClient(IAsoCli cli)
             ["popularity", Id(appId), "--country", country, "--device", device,
              .. Option("keywords", keywords is { Count: > 0 } ? string.Join(',', keywords) : null)], ct);
 
+    /// <summary>Reads the last <paramref name="days"/> of every campaign that promotes a tracked app.</summary>
+    public Task<AdsSync> SyncAdsAsync(int days = 30, CancellationToken ct = default) =>
+        RunAsync<AdsSync>(["ads", "sync", "--days", days.ToString(CultureInfo.InvariantCulture)], ct);
+
+    public Task<AdsReport> AdsAsync(long appId, CancellationToken ct = default) => RunAsync<AdsReport>(["ads", "list", Id(appId)], ct);
+
     /// <summary>Keyword candidates for the market, from a competitor's listing when <paramref name="competitorId"/> is given.</summary>
     public Task<DiscoveryReport> DiscoverAsync(long appId, string country, string device, long? competitorId = null,
                                                IReadOnlyCollection<string>? seeds = null, int difficultyLimit = 25,

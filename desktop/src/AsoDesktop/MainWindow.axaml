@@ -242,6 +242,32 @@
                 </DataGrid>
               </StackPanel>
             </Border>
+
+            <!-- The advertiser's own Apple Ads results, per storefront, from the last sync -->
+            <TextBlock Classes="heading" Text="Apple Ads · your campaigns" Margin="0,20,0,4" />
+            <Border Classes="card">
+              <StackPanel Spacing="8">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Margin="10,0,0,0" Content="Sync last 30 days" Command="{Binding Ads.SyncCommand}"
+                          ToolTip.Tip="Apple Ads Campaign Management API, the same keys as popularity; reads every tracked app's campaigns" />
+                  <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Ads.Headline}" />
+                </DockPanel>
+                <DataGrid ItemsSource="{Binding Ads.Rows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          MaxHeight="260" IsVisible="{Binding Ads.HasRows}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Storefront" Binding="{Binding Storefront}" Width="*" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Impressions" Binding="{Binding Impressions}" SortMemberPath="Row.Impressions" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Taps" Binding="{Binding Taps}" SortMemberPath="Row.Taps" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Installs" Binding="{Binding Installs}" SortMemberPath="Row.Installs" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Spend" Binding="{Binding Spend}" SortMemberPath="Row.Spend" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Cost / install" Binding="{Binding CostPerInstall}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:AdsLine" Header="Tap → install" Binding="{Binding TapToInstall}" Width="Auto" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <TextBlock Classes="hint" IsVisible="{Binding Ads.HasRows}"
+                           Text="Per keyword and storefront the same numbers are in the Keywords table (Ads column) and the inspector." />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -304,6 +330,8 @@
 
                   <TextBlock Classes="label" Text="Popularity" />
                   <TextBlock TextWrapping="Wrap" Text="{Binding Keywords.Inspector.PopularityText}" />
+                  <TextBlock Classes="label" Text="Your Apple Ads" />
+                  <TextBlock TextWrapping="Wrap" Text="{Binding Keywords.Inspector.AdsText}" />
 
                   <TextBlock Classes="label" Text="Difficulty" />
                   <TextBlock Text="{Binding Keywords.Inspector.Detail.Difficulty.Score, StringFormat='{}{0:0} of 100', FallbackValue='not measured yet'}" />
@@ -400,6 +428,7 @@
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Title match" Binding="{Binding TitleMatches}" SortMemberPath="TitleMatchesOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Brand" Binding="{Binding Brand}" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Golden" Binding="{Binding Golden}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Ads" Binding="{Binding Ads}" SortMemberPath="AdsOrder" Width="Auto" />
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Measured" Binding="{Binding Measured}" Width="*" />
             </DataGrid.Columns>
           </DataGrid>

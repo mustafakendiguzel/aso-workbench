@@ -62,7 +62,8 @@ public sealed record KeywordReportRow(
     string? PopularitySource = null,
     int? PopularityBelow = null,
     string? PopularityGenre = null,
-    DateTimeOffset? PopularityMonth = null)
+    DateTimeOffset? PopularityMonth = null,
+    AdsTotals? Ads = null)
 {
     /// <summary>On Apple's list the score; not on it "&lt; N" (below its lowest score N); empty before the first refresh.</summary>
     public string PopularityLabel => Popularity is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -98,6 +99,31 @@ public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, I
 /// <summary>A measurement run; with Apple Ads connected, the popularity refresh that followed it, or why it failed.</summary>
 public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed,
     IReadOnlyList<PopularityRefresh>? Popularity = null, string? PopularityError = null);
+
+/// <summary>Your own Apple Ads results for one keyword in one storefront over the synced window.</summary>
+public sealed record AdsTotals(int Impressions, int Taps, int Installs, double Spend, string Currency);
+
+/// <summary>What <c>aso ads sync</c> read.</summary>
+public sealed record AdsSync(int Campaigns, int Matched, int Rows, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd);
+
+/// <summary>The app's stored campaign results (<c>aso ads list</c>); the dates are absent before the first sync.</summary>
+public sealed record AdsReport(DateTimeOffset? SyncedAt, DateTimeOffset? PeriodStart, DateTimeOffset? PeriodEnd,
+                               IReadOnlyList<AdsStorefront> Storefronts, IReadOnlyList<AdsKeywordStat> Keywords);
+
+public sealed record AdsStorefront(string Country, string CountryName, int Impressions, int Taps, int Installs, double Spend, string Currency,
+                                   double? CostPerInstall = null, double? TapToInstall = null);
+
+public sealed record AdsKeywordStat(
+    [property: JsonPropertyName("campaignID")] long CampaignId,
+    string CampaignName,
+    string Keyword,
+    string MatchType,
+    string Country,
+    string Currency,
+    int Impressions,
+    int Taps,
+    int Installs,
+    double Spend);
 
 /// <summary>Keyword candidates for a market (<c>aso discover</c>); nothing is stored until keywords are added.</summary>
 public sealed record DiscoveryReport(

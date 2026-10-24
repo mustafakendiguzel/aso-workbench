@@ -15,7 +15,7 @@ public sealed partial class InspectorViewModel(AsoClient client, StatusViewModel
     private (long App, string Country, string Device, string Keyword)? target;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ChartPoints), nameof(HasDetail), nameof(SummaryText), nameof(PopularityText))]
+    [NotifyPropertyChangedFor(nameof(ChartPoints), nameof(HasDetail), nameof(SummaryText), nameof(PopularityText), nameof(AdsText))]
     [NotifyCanExecuteChangedFor(nameof(SaveNoteCommand))]
     public partial KeywordDetail? Detail { get; set; }
 
@@ -38,6 +38,11 @@ public sealed partial class InspectorViewModel(AsoClient client, StatusViewModel
 
     /// <summary>"62 of 100 · September 2026 · opportunity 48 · golden", "&lt; 31: not on Apple's list · …", or how to get it.</summary>
     public string PopularityText => Detail is { Row: var row } ? Popularity(row) : "";
+
+    /// <summary>Your own Apple Ads results for the keyword here, or where to get them.</summary>
+    public string AdsText => Detail?.Row.Ads is { } a
+        ? $"{a.Impressions} impressions · {a.Taps} taps · {a.Installs} installs · {a.Spend.ToString("0.00", CultureInfo.CurrentCulture)} {a.Currency} spent"
+        : "None in the synced window (Overview, Apple Ads, Sync).";
 
     public static string Popularity(KeywordReportRow row)
     {

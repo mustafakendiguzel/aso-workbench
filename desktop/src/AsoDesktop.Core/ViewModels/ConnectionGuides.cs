@@ -35,7 +35,7 @@ public static class ConnectionGuides
         LinkTitle: "Open Apple Ads",
         Link: "https://app-ads.apple.com/cm/app")
     {
-        Availability = "This version reads popularity with the key (Keywords tab, and after every measurement). Campaign results and other "
+        Availability = "This version reads popularity with the key (Keywords tab, and after every measurement) and your campaign results (Overview). Other "
                        + "countries come to Windows and Linux in later versions; until then they need the macOS app.",
     };
 

@@ -27,12 +27,15 @@ public sealed partial class MainViewModel : ObservableObject
         Reviews = new ReviewsViewModel(client, Status);
         Competitors = new CompetitorsViewModel(client, Status);
         Changes = new ChangesViewModel(client, Status);
+        Ads = new AdsViewModel(client, Status) { Synced = () => Keywords.Market is null ? Task.CompletedTask : Keywords.RefreshCommand.ExecuteAsync(null) };
         Keywords.MarketsChanged = KeywordsChangedAsync;
         Ratings.Checked = () => Status.QuietlyAsync(Changes.ReloadAsync);
         // Popularity can be read once the Apple Ads keys are stored, and not after they are removed.
         Settings.AppleAds.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Keywords.AdsConnected = Settings.AppleAds.IsConfigured;
+            if (e.PropertyName != nameof(ConnectionViewModel.IsConfigured)) return;
+            Keywords.AdsConnected = Settings.AppleAds.IsConfigured;
+            Ads.AdsConnected = Settings.AppleAds.IsConfigured;
         };
     }
 
@@ -45,6 +48,7 @@ public sealed partial class MainViewModel : ObservableObject
     public ReviewsViewModel Reviews { get; }
     public CompetitorsViewModel Competitors { get; }
     public ChangesViewModel Changes { get; }
+    public AdsViewModel Ads { get; }
 
     public ObservableCollection<AppRecord> Apps { get; } = [];
     public ObservableCollection<MarketSummary> Markets { get; } = [];
@@ -161,6 +165,7 @@ public sealed partial class MainViewModel : ObservableObject
         Reviews.App = newValue;
         Competitors.App = newValue;
         Changes.App = newValue;
+        Ads.App = newValue;
         ShowGenre(newValue);
         if (oldValue?.TrackId == newValue?.TrackId) return;   // the same app with refreshed details: keep its markets
         Markets.Clear();

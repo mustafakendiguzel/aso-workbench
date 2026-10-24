@@ -24,6 +24,12 @@ public sealed record KeywordRow(KeywordReportRow Report)
         ?? (Report.PopularitySource == "belowRange" ? -1 + (Report.PopularityBelow ?? 0) / 1000.0 : -2);
 
     public string Golden => Report.Golden ? "golden" : "";
+
+    /// <summary>Your own Apple Ads impressions, taps and installs for this keyword in this storefront (synced on Overview).</summary>
+    public string Ads => Report.Ads is { } a
+        ? $"{a.Impressions.ToString("N0", CultureInfo.CurrentCulture)} · {a.Taps} taps · {a.Installs} inst."
+        : "";
+    public int AdsOrder => Report.Ads?.Impressions ?? -1;
     public string Difficulty => Report.Difficulty is { } d ? Math.Round(d).ToString(CultureInfo.CurrentCulture) : "";
     public double DifficultyOrder => Report.Difficulty ?? double.MaxValue;
     public string DifficultyTier => Report.DifficultyTier ?? "";
