@@ -43,12 +43,14 @@ public struct CommandRunner: Sendable {
                           let credentials = CredentialStore(directory: directory)
                           let ads = (try? credentials.appleAds()).flatMap { $0 }
                           let openRouter = (try? credentials.openRouterKey()).flatMap { $0 }
+                          let revenueKeys = (try? credentials.revenueCatKeys()) ?? []
                           return Engine(store: try Store(url: EngineEnvironment.storeURL(in: directory)),
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
                                         suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider(),
                                         popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) },
                                         judge: openRouter.map { JevClient(apiKey: $0) },
-                                        ads: ads.map { AppleAdsCampaignProvider(credentials: $0) })
+                                        ads: ads.map { AppleAdsCampaignProvider(credentials: $0) },
+                                        revenue: revenueKeys.isEmpty ? nil : RevenueCatAccounts(keys: revenueKeys))
                       })
     }
 
@@ -289,6 +291,16 @@ public struct CommandRunner: Sendable {
             try args.allow([])
             let id = try args.integer(2, "app ID")
             write(args, try await engine(args).adsReport(appID: id)) { Self.adsText($0) }
+        case ("revenue", "refresh"):
+            try args.allow([])
+            let refresh = try await engine(args).refreshRevenue()
+            write(args, refresh) { r in
+                "\(r.projects) RevenueCat project(s) read." + (r.failures.isEmpty ? "" : " \(r.failures.count) key(s) failed: \(r.failures[0])")
+            }
+        case ("revenue", "show"):
+            try args.allow([])
+            let id = try args.integer(2, "app ID")
+            write(args, try await engine(args).revenueReport(appID: id)) { Self.revenueText($0) }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -761,6 +773,28 @@ public struct CommandRunner: Sendable {
         return formatter.string(from: date)
     }
 
+    static func revenueText(_ report: Engine.RevenueReport) -> String {
+        guard let s = report.latest else {
+            return "No RevenueCat project matches this app. Read them with: aso revenue refresh (projects are matched by bundle ID, then by name)."
+        }
+        let change: String = report.mrrChange.map { String(format: " (%+.0f since the previous day)", $0) } ?? ""
+        var text = "\(s.projectName) · read \(Self.shortDate(s.fetchedAt))" + (s.appNames.count > 1 ? " · holds \(s.appNames.joined(separator: ", "))" : "")
+        text += String(format: "\nMRR $%.0f", s.mrr) + change
+        text += "  ·  active subscriptions \(s.activeSubscriptions)"
+        text += String(format: "  ·  revenue 28 days $%.0f", s.revenue28d)
+        text += "  ·  new customers 28 days \(s.newCustomers28d)  ·  active trials \(s.activeTrials)"
+        if report.history.count > 1 {
+            var table = TextTable([.init("Read"), .init("MRR", .right), .init("Active subs", .right), .init("Revenue 28d", .right),
+                                   .init("New customers", .right), .init("Trials", .right)])
+            for h in report.history {
+                table.add([Self.shortDate(h.fetchedAt), String(format: "$%.0f", h.mrr), String(h.activeSubscriptions),
+                           String(format: "$%.0f", h.revenue28d), String(h.newCustomers28d), String(h.activeTrials)])
+            }
+            text += "\n\n" + table.render()
+        }
+        return text
+    }
+
     static func adsText(_ report: Engine.AdsReport) -> String {
         guard let synced = report.syncedAt, let start = report.periodStart, let end = report.periodEnd else {
             return "No campaign results stored for this app. Read them with: aso ads sync"
@@ -886,6 +920,10 @@ public struct CommandRunner: Sendable {
         Apple Ads campaigns (your own results, same keys as popularity)
           ads sync [--days 1-90]                          Read the last N days (30) of every campaign for a tracked app
           ads list <app ID>                               Impressions, taps, installs and spend per storefront and keyword
+
+        Revenue (RevenueCat, read-only)
+          revenue refresh                                 Read every project's MRR, subscriptions, 28-day revenue, customers, trials
+          revenue show <app ID>                           The app's project (by bundle ID, then name) and its daily history
 
         Releases and changes
           markers list <app ID>                           Releases (seen when measuring or checking ratings) and notes

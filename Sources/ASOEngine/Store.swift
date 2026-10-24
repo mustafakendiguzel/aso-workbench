@@ -149,6 +149,24 @@ public actor Store {
         );
         CREATE INDEX ads_keyword_stats_app ON ads_keyword_stats (app_id, normalized, country_code);
         """,
+        // 7: RevenueCat overview snapshots per project (a project can hold several apps), at most one per project and day.
+        """
+        CREATE TABLE revenue_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id TEXT NOT NULL,
+            project_name TEXT NOT NULL,
+            bundle_ids TEXT NOT NULL,
+            app_names TEXT NOT NULL,
+            mrr REAL NOT NULL,
+            active_subscriptions INTEGER NOT NULL,
+            revenue_28d REAL NOT NULL,
+            new_customers_28d INTEGER NOT NULL,
+            active_trials INTEGER NOT NULL,
+            active_users_28d INTEGER NOT NULL,
+            fetched_at REAL NOT NULL
+        );
+        CREATE INDEX revenue_snapshots_project ON revenue_snapshots (project_id, fetched_at);
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -419,6 +437,38 @@ public actor Store {
                                  periodStart: row.date(18), periodEnd: row.date(19), fetchedAt: row.date(20))
         }
     }
+
+    // MARK: Revenue
+
+    /// Stores a project's snapshot, replacing one already stored since `dayStart`, in one transaction.
+    public func replaceRevenueSnapshot(_ snapshot: RevenueSnapshotRecord, since dayStart: Date) throws {
+        try db.transaction {
+            try db.query("DELETE FROM revenue_snapshots WHERE project_id = ? AND fetched_at >= ?", [.text(snapshot.projectID), SQLValue(dayStart)])
+            try db.query("""
+                INSERT INTO revenue_snapshots (project_id, project_name, bundle_ids, app_names, mrr, active_subscriptions, revenue_28d,
+                    new_customers_28d, active_trials, active_users_28d, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [.text(snapshot.projectID), .text(snapshot.projectName), .text(snapshot.bundleIDs.joined(separator: "|")),
+                      .text(snapshot.appNames.joined(separator: "|")), SQLValue(snapshot.mrr), .int(snapshot.activeSubscriptions),
+                      SQLValue(snapshot.revenue28d), .int(snapshot.newCustomers28d), .int(snapshot.activeTrials), .int(snapshot.activeUsers28d),
+                      SQLValue(snapshot.fetchedAt)])
+        }
+    }
+
+    /// Every stored snapshot, newest first.
+    public func revenueSnapshots() throws -> [RevenueSnapshotRecord] {
+        try db.rows("""
+            SELECT project_id, project_name, bundle_ids, app_names, mrr, active_subscriptions, revenue_28d, new_customers_28d, active_trials,
+                active_users_28d, fetched_at
+            FROM revenue_snapshots ORDER BY fetched_at DESC, id DESC
+            """) { row in
+            RevenueSnapshotRecord(projectID: row.text(0), projectName: row.text(1), bundleIDs: Self.list(row.text(2)), appNames: Self.list(row.text(3)),
+                                  mrr: row.double(4), activeSubscriptions: row.int(5), revenue28d: row.double(6), newCustomers28d: row.int(7),
+                                  activeTrials: row.int(8), activeUsers28d: row.int(9), fetchedAt: row.date(10))
+        }
+    }
+
+    private static func list(_ joined: String) -> [String] { joined.split(separator: "|").map(String.init) }
 
     // MARK: Ratings
 

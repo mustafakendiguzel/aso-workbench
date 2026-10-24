@@ -14,9 +14,13 @@ public struct Engine: Sendable {
     public let judge: (any KeywordJudge)?
     /// The advertiser's own Apple Ads campaigns; nil when no keys are stored.
     public let ads: (any AdsCampaignSource)?
+    /// RevenueCat with the stored keys; nil when none are stored.
+    public let revenue: (any RevenueSource)?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
-                popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil) {
+                popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil,
+                revenue: (any RevenueSource)? = nil) {
+        self.revenue = revenue
         self.store = store
         self.search = search
         self.suggestions = suggestions

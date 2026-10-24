@@ -97,6 +97,18 @@ func makeStat(_ keyword: String, _ country: String, campaign: Int = 1, match: St
                                          bidMax: nil)
 }
 
+/// RevenueCat without the network: one canned read.
+struct FakeRevenue: RevenueSource {
+    var result: RevenueRead
+    func read() async -> RevenueRead { result }
+}
+
+func makeProject(_ id: String, _ name: String, bundles: [String], apps: [String] = [], mrr: Double, subscriptions: Int = 10) -> RevenueRead.Project {
+    RevenueRead.Project(id: id, name: name, bundleIDs: bundles, appNames: apps,
+                        overview: .init(mrr: mrr, activeSubscriptions: subscriptions, revenue28d: mrr * 0.9, newCustomers28d: 4, activeTrials: 2,
+                                        activeUsers28d: 50))
+}
+
 /// Jev without the network: brands, unnatural phrases and terms that do not fit the app, by name; every call counted.
 final class FakeJudge: KeywordJudge, @unchecked Sendable {
     let brands: Set<String>
@@ -152,8 +164,9 @@ let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
                 reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil,
-                ads: FakeAds? = nil) throws -> Engine {
-    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads)
+                ads: FakeAds? = nil, revenue: FakeRevenue? = nil) throws -> Engine {
+    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads,
+           revenue: revenue)
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

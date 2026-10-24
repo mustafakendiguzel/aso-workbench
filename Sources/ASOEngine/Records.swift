@@ -139,6 +139,23 @@ public struct AdsKeywordStatRecord: Sendable, Codable, Equatable {
     public let fetchedAt: Date
 }
 
+/// One reading of a RevenueCat project's overview metrics (the macOS app's RevenueSnapshot). Revenue and new customers
+/// cover the last 28 days; MRR is the normalized monthly revenue of active subscriptions.
+public struct RevenueSnapshotRecord: Sendable, Codable, Equatable {
+    public let projectID: String
+    public let projectName: String
+    /// The project's App Store apps, which tracked apps are matched against.
+    public let bundleIDs: [String]
+    public let appNames: [String]
+    public let mrr: Double
+    public let activeSubscriptions: Int
+    public let revenue28d: Double
+    public let newCustomers28d: Int
+    public let activeTrials: Int
+    public let activeUsers28d: Int
+    public let fetchedAt: Date
+}
+
 /// How outcomes are stored: a kind plus the numbers that kind carries (the same shape the macOS app uses).
 enum StoredOutcome {
     static func columns(_ outcome: RankOutcome) -> (kind: String, position: Int?, observedCount: Int, failureReason: String?) {
