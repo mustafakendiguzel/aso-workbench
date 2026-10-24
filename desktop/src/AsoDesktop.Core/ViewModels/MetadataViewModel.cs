@@ -105,6 +105,25 @@ public sealed record MetadataNote(string Kind, string Text)
     public bool IsWarning => Kind == "warning";
 }
 
+/// <summary>One priority phrase of the keyword plan and whether the draft covers it.</summary>
+public sealed record CoverageLine(KeywordPlanItem Item, bool Covered, WriterTiers Tiers)
+{
+    public string Term => Item.Term;
+    public string Tier => Item.Tier;
+    public string Mark => Covered ? "✓" : "○";
+    public string Evidence => $"pop {Item.Popularity?.ToString(CultureInfo.CurrentCulture) ?? "?"} · diff {Item.Difficulty?.ToString(CultureInfo.CurrentCulture) ?? "?"}"
+                              + (Item.Rank is { } rank ? $" · {rank}" : "");
+    public string TierTip => Item.Tier switch
+    {
+        "A" => $"Winnable now: difficulty ≤ {Tiers.EasyDifficulty} or already top 10",
+        "B" => $"Reachable: difficulty ≤ {Tiers.MaxDifficulty}",
+        _ => "Popular but hard: only if room remains",
+    };
+    public bool IsA => Item.Tier == "A";
+    public bool IsB => Item.Tier == "B";
+    public bool IsC => Item.Tier == "C";
+}
+
 /// <summary>One field that differs from the baseline; keywords as added, removed and kept.</summary>
 public sealed record MetadataChangeLine(string Title, string Before, string After, KeywordChange? Keywords)
 {
@@ -150,6 +169,7 @@ public sealed partial class MetadataViewModel : ObservableObject
     public ObservableCollection<MetadataLocaleLine> Locales { get; } = [];
     public ObservableCollection<MetadataNote> Notes { get; } = [];
     public ObservableCollection<MetadataChangeLine> ChangeLines { get; } = [];
+    public ObservableCollection<CoverageLine> CoverageLines { get; } = [];
 
     /// <summary>How long typing pauses before the draft is saved.</summary>
     public TimeSpan SaveDelay { get; set; } = TimeSpan.FromMilliseconds(700);
@@ -161,7 +181,8 @@ public sealed partial class MetadataViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasReport), nameof(HasBaseline), nameof(BaselineText), nameof(DraftText), nameof(RulesHeadline),
                               nameof(ScoreIsGood), nameof(ScoreIsFair), nameof(ScoreIsPoor), nameof(IndexedWords), nameof(FollowsEveryRule),
-                              nameof(ChangesText), nameof(LegalStatus), nameof(LegalPresent))]
+                              nameof(ChangesText), nameof(LegalStatus), nameof(LegalPresent), nameof(HasCoverage), nameof(CoverageTitle),
+                              nameof(CoverageHeadline), nameof(CoverageComplete), nameof(CoverageAvoid))]
     [NotifyCanExecuteChangedFor(nameof(ResetToBaselineCommand), nameof(SetBaselineCommand), nameof(SaveLegalCommand),
                                 nameof(InsertFooterHereCommand), nameof(InsertFooterEverywhereCommand), nameof(FillWhatsNewCommand),
                                 nameof(PullCommand))]
@@ -213,6 +234,20 @@ public sealed partial class MetadataViewModel : ObservableObject
         : r.Changes.Count == 0 ? "The draft equals the baseline." : $"{r.Changes.Count} field(s) differ from the baseline.";
 
     public bool LegalPresent => Report?.Legal is { Settings.Enabled: true, InDescription: true };
+
+    public bool HasCoverage => Report?.Coverage is not null;
+
+    public string CoverageTitle => Report?.Coverage is { } c ? $"Keyword coverage · {c.Market}" : "Keyword coverage";
+
+    public string CoverageHeadline => Report?.Coverage is not { } c ? ""
+        : c.Priority.Count == 0
+            ? $"No keyword evidence for this locale yet. Track keywords in the {c.Market} market and read their popularity and difficulty first."
+            : $"{c.Covered.Count} of {c.Priority.Count} priority phrases covered (every word of the phrase somewhere in title, subtitle or keywords).";
+
+    public bool CoverageComplete => Report?.Coverage is { Priority.Count: > 0 } c && c.Covered.Count == c.Priority.Count;
+
+    public string CoverageAvoid => Report?.Coverage is { Avoid.Count: > 0 } c
+        ? "Not for this listing (brand, unrelated or too hard): " + string.Join(", ", c.Avoid) : "";
 
     public string LegalStatus => Report?.Legal is not { } legal ? ""
         : !legal.Settings.Enabled ? "Off"
@@ -441,8 +476,11 @@ public sealed partial class MetadataViewModel : ObservableObject
         }
         Notes.Clear();
         ChangeLines.Clear();
+        CoverageLines.Clear();
         if (report is not null)
         {
+            if (report.Coverage is { } coverage)
+                foreach (var item in coverage.Priority) CoverageLines.Add(new CoverageLine(item, coverage.Covered.Contains(item.Term), coverage.Tiers));
             foreach (var finding in report.Rules.Findings) Notes.Add(new MetadataNote(finding.Kind, finding.Message));
             foreach (var issue in report.Issues.OrderByDescending(i => i.Severity))
                 Notes.Add(new MetadataNote(issue.Severity.ToString().ToLowerInvariant(), $"{TitleOf(issue.Field)}: {issue.Message}"));

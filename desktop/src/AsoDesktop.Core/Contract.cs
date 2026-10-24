@@ -330,7 +330,16 @@ public sealed record LegalFooterSettings(bool Enabled, string EulaUrl, string Pr
 
 public sealed record LegalState(LegalFooterSettings Settings, string EffectiveEula, bool InDescription);
 
-/// <summary>One locale's draft with its checks and its difference from the baseline (<c>aso metadata show</c>).</summary>
+/// <summary>One phrase of the keyword plan: tier "A" winnable now, "B" reachable, "C" popular but hard.</summary>
+public sealed record KeywordPlanItem(string Term, int? Popularity, string PopularitySource, int? Difficulty, double? Fit, string? Rank, double Score, string Tier);
+
+public sealed record WriterTiers(int EasyDifficulty, int MaxDifficulty);
+
+/// <summary>The market's keyword plan against the draft (the macOS editor's Keyword coverage panel).</summary>
+public sealed record KeywordCoverage(string Market, string Device, WriterTiers Tiers, IReadOnlyList<KeywordPlanItem> Priority,
+                                     IReadOnlyList<string> Covered, IReadOnlyList<string> Avoid);
+
+/// <summary>One locale's draft with its checks, its difference from the baseline and its keyword coverage (<c>aso metadata show</c>).</summary>
 public sealed record MetadataReport(
     string Locale,
     string Name,
@@ -342,7 +351,8 @@ public sealed record MetadataReport(
     RulesSummary Rules,
     IReadOnlyList<FieldChange> Changes,
     KeywordChange? KeywordChange,
-    LegalState Legal);
+    LegalState Legal,
+    KeywordCoverage? Coverage = null);
 
 /// <summary>Drafts changed by a footer insert or a What's New fill.</summary>
 public sealed record MetadataBatch(IReadOnlyList<string> Changed, int Locales);

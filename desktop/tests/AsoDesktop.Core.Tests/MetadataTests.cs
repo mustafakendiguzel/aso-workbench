@@ -185,4 +185,34 @@ public sealed class MetadataTests
         Assert.False(field.IsOver);
         Assert.Equal("20 / 30 characters · 40 bytes", field.Counter);
     }
+
+    [Fact]
+    public async Task CoverageShowsThePlanAndWhatTheDraftCovers()
+    {
+        // The engine's answer after measuring three US keywords for Keynote.
+        var (vm, cli, _) = Make();
+        var respond = cli.Respond;
+        cli.Respond = args => FakeCli.Command(args) == "metadata show" ? FakeCli.Fixture("metadata-show-coverage") : respond(args);
+        vm.App = Keynote;
+        await vm.LoadLocalesAsync();
+        Selecting(vm, "en-US");
+        await vm.ReloadAsync();
+
+        Assert.True(vm.HasCoverage);
+        Assert.Equal("Keyword coverage · US", vm.CoverageTitle);
+        Assert.StartsWith("2 of 3 priority phrases covered", vm.CoverageHeadline, StringComparison.Ordinal);
+        Assert.False(vm.CoverageComplete);
+        Assert.Equal([("keynote", "A", true), ("presentation maker", "A", false), ("slide deck", "B", true)],
+                     vm.CoverageLines.Select(l => (l.Term, l.Tier, l.Covered)));
+        Assert.Equal("pop 0 · diff 34 · #1", vm.CoverageLines[0].Evidence);
+        Assert.Equal("Winnable now: difficulty ≤ 35 or already top 10", vm.CoverageLines[0].TierTip);
+        Assert.Equal("Reachable: difficulty ≤ 55", vm.CoverageLines[2].TierTip);
+        Assert.Equal("", vm.CoverageAvoid);
+
+        // Reports from before coverage existed, or apps without a market, have none.
+        cli.Respond = respond;
+        await vm.ReloadAsync();
+        Assert.False(vm.HasCoverage);
+        Assert.Empty(vm.CoverageLines);
+    }
 }

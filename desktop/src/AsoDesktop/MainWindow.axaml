@@ -51,6 +51,16 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListAccentLowBrush}" />
     </Style>
+    <!-- Writer tiers: A winnable now, B reachable, C popular but hard -->
+    <Style Selector="Border.pill.tierA">
+      <Setter Property="Background" Value="#332E9E4F" />
+    </Style>
+    <Style Selector="Border.pill.tierB">
+      <Setter Property="Background" Value="#332F6FDB" />
+    </Style>
+    <Style Selector="Border.pill.tierC">
+      <Setter Property="Background" Value="#33E08A1E" />
+    </Style>
     <!-- Every section header on one row at the default window width -->
     <Style Selector="TabControl.sections > TabItem">
       <Setter Property="FontSize" Value="19" />
@@ -871,6 +881,28 @@
                   <StackPanel Spacing="4">
                     <TextBlock FontWeight="SemiBold" Text="Baseline" />
                     <TextBlock TextWrapping="Wrap" Text="{Binding Metadata.BaselineText}" />
+                  </StackPanel>
+                </Border>
+                <Border Classes="card" IsVisible="{Binding Metadata.HasCoverage}">
+                  <StackPanel Spacing="4">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Metadata.CoverageTitle}" />
+                    <TextBlock TextWrapping="Wrap" Text="{Binding Metadata.CoverageHeadline}" Classes.good="{Binding Metadata.CoverageComplete}" />
+                    <ItemsControl ItemsSource="{Binding Metadata.CoverageLines}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CoverageLine">
+                          <DockPanel Margin="0,2">
+                            <TextBlock DockPanel.Dock="Left" Width="18" Text="{Binding Mark}" Classes.good="{Binding Covered}" />
+                            <Border DockPanel.Dock="Left" Classes="pill" Classes.tierA="{Binding IsA}" Classes.tierB="{Binding IsB}"
+                                    Classes.tierC="{Binding IsC}" Margin="0,0,6,0" ToolTip.Tip="{Binding TierTip}">
+                              <TextBlock FontSize="11" FontWeight="Bold" Text="{Binding Tier}" />
+                            </Border>
+                            <TextBlock DockPanel.Dock="Right" Classes="hint" Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding Evidence}" />
+                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Term}" />
+                          </DockPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="hint" Text="{Binding Metadata.CoverageAvoid}" IsVisible="{Binding Metadata.CoverageAvoid, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                   </StackPanel>
                 </Border>
                 <Border Classes="card">
