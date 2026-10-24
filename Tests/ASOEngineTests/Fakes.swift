@@ -164,9 +164,99 @@ let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
                 reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil,
-                ads: FakeAds? = nil, revenue: FakeRevenue? = nil) throws -> Engine {
+                ads: FakeAds? = nil, revenue: FakeRevenue? = nil, publisher: FakePublisher? = nil) throws -> Engine {
     Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads,
-           revenue: revenue)
+           revenue: revenue, publisher: publisher)
+}
+
+/// App Store Connect without the network: one app's listing per locale and its versions. Writes change the listing and
+/// are recorded; Apple can be made to keep some fields as they were, or to fail.
+final class FakePublisher: MetadataPublisher, @unchecked Sendable {
+    private let lock = NSLock()
+    private var listing: [AppLocale: MetadataFields]
+    private var versionList: [Engine.ASCVersion]
+    private var log: [String] = []
+    let privacyURL: String?
+    /// Fields Apple keeps unchanged on a write.
+    let ignored: Set<MetadataField>
+    let failing: Bool
+
+    init(listing: [AppLocale: MetadataFields], versions: [Engine.ASCVersion] = [Engine.ASCVersion(id: "v2", version: "2.0", state: "PREPARE_FOR_SUBMISSION")],
+         privacyURL: String? = nil, ignored: Set<MetadataField> = [], failing: Bool = false) {
+        self.listing = listing
+        versionList = versions
+        self.privacyURL = privacyURL
+        self.ignored = ignored
+        self.failing = failing
+    }
+
+    /// Every write, e.g. "apply de-DE keywords,subtitle".
+    var writes: [String] { lock.lock(); defer { lock.unlock() }; return log }
+
+    /// Someone else edits the listing on App Store Connect.
+    func edit(_ locale: AppLocale, _ change: (inout MetadataFields) -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        change(&listing[locale, default: .empty])
+    }
+
+    private func record(_ write: String) {
+        lock.lock(); defer { lock.unlock() }
+        log.append(write)
+    }
+
+    private func current() -> ([AppLocale: MetadataFields], Engine.ASCVersion?) {
+        lock.lock(); defer { lock.unlock() }
+        return (listing, versionList.first(where: \.editable) ?? versionList.first)
+    }
+
+    func resolveAppID(bundleID: String) async throws -> String { "asc-\(bundleID)" }
+
+    func snapshots(ascAppID: String) async throws -> [MetadataSnapshot] {
+        let (listing, version) = current()
+        return listing.keys.sorted { $0.rawValue < $1.rawValue }.map { locale in
+            MetadataSnapshot(locale: locale, fields: listing[locale] ?? .empty, appInfoLocalizationID: "info-\(locale.rawValue)",
+                             versionLocalizationID: "version-\(locale.rawValue)", versionString: version?.version, versionState: version?.state,
+                             fetchedAt: Date(timeIntervalSince1970: 0))
+        }
+    }
+
+    func privacyPolicyURL(ascAppID: String) async throws -> String? { privacyURL }
+
+    /// Synchronous, so the lock is never held across a suspension point.
+    private func listVersions(adding version: Engine.ASCVersion? = nil) -> [Engine.ASCVersion] {
+        lock.lock(); defer { lock.unlock() }
+        if let version { versionList.insert(version, at: 0) }
+        return versionList
+    }
+
+    func versions(ascAppID: String) async throws -> [Engine.ASCVersion] { listVersions() }
+
+    func createVersion(ascAppID: String, versionString: String) async throws -> Engine.ASCVersion {
+        record("create-version \(versionString)")
+        let version = Engine.ASCVersion(id: "v-\(versionString)", version: versionString, state: "PREPARE_FOR_SUBMISSION")
+        _ = listVersions(adding: version)
+        return version
+    }
+
+    func ensureLocalizations(ascAppID: String, locale: AppLocale, name: String) async throws -> MetadataSnapshot {
+        record("create \(locale.rawValue)")
+        edit(locale) { $0.name = String(name.prefix(30)) }
+        return try await snapshots(ascAppID: ascAppID).first { $0.locale == locale }!
+    }
+
+    func copyScreenshots(fromLocalization source: String, toLocalization target: String) async throws -> Engine.ScreenshotCopy {
+        record("screenshots \(source) → \(target)")
+        return Engine.ScreenshotCopy(sets: 2, copied: 6, skipped: 0, errors: [])
+    }
+
+    func apply(ascAppID: String, snapshot: MetadataSnapshot, changes: [MetadataField: String]) async throws -> MetadataSnapshot {
+        if failing { throw ASOError.conflict("App Store Connect rejected the change (409): STATE_ERROR") }
+        record("apply \(snapshot.locale.rawValue) \(changes.keys.map(\.rawValue).sorted().joined(separator: ","))")
+        edit(snapshot.locale) { fields in
+            for (field, text) in changes where !ignored.contains(field) { fields[field] = text }
+        }
+        return try await snapshots(ascAppID: ascAppID).first { $0.locale == snapshot.locale }!
+    }
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

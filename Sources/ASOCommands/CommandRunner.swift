@@ -44,13 +44,15 @@ public struct CommandRunner: Sendable {
                           let ads = (try? credentials.appleAds()).flatMap { $0 }
                           let openRouter = (try? credentials.openRouterKey()).flatMap { $0 }
                           let revenueKeys = (try? credentials.revenueCatKeys()) ?? []
+                          let asc = (try? credentials.appStoreConnect()).flatMap { $0 }.flatMap { $0.isComplete ? $0 : nil }
                           return Engine(store: try Store(url: EngineEnvironment.storeURL(in: directory)),
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
                                         suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider(),
                                         popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) },
                                         judge: openRouter.map { JevClient(apiKey: $0) },
                                         ads: ads.map { AppleAdsCampaignProvider(credentials: $0) },
-                                        revenue: revenueKeys.isEmpty ? nil : RevenueCatAccounts(keys: revenueKeys))
+                                        revenue: revenueKeys.isEmpty ? nil : RevenueCatAccounts(keys: revenueKeys),
+                                        publisher: asc.map { AppStoreConnectPublisher(credentials: $0) })
                       })
     }
 
@@ -357,6 +359,78 @@ public struct CommandRunner: Sendable {
                 "What's New filled with the default note in \(b.changed.count) of \(b.locales) locale(s)"
                     + (b.changed.isEmpty ? "; every one already had notes." : ": \(b.changed.joined(separator: ", ")).")
             }
+        case ("metadata", "pull"):
+            try args.allow([])
+            write(args, try await engine(args).pullMetadata(appID: try args.integer(2, "app ID"))) { p in
+                "Pulled \(p.locales.count) locale(s) from App Store Connect" + (p.locales.isEmpty ? "." : ": \(p.locales.joined(separator: ", ")).")
+                    + " Version \(p.version ?? "?") (\(p.versionState ?? "?")), \(p.editable ? "editable" : "not editable: create the next version to write")."
+                    + (p.privacyURL.map { " Privacy Policy for the legal footer: \($0)." } ?? "")
+            }
+        case ("metadata", "versions"):
+            try args.allow([])
+            write(args, try await engine(args).ascVersions(appID: try args.integer(2, "app ID"))) { versions in
+                var table = TextTable([.init("Version"), .init("State"), .init("Editable")])
+                for v in versions { table.add([v.version, v.state, v.editable ? "yes" : "no"]) }
+                return versions.isEmpty ? "No iOS versions on App Store Connect." : table.render()
+            }
+        case ("metadata", "create-version"):
+            try args.allow(["yes"])
+            let id = try args.integer(2, "app ID")
+            let version = try args.positional(3, "version")
+            guard args.flag("yes") else {
+                throw NotSent("This creates version \(version) on App Store Connect. Run again with --yes to create it.")
+            }
+            write(args, try await engine(args).createVersion(appID: id, version: version)) { v in
+                "Created version \(v.version) (\(v.state)). Its listing can be written now; upload the build from Xcode when it is ready."
+            }
+        case ("metadata", "plan"):
+            try args.allow(["locale", "create-missing", "copy-screenshots-from", "all"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let options = try publishOptions(args, createMissing: args.flag("create-missing") || args.flag("all"))
+            if args.flag("all") {
+                guard args.option("locale") == nil else { throw UsageError("Choose --locale or --all, not both.") }
+                write(args, try await workbench.publishPlans(appID: id, options: options)) { Self.plansText($0) }
+            } else {
+                let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+                write(args, try await workbench.publishPlan(appID: id, locale: locale, options: options)) { Self.planText($0) }
+            }
+        case ("metadata", "apply"):
+            try args.allow(["locale", "create-missing", "copy-screenshots-from", "yes"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+            let options = try publishOptions(args, createMissing: args.flag("create-missing"))
+            guard args.flag("yes") else {
+                write(args, try await workbench.publishPlan(appID: id, locale: locale, options: options)) { Self.planText($0) }
+                throw NotSent("Nothing was sent to App Store Connect. Review the plan, then run again with --yes to apply it.")
+            }
+            let result = try await workbench.publish(appID: id, locale: locale, options: options)
+            write(args, result) { Self.publishText($0) }
+            guard ["applied", "partial"].contains(result.status) else { throw NotSent("\(locale.rawValue) was not applied.") }
+        case ("metadata", "apply-all"):
+            try args.allow(["locales", "copy-screenshots-from", "yes"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locales = try args.option("locales").map { raw in
+                try raw.split(separator: ",").map { try Self.locale($0.trimmingCharacters(in: .whitespaces)) }
+            }
+            let options = try publishOptions(args, createMissing: true)
+            guard args.flag("yes") else {
+                write(args, try await workbench.publishPlans(appID: id, locales: locales, options: options)) { Self.plansText($0) }
+                throw NotSent("Nothing was sent to App Store Connect. Review the plans, then run again with --yes to apply them.")
+            }
+            let results = try await workbench.publishAll(appID: id, locales: locales, copyScreenshotsFrom: options.copyScreenshotsFrom)
+            write(args, results) { $0.isEmpty ? "No locale has a draft to apply." : $0.map(Self.publishText).joined(separator: "\n") }
+            let missed = results.filter { !["applied", "partial"].contains($0.status) }.map(\.locale)
+            guard missed.isEmpty else { throw NotSent("Not applied: \(missed.joined(separator: ", ")).") }
+        case ("metadata", "log"):
+            try args.allow([])
+            write(args, try await engine(args).changeLog(appID: try args.integer(2, "app ID"))) { log in
+                var table = TextTable([.init("When"), .init("Locale"), .init("Status"), .init("Fields"), .init("Note")])
+                for e in log { table.add([Self.shortDate(e.createdAt), e.locale, e.status, e.changes.map(\.field.title).joined(separator: ", "), e.note]) }
+                return log.isEmpty ? "Nothing has been applied to App Store Connect yet." : table.render()
+            }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -526,6 +600,23 @@ public struct CommandRunner: Sendable {
     /// Metadata that breaks a hard limit: the issues are already printed, the exit code says so.
     struct ValidationFailed: Error, LocalizedError {
         var errorDescription: String? { "The metadata has errors." }
+    }
+
+    /// A write to App Store Connect that did not happen: unconfirmed, refused or failed. What was planned or tried is
+    /// already printed; the exit code says so.
+    struct NotSent: Error, LocalizedError {
+        let message: String
+        init(_ message: String) { self.message = message }
+        var errorDescription: String? { message }
+    }
+
+    /// --copy-screenshots-from, which only applies to locales that are created.
+    private func publishOptions(_ args: Arguments, createMissing: Bool) throws -> Engine.PublishOptions {
+        let from = try args.option("copy-screenshots-from").map(Self.locale)
+        guard from == nil || createMissing else {
+            throw UsageError("--copy-screenshots-from fills a locale that is created; add --create-missing.")
+        }
+        return Engine.PublishOptions(createMissing: createMissing, copyScreenshotsFrom: from)
     }
 
     /// A storefront as pickers list it.
@@ -948,6 +1039,30 @@ public struct CommandRunner: Sendable {
         return lines.joined(separator: "\n")
     }
 
+    static func planText(_ plan: Engine.PublishPlan) -> String {
+        var lines = ["\(plan.locale) · \(plan.name) · " + (plan.exists ? "on App Store Connect" : "new on App Store Connect")
+                     + " · version \(plan.version ?? "?") (\(plan.versionState ?? "?"))"]
+        for note in plan.automatic { lines.append("  Automatic: \(note)") }
+        for issue in plan.errors { lines.append("  error  \(issue.field.title): \(issue.message)") }
+        for c in plan.changes {
+            lines.append(plan.exists ? "  \(c.field.title): \"\(c.before)\" → \"\(c.after)\"" : "  \(c.field.title): \"\(c.after)\"")
+        }
+        lines.append(plan.blocked.map { "Would be refused: \($0)" } ?? "Ready: \(plan.changes.count) field(s) would be sent.")
+        return lines.joined(separator: "\n")
+    }
+
+    static func plansText(_ plans: [Engine.PublishPlan]) -> String {
+        plans.isEmpty ? "No locale has a draft to apply." : plans.map(planText).joined(separator: "\n\n")
+    }
+
+    static func publishText(_ result: Engine.PublishResult) -> String {
+        switch result.status {
+        case "applied", "partial": result.message
+        case "refused": "\(result.locale): refused. \(result.message)"
+        default: "\(result.locale): failed. \(result.message)"
+        }
+    }
+
     static func adsText(_ report: Engine.AdsReport) -> String {
         guard let synced = report.syncedAt, let start = report.periodStart, let end = report.periodEnd else {
             return "No campaign results stored for this app. Read them with: aso ads sync"
@@ -1090,6 +1205,19 @@ public struct CommandRunner: Sendable {
                                                           Terms of Use and Privacy Policy links for every description
           metadata footer <app ID> [--locale L]           Append those links to the drafts (each in its own language)
           metadata fill-whats-new <app ID>                Give drafts without release notes the default note in their language
+
+        Publishing (App Store Connect key; writes need --yes)
+          metadata pull <app ID>                          Read every locale from App Store Connect as the baseline
+          metadata versions <app ID>                      The app's iOS versions and whether their listing can be edited
+          metadata create-version <app ID> <version> --yes
+                                                          Create the next version in Prepare for Submission
+          metadata plan <app ID> (--locale L | --all) [--create-missing] [--copy-screenshots-from L]
+                                                          What applying would send, read from App Store Connect; writes nothing
+          metadata apply <app ID> --locale L [--create-missing] [--copy-screenshots-from L] --yes
+                                                          Write the draft, then re-read it (without --yes: the plan only)
+          metadata apply-all <app ID> [--locales a,b] [--copy-screenshots-from L] --yes
+                                                          Apply every draft, creating missing locales
+          metadata log <app ID>                           Every attempt to write the listing
 
         Releases and changes
           markers list <app ID>                           Releases (seen when measuring or checking ratings) and notes

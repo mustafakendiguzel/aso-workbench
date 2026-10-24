@@ -203,6 +203,22 @@ public actor Store {
         ALTER TABLE apps ADD COLUMN privacy_url TEXT NOT NULL DEFAULT '';
         ALTER TABLE apps ADD COLUMN legal_note TEXT NOT NULL DEFAULT '';
         """,
+        // 9: the app's App Store Connect ID and every attempt to write its listing there.
+        """
+        ALTER TABLE apps ADD COLUMN asc_app_id TEXT;
+        CREATE TABLE change_log (
+            id INTEGER PRIMARY KEY,
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            created_at REAL NOT NULL,
+            locale TEXT NOT NULL,
+            status TEXT NOT NULL,
+            changes TEXT NOT NULL,
+            note TEXT NOT NULL,
+            baseline_hash TEXT NOT NULL,
+            result_hash TEXT
+        );
+        CREATE INDEX change_log_app ON change_log (app_id, created_at);
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -569,6 +585,45 @@ public actor Store {
     public func setLegalFooter(_ settings: LegalFooterSettings, appID: Int) throws {
         try db.query("UPDATE apps SET legal_footer_enabled = ?, eula_url = ?, privacy_url = ?, legal_note = ? WHERE track_id = ?",
                      [.int(settings.enabled ? 1 : 0), .text(settings.eulaURL), .text(settings.privacyURL), .text(settings.note), .int(appID)])
+    }
+
+    /// Drops the baselines pulled from App Store Connect; typed-in ones stay.
+    public func removePulledBaselines(appID: Int) throws {
+        try db.query("DELETE FROM metadata_baselines WHERE app_id = ? AND source = 'asc'", [.int(appID)])
+    }
+
+    // MARK: App Store Connect
+
+    public func ascAppID(appID: Int) throws -> String? {
+        try db.rows("SELECT asc_app_id FROM apps WHERE track_id = ?", [.int(appID)]) { $0.optionalText(0) }.first ?? nil
+    }
+
+    public func setASCAppID(_ ascAppID: String, appID: Int) throws {
+        try db.query("UPDATE apps SET asc_app_id = ? WHERE track_id = ?", [.text(ascAppID), .int(appID)])
+    }
+
+    @discardableResult
+    public func addChange(_ entry: ChangeLogRecord, appID: Int) throws -> ChangeLogRecord {
+        let changes = String(decoding: (try? JSONEncoder().encode(entry.changes)) ?? Data("[]".utf8), as: UTF8.self)
+        try db.query("""
+            INSERT INTO change_log (app_id, created_at, locale, status, changes, note, baseline_hash, result_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, [.int(appID), SQLValue(entry.createdAt), .text(entry.locale), .text(entry.status), .text(changes), .text(entry.note),
+                  .text(entry.baselineHash), SQLValue(entry.resultHash)])
+        return ChangeLogRecord(id: db.lastInsertID, createdAt: entry.createdAt, locale: entry.locale, status: entry.status, changes: entry.changes,
+                               note: entry.note, baselineHash: entry.baselineHash, resultHash: entry.resultHash)
+    }
+
+    /// The app's change log, newest first.
+    public func changeLog(appID: Int) throws -> [ChangeLogRecord] {
+        try db.rows("""
+            SELECT id, created_at, locale, status, changes, note, baseline_hash, result_hash FROM change_log WHERE app_id = ?
+            ORDER BY created_at DESC, id DESC
+            """, [.int(appID)]) { row in
+            ChangeLogRecord(id: row.int(0), createdAt: row.date(1), locale: row.text(2), status: row.text(3),
+                            changes: (try? JSONDecoder().decode([FieldChange].self, from: Data(row.text(4).utf8))) ?? [],
+                            note: row.text(5), baselineHash: row.text(6), resultHash: row.optionalText(7))
+        }
     }
 
     // MARK: Ratings

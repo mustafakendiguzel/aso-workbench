@@ -110,9 +110,7 @@ public actor ASCMetadataProvider: MetadataProvider {
         ((try await call("GET", path))["data"] as? [[String: Any]] ?? []).compactMap(Resource.init)
     }
 
-    private static let editableVersionStates: Set<String> = [
-        "PREPARE_FOR_SUBMISSION", "REJECTED", "DEVELOPER_REJECTED", "METADATA_REJECTED", "WAITING_FOR_REVIEW", "INVALID_BINARY",
-    ]
+    private static let editableVersionStates = MetadataPublishing.editableVersionStates
     private static let frozenInfoStates: Set<String> = ["READY_FOR_SALE", "REPLACED_WITH_NEW_INFO", "READY_FOR_DISTRIBUTION"]
 
     private func editableVersion(ascAppID: String) async throws -> Resource? {

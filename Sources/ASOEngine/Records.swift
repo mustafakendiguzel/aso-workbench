@@ -199,7 +199,7 @@ public struct StoredReview: Sendable, Codable, Equatable {
 public struct MarkerRecord: Sendable, Codable, Equatable {
     public let id: Int
     public let date: Date
-    /// "release" · "note"
+    /// "release" · "note" · "change" (a listing applied to App Store Connect)
     public let kind: String
     public let title: String
     /// For a release: its version and the storefront it was seen in.
@@ -231,6 +231,33 @@ public struct MetadataBaselineRecord: Sendable, Codable, Equatable {
         self.versionString = versionString
         self.versionState = versionState
         self.fetchedAt = fetchedAt
+    }
+}
+
+/// One attempt to write a locale's listing to App Store Connect, as the macOS app logs it.
+public struct ChangeLogRecord: Sendable, Codable, Equatable {
+    public let id: Int
+    public let createdAt: Date
+    public let locale: String
+    /// "applied" · "partial" (Apple's re-read differs from the draft) · "failed"
+    public let status: String
+    /// What was sent: each field's text before and after. Empty when the write failed.
+    public let changes: [FieldChange]
+    public let note: String
+    /// Content hashes of the listing before and after the write; the result is absent when it failed.
+    public let baselineHash: String
+    public let resultHash: String?
+
+    public init(id: Int = 0, createdAt: Date, locale: String, status: String, changes: [FieldChange], note: String, baselineHash: String,
+                resultHash: String?) {
+        self.id = id
+        self.createdAt = createdAt
+        self.locale = locale
+        self.status = status
+        self.changes = changes
+        self.note = note
+        self.baselineHash = baselineHash
+        self.resultHash = resultHash
     }
 }
 

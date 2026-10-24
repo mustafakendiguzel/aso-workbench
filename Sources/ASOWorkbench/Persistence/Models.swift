@@ -44,7 +44,7 @@ final class TrackedApp {
     /// Every point in time a comparison makes sense around: App Store releases, notes, and applied metadata changes.
     var markers: [Marker] {
         let r = releases.map { Marker(date: $0.createdAt, title: $0.title, kind: $0.kind) }
-        let c = changes.filter { $0.status != "failed" }.map { Marker(date: $0.createdAt, title: "Applied \($0.changes.map(\.field.title).joined(separator: ", ")) (\($0.localeRaw))", kind: "change") }
+        let c = changes.filter { $0.status != "failed" }.map { Marker(date: $0.createdAt, title: MetadataPublishing.markerTitle(fields: $0.changes.map(\.field), locale: $0.localeRaw), kind: "change") }
         return (r + c).sorted { $0.date < $1.date }
     }
 

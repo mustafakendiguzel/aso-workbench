@@ -16,11 +16,14 @@ public struct Engine: Sendable {
     public let ads: (any AdsCampaignSource)?
     /// RevenueCat with the stored keys; nil when none are stored.
     public let revenue: (any RevenueSource)?
+    /// App Store Connect with the stored key; nil when none is stored.
+    public let publisher: (any MetadataPublisher)?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
                 popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil,
-                revenue: (any RevenueSource)? = nil) {
+                revenue: (any RevenueSource)? = nil, publisher: (any MetadataPublisher)? = nil) {
         self.revenue = revenue
+        self.publisher = publisher
         self.store = store
         self.search = search
         self.suggestions = suggestions
