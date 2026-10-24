@@ -10,14 +10,17 @@ public struct Engine: Sendable {
     public let reviews: any CustomerReviewProvider
     /// Apple Ads popularity; nil when no keys are stored.
     public let popularity: (any PopularityProvider)?
+    /// Jev through OpenRouter (brand, naturalness, fit); nil when no key is stored.
+    public let judge: (any KeywordJudge)?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
-                popularity: (any PopularityProvider)? = nil) {
+                popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil) {
         self.store = store
         self.search = search
         self.suggestions = suggestions
         self.reviews = reviews
         self.popularity = popularity
+        self.judge = judge
     }
 
     // MARK: Apps

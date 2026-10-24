@@ -28,7 +28,7 @@ Sources/
 │   │                  store indexes), RankOutcome, SearchResultApp, MetadataFields, Popularity, DataOrigin…
 │   ├── Analysis/      DifficultyScore, CompetitionSignals, CompetitorAggregation, TitleMatch,
 │   │                  RankHistory (Δ and before/after), KeywordJudgement (brand, golden, lead), IdeaGap,
-│   │                  RatingTrend, KeywordImpact (value, visibility curve, gain)
+│   │                  RatingTrend, KeywordImpact (value, visibility curve, gain), KeywordPhrases
 │   ├── Validation/    ASORules (review + repair), MetadataValidator, MetadataDiff, TextMeasure,
 │   │                  LegalFooter, ReleaseNotesDefaults
 │   ├── Training/      PublicFeatures / JevFeatures → model columns, evaluation metrics
@@ -43,7 +43,7 @@ Sources/
 ├── CSQLite/           the platform's own SQLite as a Swift module (no package dependency)
 ├── ASOEngine/         platform-neutral workbench: Store (SQLite, versioned schema), Engine (add app, keywords,
 │                      measure, reports), Catalog (ratings, reviews, competitors), Changes (release markers,
-│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), KeywordReportRow and
+│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), Discovery (candidates, Jev, golden), KeywordReportRow and
 │                      KeywordDetail, EngineSettings (settings.json), CredentialStore and
 │                      Connections (credentials.json, verify), data folder and version
 ├── ASOCommands/       the `aso` command line: arguments, commands, text tables and JSON (see docs/CLI.md)

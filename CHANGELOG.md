@@ -7,6 +7,7 @@ The in-app updater shows the section of the new version as its release notes.
 ## [Unreleased]
 
 ### Added
+- Keyword discovery outside the macOS app: `aso discover` finds golden keyword candidates from App Store autocomplete and Apple Ads suggestions around your best keywords, or from a competitor's title and description (`--competitor`), with Apple popularity, Jev's brand, naturalness and fit checks (with the OpenRouter key) and difficulty for the most promising. Nothing is stored until you add keywords. The Windows and Linux window has Find keywords on the Keywords tab and Import keywords on the Competitors tab.
 - Apple Ads popularity outside the macOS app: `aso popularity` reads Apple's country list for the app's genre (or every genre) and marks terms that are not on it as below the published range, under the list's lowest score. `aso measure` refreshes the measured keywords afterwards when Apple Ads is connected. Popularity appears in `aso keywords list` and `keywords show`, fills the CSV's popularity columns, and makes golden verdicts, opportunity and the value in `aso impact` work. The Windows and Linux window shows popularity in the keyword table and inspector and reads it with Ctrl+Shift+P.
 - Release markers and their effect outside the macOS app: the App Store release is recorded as a marker when `aso measure` or `aso ratings check` sees a new version (dated with Apple's release date), `aso markers list|add|remove` keeps notes on the same timeline, Δ `lastMarker` compares against the latest one, and `aso impact` shows the ranks before and after a marker, weighted by what each keyword is worth. The Windows and Linux window gains a Changes tab.
 - Ratings, written reviews and competitors outside the macOS app: `aso ratings check|list` (rating count and average per storefront, change since the last check, when a new rating last arrived), `aso reviews check|list` (Apple's public feed; reviews not seen before are marked new, with storefront, rating, new-only and text filters) and `aso competitors` (apps in the latest results of the tracked keywords). `aso measure` reads ratings and new reviews in the measured storefronts first, as the macOS app does. The Windows and Linux window gains a ratings card on the Overview and Competitors and Reviews tabs.
@@ -22,6 +23,7 @@ The in-app updater shows the section of the new version as its release notes.
 - Interface text uses commas, colons and periods instead of em dashes.
 
 ### Development
+- Mining keyword phrases from listing text moved from the app's discovery into `ASOCore`, with tests. Nothing changes in the app.
 - Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
 - `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
 - Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.

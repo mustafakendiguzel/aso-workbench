@@ -66,17 +66,9 @@ final class KeywordDiscovery {
 
     // MARK: Candidate generation
 
-    /// Words and two-word phrases from a listing text, filler removed.
+    /// Words and two-word phrases from a listing text, filler removed (the rule lives in ASOCore).
     static func phrases(from text: String, maxUnigrams: Int = 60, maxBigrams: Int = 60) -> [String] {
-        let words = ASORules.words(text).filter { $0.count >= 3 && !ASORules.fillerWords.contains($0) && !$0.allSatisfy(\.isNumber) }
-        var uni: [String: Int] = [:], bi: [String: Int] = [:]
-        for (i, w) in words.enumerated() {
-            uni[w, default: 0] += 1
-            if i + 1 < words.count { bi["\(w) \(words[i + 1])", default: 0] += 1 }
-        }
-        let u = uni.sorted { $0.value > $1.value || ($0.value == $1.value && $0.key < $1.key) }.prefix(maxUnigrams).map(\.key)
-        let b = bi.sorted { $0.value > $1.value || ($0.value == $1.value && $0.key < $1.key) }.prefix(maxBigrams).map(\.key)
-        return u + b
+        KeywordPhrases.from(text, maxUnigrams: maxUnigrams, maxBigrams: maxBigrams)
     }
 
     /// Runs the whole discovery. `competitor` adds its title/description phrases; `seeds` are expanded with autocomplete and Apple Ads suggestions.

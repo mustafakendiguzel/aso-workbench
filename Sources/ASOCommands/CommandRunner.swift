@@ -40,11 +40,14 @@ public struct CommandRunner: Sendable {
                       makeEngine: { directory in
                           let settings = try EngineSettings.load(from: directory)
                           // Keys that cannot be read leave Apple Ads unconnected; `aso connections` says why.
-                          let ads = (try? CredentialStore(directory: directory).appleAds()).flatMap { $0 }
+                          let credentials = CredentialStore(directory: directory)
+                          let ads = (try? credentials.appleAds()).flatMap { $0 }
+                          let openRouter = (try? credentials.openRouterKey()).flatMap { $0 }
                           return Engine(store: try Store(url: EngineEnvironment.storeURL(in: directory)),
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
                                         suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider(),
-                                        popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) })
+                                        popularity: ads.map { AppleAdsPopularityProvider(credentials: $0) },
+                                        judge: openRouter.map { JevClient(apiKey: $0) })
                       })
     }
 
@@ -254,6 +257,26 @@ public struct CommandRunner: Sendable {
             let refreshes = try await engine(args).refreshPopularity(appID: id, countryCode: args.option("country"), device: try deviceOption(args),
                                                                      keywords: only) { step in if !quiet { errors("Reading \(step)") } }
             write(args, refreshes) { $0.isEmpty ? "No keywords yet. Add some with: aso keywords add \(id) <keyword>... --country US" : Self.popularityText($0) }
+        case ("discover", _):
+            try args.allow(["country", "device", "competitor", "seeds", "difficulty"])
+            let id = try args.integer(1, "app ID")
+            let seeds = args.option("seeds").map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+            if seeds?.isEmpty == true { throw UsageError("--seeds needs at least one keyword.") }
+            var competitor: Int?
+            if let raw = args.option("competitor") {
+                guard let parsed = AppStoreURL.parse(raw) else { throw UsageError("--competitor must be an App Store link or app ID, got \"\(raw)\".") }
+                competitor = parsed.trackID
+            }
+            let errors = self.errors
+            let jsonProgress = args.flag("json")
+            let report = try await engine(args).discover(appID: id, countryCode: try required(args, "country"), device: try deviceOption(args) ?? .iPhone,
+                                                         competitorID: competitor, seeds: seeds,
+                                                         difficultyLimit: try args.integerOption("difficulty", default: 25, range: 0...60),
+                                                         golden: try settings(args).golden) { step in
+                errors(jsonProgress ? Self.json(DiscoveryProgressLine(step), pretty: false)
+                                    : (step.total > 0 ? "[\(step.completed + 1)/\(step.total)] " : "") + step.step)
+            }
+            write(args, report) { Self.discoveryText($0, appID: id) }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -460,6 +483,19 @@ public struct CommandRunner: Sendable {
             case .requestFailed: status = "failed"
             case .notChecked: status = "notChecked"
             }
+        }
+    }
+
+    /// One discovery step as `discover --json` reports it on stderr.
+    struct DiscoveryProgressLine: Encodable {
+        let step: String
+        let completed: Int
+        let total: Int
+
+        init(_ progress: Engine.DiscoveryProgress) {
+            step = progress.step
+            completed = progress.completed
+            total = progress.total
         }
     }
 
@@ -710,6 +746,31 @@ public struct CommandRunner: Sendable {
         }.joined(separator: "\n")
     }
 
+    static func discoveryText(_ report: Engine.DiscoveryReport, appID: Int) -> String {
+        var text = "Discovery in \(report.market)" + (report.competitor.map { " from \($0)" } ?? "")
+        text += " · seeds: \(report.seeds.joined(separator: ", "))\n"
+        text += "\(report.candidates.count) candidate(s) · \(report.withPopularity) with an Apple popularity value · "
+        text += "\(report.measured) measured for difficulty · \(report.golden) golden"
+        guard !report.candidates.isEmpty else { return text + "\n\nNo candidates. Try other seeds with --seeds." }
+        var table = TextTable([.init(""), .init("Keyword"), .init("Popularity", .right), .init("Difficulty", .right), .init("Opportunity", .right),
+                               .init("Fit", .right), .init("Brand", .right), .init("Sources"), .init("Tracked")])
+        for c in report.candidates {
+            let mark = c.golden ? "★" : c.goldenLead ? "lead" : ""
+            let popularity: String = c.popularity.map(String.init) ?? (c.popularitySource == "belowRange" ? "< list" : "")
+            let difficulty: String = c.difficulty.map { String(Int($0.rounded())) } ?? ""
+            let opportunity: String = c.opportunity.map { String(Int($0.rounded())) } ?? ""
+            let fit: String = c.fit.map { String(format: "%.2f", $0) } ?? ""
+            let brand: String = c.brand.map { String(format: "%.2f", $0) } ?? ""
+            table.add([mark, c.keyword, popularity, difficulty, opportunity, fit, brand, c.sources.joined(separator: ", "), c.tracked ? "yes" : ""])
+        }
+        text += "\n\n" + table.render()
+        if !report.appleAds { text += "\n\nApple Ads is not connected: no popularity, so no candidate can be golden or is measured for difficulty." }
+        if !report.jev { text += "\nOpenRouter is not connected: other brands and unrelated terms are not filtered out." }
+        let market = report.market.split(separator: " ").first.map(String.init) ?? "US"
+        text += "\n\n★ golden · lead: the numbers pass but the term does not fit this app. Track some with: aso keywords add \(appID) <keyword>... --country \(market)"
+        return text
+    }
+
     static func impactText(_ report: Engine.ImpactReport) -> String {
         let head = "Effect of \(report.marker.title) · \(Self.shortDate(report.marker.date))"
         guard !report.rows.isEmpty else {
@@ -781,6 +842,8 @@ public struct CommandRunner: Sendable {
           impact <app ID> <marker ID>                     Ranks before and after it, weighted by what each keyword is worth
 
         Research (nothing is stored)
+          discover <app ID> --country CC [--device ...] [--competitor LINK|ID] [--seeds a,b,…] [--difficulty 0-60]
+                                                          Golden keyword candidates: autocomplete, Apple Ads and Jev
           search <term> --country CC [--device ...] [--limit 1-200]
           hints <seed> --country CC                       App Store autocomplete
           difficulty <term> --country CC [--device ...]   0-100 from the top ten results, with every component

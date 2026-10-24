@@ -67,9 +67,55 @@ struct FakePopularity: PopularityProvider {
         return try await genreDataset(country: country, genre: genre, monthsBack: monthsBack).filter { wanted.contains($0.searchTerm) }
     }
 
-    func keywordSuggestions(appID: Int, seeds: [String], country: String) async throws -> [KeywordSuggestion] { [] }
+    /// Apple Ads keyword suggestions per seed.
+    var suggestions: [String: [String]] = [:]
+
+    func keywordSuggestions(appID: Int, seeds: [String], country: String) async throws -> [KeywordSuggestion] {
+        seeds.flatMap { suggestions[$0] ?? [] }.enumerated().map {
+            KeywordSuggestion(text: $1, provider: .appleAdsSuggestions, origin: .officialObserved, popularity: nil, position: $0 + 1, fetchedAt: now)
+        }
+    }
 
     func capabilities() async -> ProviderCapabilities { ProviderCapabilities(maxPageSize: 200) }
+}
+
+/// Jev without the network: brands, unnatural phrases and terms that do not fit the app, by name; every call counted.
+final class FakeJudge: KeywordJudge, @unchecked Sendable {
+    let brands: Set<String>
+    let unnatural: Set<String>
+    let unfit: Set<String>
+    private let lock = NSLock()
+    private var classified: [String] = []
+    private var fitted: [String] = []
+
+    init(brands: Set<String> = [], unnatural: Set<String> = [], unfit: Set<String> = []) {
+        self.brands = brands
+        self.unnatural = unnatural
+        self.unfit = unfit
+    }
+
+    var isConfigured: Bool { true }
+    var fitChecks: [String] { lock.lock(); defer { lock.unlock() }; return fitted.sorted() }
+
+    /// Synchronous, so the lock is never held across a suspension point.
+    private func note(_ term: String, fit: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        if fit { fitted.append(term) } else { classified.append(term) }
+    }
+
+    func classify(term: String, storefront: String, storeLanguage: String) async throws -> JevFeatures {
+        note(term, fit: false)
+        var features = JevFeatures()
+        features.brand = brands.contains(term) ? 0.9 : 0.05
+        features.naturalQuery = unnatural.contains(term) ? 0.1 : 0.9
+        features.intent = brands.contains(term) ? "brand" : "feature"
+        return features
+    }
+
+    func fit(term: String, appName: String, appDescription: String, storefront: String, storeLanguage: String) async throws -> Double {
+        note(term, fit: true)
+        return unfit.contains(term) ? 0.1 : 0.9
+    }
 }
 
 func makeReview(_ id: String, _ country: String = "US", rating: Int = 5, title: String? = nil, body: String = "Works well.",
@@ -87,8 +133,8 @@ func makeApp(_ id: Int, _ name: String, seller: String? = nil, ratings: Int? = 1
 let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
-                reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil) throws -> Engine {
-    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity)
+                reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil) throws -> Engine {
+    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge)
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

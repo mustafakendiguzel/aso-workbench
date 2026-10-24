@@ -21,8 +21,8 @@ struct Harness {
     let directories = Directories()
 
     init(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), reviews: FakeReviews = FakeReviews(),
-         popularity: FakePopularity? = nil) throws {
-        engine = try makeEngine(search: search, reviews: reviews, popularity: popularity)
+         popularity: FakePopularity? = nil, hints: FakeSuggestions = FakeSuggestions(), judge: FakeJudge? = nil) throws {
+        engine = try makeEngine(search: search, hints: hints, reviews: reviews, popularity: popularity, judge: judge)
     }
 
     func run(_ arguments: [String], environment: [String: String] = [:]) async -> (code: Int32, console: Console) {
