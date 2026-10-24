@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import ASOCore
 
 /// Signs JWTs with an EC P-256 private key (Apple's `.p8` / PEM format).

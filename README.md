@@ -150,10 +150,11 @@ See **[SECURITY.md](SECURITY.md)**.
 Sources/
 ├── ASOCore/        pure logic: models, rules, difficulty, diffs, features (no network, no UI)
 ├── ASOProviders/   Apple, OpenRouter and RevenueCat adapters behind an allow-listed HTTP client
+├── ASOEngine/      the platform-neutral workbench and its SQLite store, behind the `aso` command line
 └── ASOWorkbench/   the SwiftUI app: screens, services, SwiftData model, design system
 Resources/          Info.plist, icon, bundled popularity model
 scripts/            bundle-app.sh (build the .app), release.sh (.dmg + GitHub release)
-docs/               POPULARITY, CONNECTIONS, ARCHITECTURE, RELEASING
+docs/               POPULARITY, CONNECTIONS, ARCHITECTURE, RELEASING, CLI
 ```
 
 Three layers the compiler keeps apart, Swift 6 strict concurrency, zero dependencies. **[Architecture →](docs/ARCHITECTURE.md)**
@@ -166,6 +167,8 @@ make test      # unit tests
 make lab       # launch with the developer Lab (retrain the popularity model)
 make dist      # build the .dmg and .zip for a release (maintainers)
 ```
+
+The engine also runs without the app, as the `aso` command line: **[docs/CLI.md](docs/CLI.md)**.
 
 Releases, versioning and how updates reach users: **[docs/RELEASING.md](docs/RELEASING.md)**. Contributions: **[CONTRIBUTING.md](CONTRIBUTING.md)**. Changes: **[CHANGELOG.md](CHANGELOG.md)**.
 

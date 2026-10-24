@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import ASOCore
 
 /// App Store Connect API v1 metadata adapter.

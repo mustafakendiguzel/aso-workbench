@@ -117,116 +117,71 @@ final class TrackedKeyword {
         self.note = ""
     }
 
-    static func normalize(_ text: String) -> String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-    }
+    static func normalize(_ text: String) -> String { KeywordText.normalize(text) }
 
     var sortedObservations: [RankObservation] { observations.sorted { $0.fetchedAt < $1.fetchedAt } }
     var latestObservation: RankObservation? { observations.max { $0.fetchedAt < $1.fetchedAt } }
 
+    /// Rank comparisons live in ASOCore so every platform computes them the same way.
+    private var history: RankHistory<RankObservation> { RankHistory(observations) { $0.point } }
+
     /// Latest observation whose request actually succeeded (found or outside range).
-    var latestMeasured: RankObservation? {
-        observations.filter { !$0.outcome.isFailure && $0.outcomeKind != "notChecked" }.max { $0.fetchedAt < $1.fetchedAt }
-    }
+    var latestMeasured: RankObservation? { history.latestMeasured }
 
     /// Previous successful observation from the *same provider* as the latest one.
-    var previousMeasured: RankObservation? {
-        guard let latest = latestMeasured else { return nil }
-        return observations
-            .filter { !$0.outcome.isFailure && $0.providerRaw == latest.providerRaw && $0.fetchedAt < latest.fetchedAt }
-            .max { $0.fetchedAt < $1.fetchedAt }
-    }
+    var previousMeasured: RankObservation? { history.previousMeasured }
 
     /// Rank delta vs previous measurement; positive means improved. Nil when not comparable.
-    var rankDelta: Int? {
-        guard let a = latestMeasured?.position, let b = previousMeasured?.position else { return nil }
-        return b - a
-    }
+    var rankDelta: Int? { history.rankDelta }
 
-    var successfulObservations: [RankObservation] {
-        observations.filter { !$0.outcome.isFailure && $0.outcomeKind != "notChecked" }.sorted { $0.fetchedAt < $1.fetchedAt }
-    }
+    var successfulObservations: [RankObservation] { history.successful }
 
     /// Last successful measurement at or before `date` and the latest one after it (nil when either side is missing).
-    func beforeAfter(_ date: Date) -> (before: RankObservation, after: RankObservation)? {
-        let all = successfulObservations
-        guard let before = all.last(where: { $0.fetchedAt <= date }), let after = all.last, after.fetchedAt > date else { return nil }
-        return (before, after)
-    }
+    func beforeAfter(_ date: Date) -> (before: RankObservation, after: RankObservation)? { history.beforeAfter(date) }
 
     /// Rank movement against a chosen reference. "Not in top N" counts as N+1 so a keyword that entered or left the
     /// results still shows a number. Positive = moved up.
     func rankDelta(reference: DeltaReference, markers: [Marker]) -> (delta: Int?, against: String) {
-        let all = successfulObservations
-        guard let latest = all.last else { return (nil, "no measurement") }
-        func pos(_ o: RankObservation) -> Int { o.position ?? o.observedCount + 1 }
-        switch reference {
-        case .previous:
-            guard let a = latestMeasured?.position, let b = previousMeasured?.position else { return (nil, "previous measurement") }
-            return (b - a, "previous measurement")
-        case .first:
-            guard let first = all.first, first.fetchedAt < latest.fetchedAt else { return (nil, "first measurement") }
-            return (pos(first) - pos(latest), "first measurement \(first.fetchedAt.formatted(date: .abbreviated, time: .omitted))")
-        case .week:
-            let cutoff = latest.fetchedAt.addingTimeInterval(-7 * 86_400)
-            guard let ref = all.last(where: { $0.fetchedAt <= cutoff }) else { return (nil, "7 days ago") }
-            return (pos(ref) - pos(latest), "7 days ago (\(ref.fetchedAt.formatted(date: .abbreviated, time: .omitted)))")
-        case .lastMarker:
-            guard let marker = markers.last(where: { $0.date < latest.fetchedAt }) else {
-                guard let first = all.first, first.fetchedAt < latest.fetchedAt else { return (nil, "no release or change yet") }
-                return (pos(first) - pos(latest), "first measurement (no release or change recorded)")
-            }
-            guard let pair = beforeAfter(marker.date) else { return (nil, "no measurement before \(marker.title)") }
-            return (pos(pair.before) - pos(pair.after), "\(marker.title) · \(marker.date.formatted(date: .abbreviated, time: .omitted))")
-        }
+        history.delta(reference: reference, markers: markers)
     }
 
     var latestPopularity: PopularityObservation? { popularity.max { $0.fetchedAt < $1.fetchedAt } }
 
+    /// Brand, golden and lead verdicts, computed in ASOCore from what this record stores.
+    var judgement: KeywordJudgement {
+        let own = market?.app.map { KeywordJudgement.OwnApp(trackID: $0.trackID, name: $0.name, sellerName: $0.sellerName) }
+        return KeywordJudgement(term: text, ownApp: own, measurement: latestMeasured.map { .init(results: $0.results, signals: $0.signals) },
+                                brandProbability: brandProbability, navigational: navigational, fitProbability: fitProbability,
+                                popularity: latestPopularity?.popularity1to100)
+    }
+
+    /// Read straight from the latest measurement so table cells do not decode its results when the signals suffice.
     var difficultyScore: DifficultyScore? {
         guard let m = latestMeasured else { return nil }
-        return m.signals?.difficulty ?? DifficultyScore(results: m.results, term: text)
+        return KeywordJudgement.difficulty(signals: m.signals, results: m.results, term: text)
     }
 
     /// popularity × (1 − (difficulty/100)²): demand, discounted quadratically by competition. Nil without both inputs.
     var opportunity: Double? {
         guard let p = latestPopularity?.popularity1to100, let d = difficultyScore else { return nil }
-        return Double(p) * (1 - pow(d.score / 100, 2))
+        return Opportunity.score(popularity: p, difficulty: d.score)
     }
 
     /// Our own app is the first result: the term is ours, whatever else the results say.
-    var ownAppLeads: Bool {
-        guard let m = latestMeasured, let leader = m.results.first, let own = market?.app else { return false }
-        return leader.trackID == own.trackID || (!own.sellerName.isEmpty && leader.sellerName == own.sellerName)
-    }
+    var ownAppLeads: Bool { judgement.ownAppLeads }
 
     /// The term is our own name ("acme notes" for Acme Notes): a brand, but ours, always worth ranking for.
-    var isOwnBrandTerm: Bool {
-        guard let own = market?.app else { return false }
-        return TitleMatch.namesAlign(leader: own.name, term: text)
-    }
+    var isOwnBrandTerm: Bool { judgement.isOwnBrandTerm }
 
     /// From the measured results: the top app carries the term's name and either nobody else does or it dwarfs the field.
-    var leaderOwnsTerm: Bool {
-        guard let m = latestMeasured, let leader = m.results.first, !ownAppLeads, !isOwnBrandTerm else { return false }
-        let ratings = leader.ratingCount ?? 0
-        let median = m.signals?.medianRatingCountTop10 ?? 0
-        let titles = m.signals?.titleMatchesTop10 ?? 0
-        // A nobody with our words in its name is not a destination; the leader must have real ratings to "own" a term.
-        return TitleMatch.namesAlign(leader: leader.name, term: text) && ((titles <= 2 && ratings >= 50) || ratings >= max(200, 5 * median))
-    }
+    var leaderOwnsTerm: Bool { judgement.leaderOwnsTerm }
 
     /// Another company's name by any of three signals: Jev on the term, Jev on the term with the results in view, or the results themselves.
-    var isBrandLike: Bool {
-        if isOwnBrandTerm || ownAppLeads { return false }
-        return (brandProbability ?? 0) >= 0.5 || (navigational ?? 0) >= 0.6 || leaderOwnsTerm
-    }
+    var isBrandLike: Bool { judgement.isBrandLike }
 
     /// Demand, competition and brand checks pass, regardless of whether the term fits this app.
     func passesGoldenNumbers(minPopularity: Int, maxDifficulty: Int) -> Bool {
-        guard let p = latestPopularity?.popularity1to100, p >= minPopularity, let d = difficultyScore, d.score <= Double(maxDifficulty) else { return false }
-        return !isBrandLike
+        judgement.passesGoldenNumbers(minPopularity: minPopularity, maxDifficulty: maxDifficulty)
     }
 
     /// The advertiser's own Apple Ads results for this term in this storefront (last synced window), summed over campaigns.
@@ -239,12 +194,12 @@ final class TrackedKeyword {
 
     /// Golden for this app: the numbers pass and the term is what this app does (fit ≥ 0.5; unchecked counts as related).
     func isGolden(minPopularity: Int, maxDifficulty: Int) -> Bool {
-        passesGoldenNumbers(minPopularity: minPopularity, maxDifficulty: maxDifficulty) && (fitProbability ?? 1) >= 0.5
+        judgement.isGolden(minPopularity: minPopularity, maxDifficulty: maxDifficulty)
     }
 
     /// The numbers pass but the term is not what this app does, a lead for a different app, not a keyword for this one.
     func isGoldenLead(minPopularity: Int, maxDifficulty: Int) -> Bool {
-        passesGoldenNumbers(minPopularity: minPopularity, maxDifficulty: maxDifficulty) && (fitProbability ?? 1) < 0.5
+        judgement.isGoldenLead(minPopularity: minPopularity, maxDifficulty: maxDifficulty)
     }
 }
 
@@ -290,6 +245,7 @@ final class RankObservation {
     var provider: ProviderID { ProviderID(rawValue: providerRaw) }
     var results: [SearchResultApp] { (try? JSONDecoder().decode([SearchResultApp].self, from: resultsData)) ?? [] }
     var signals: CompetitionSignals? { signalsData.flatMap { try? JSONDecoder().decode(CompetitionSignals.self, from: $0) } }
+    var point: RankPoint { RankPoint(fetchedAt: fetchedAt, outcome: outcome, provider: provider) }
 
     func asSample(keyword: String, storefront: String) -> RankSample {
         RankSample(keyword: keyword, storefront: storefront, device: DeviceContext(rawValue: deviceRaw) ?? .iPhone,
@@ -546,49 +502,27 @@ final class IdeaCandidate {
         updatedAt = .now
     }
 
-    var opportunity: Double? { difficulty.map { Double(popularity) * (1 - pow($0 / 100, 2)) } }
+    var opportunity: Double? { difficulty.map { Opportunity.score(popularity: popularity, difficulty: $0) } }
+
+    /// The gap verdict, computed in ASOCore from what this record stores.
+    var gap: IdeaGap {
+        IdeaGap(term: term, normalized: normalized, difficulty: difficulty, brand: brand, natural: natural, appable: appable,
+                navigational: navigational, leaderOwnsTerm: leaderOwnsTerm, nameCrowd: nameCrowd)
+    }
 
     /// "free / gratis / kostenlos …": people who type it will not pay, so it is no lead for a new app.
-    static let freeWords: Set<String> = ["free", "gratis", "kostenlos", "gratuit", "gratuite", "gratuito", "gratuita", "бесплатно", "бесплатный", "бесплатные", "ücretsiz", "bedava", "無料", "免费", "免費", "darmowe", "darmowy", "zdarma", "ingyenes"]
-    var wantsFree: Bool { normalized.split(separator: " ").contains { Self.freeWords.contains(String($0)) } || normalized.contains("無料") || normalized.contains("免费") }
+    var wantsFree: Bool { IdeaGap.wantsFree(normalized: normalized) }
 
     /// Real demand, an app-shaped need, nobody's brand (by Jev and by the results), and beatable results.
-    func isGap(maxDifficulty: Int) -> Bool {
-        guard let d = difficulty, d <= Double(maxDifficulty) else { return false }
-        return (brand ?? 0) < 0.5 && (natural ?? 1) >= 0.5 && (appable ?? 1) >= 0.5 && leaderOwnsTerm != true && nameCrowd != true && (navigational ?? 0) < 0.6 && !wantsFree
-    }
+    func isGap(maxDifficulty: Int) -> Bool { gap.isGap(maxDifficulty: maxDifficulty) }
 
     /// Derives the results-based flags from what a measurement stored.
     func updateResultFlags() {
         guard measuredAt != nil, let leader = leaderName else { return }
-        let ratings = leaderRatings ?? 0
-        let median = medianRatings ?? 0
-        // Names align and either nobody else carries the name or the leader dwarfs the field: people want that app.
-        leaderOwnsTerm = TitleMatch.namesAlign(leader: leader, term: term) && ((titleMatches ?? 0) <= 2 || ratings >= max(200, 5 * median))
-        let singleWord = !normalized.contains(" ")
-        nameCrowd = singleWord && (titleMatches ?? 0) >= 8 && ratings < 1_000
-    }
-}
-
-/// A dated point to compare ranks around.
-nonisolated struct Marker: Hashable, Sendable {
-    let date: Date
-    let title: String
-    /// "release" · "note" · "change"
-    let kind: String
-}
-
-/// What the Δ column compares the latest rank against.
-nonisolated enum DeltaReference: String, CaseIterable, Identifiable, Sendable {
-    case lastMarker, previous, first, week
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .lastMarker: "since last release or change"
-        case .previous: "vs previous measurement"
-        case .first: "since first measurement"
-        case .week: "vs 7 days ago"
-        }
+        let flags = IdeaGap.resultFlags(term: term, normalized: normalized, leaderName: leader, leaderRatings: leaderRatings,
+                                        medianRatings: medianRatings, titleMatches: titleMatches)
+        leaderOwnsTerm = flags.leaderOwnsTerm
+        nameCrowd = flags.nameCrowd
     }
 }
 
