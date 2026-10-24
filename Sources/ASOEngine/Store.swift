@@ -55,6 +55,8 @@ public actor Store {
         );
         CREATE INDEX rank_observations_keyword ON rank_observations (keyword_id, fetched_at);
         """,
+        // 2: the Apple Ads genre popularity lookups use (raw AppleAdsGenre value; NULL = search every genre).
+        "ALTER TABLE apps ADD COLUMN ads_genre TEXT;",
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -91,16 +93,24 @@ public actor Store {
 
     // MARK: Apps
 
-    /// Inserts the app or refreshes its public details; the creation date of an existing app is kept.
+    /// Inserts the app or refreshes its public details. The creation date and the chosen Apple Ads genre of an existing
+    /// app are kept.
     public func upsertApp(_ app: AppRecord) throws {
         try db.query("""
-            INSERT INTO apps (track_id, bundle_id, name, seller_name, icon_url, primary_genre, store_version, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO apps (track_id, bundle_id, name, seller_name, icon_url, primary_genre, store_version, created_at, ads_genre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (track_id) DO UPDATE SET bundle_id = excluded.bundle_id, name = excluded.name,
                 seller_name = excluded.seller_name, icon_url = excluded.icon_url, primary_genre = excluded.primary_genre,
                 store_version = excluded.store_version
             """, [.int(app.trackID), SQLValue(app.bundleID), .text(app.name), .text(app.sellerName), SQLValue(app.iconURL),
-                  SQLValue(app.primaryGenre), SQLValue(app.storeVersion), SQLValue(app.createdAt)])
+                  SQLValue(app.primaryGenre), SQLValue(app.storeVersion), SQLValue(app.createdAt), SQLValue(app.adsGenre)])
+    }
+
+    /// Sets the Apple Ads genre (nil: search every genre). False when the app is not tracked.
+    @discardableResult
+    public func setAdsGenre(trackID: Int, genre: String?) throws -> Bool {
+        try db.query("UPDATE apps SET ads_genre = ? WHERE track_id = ?", [SQLValue(genre), .int(trackID)])
+        return db.changes > 0
     }
 
     public func apps() throws -> [AppRecord] {
@@ -130,6 +140,27 @@ public actor Store {
             throw EngineError.database("The market \(country) · \(device.rawValue) could not be created.")
         }
         return market
+    }
+
+    /// Removes a market with its keywords and measurements. False when there was none.
+    @discardableResult
+    public func removeMarket(appID: Int, countryCode: String, device: DeviceContext) throws -> Bool {
+        try db.query("DELETE FROM markets WHERE app_id = ? AND country_code = ? AND device = ?",
+                     [.int(appID), .text(countryCode.uppercased()), .text(device.rawValue)])
+        return db.changes > 0
+    }
+
+    /// An app's markets with their keyword count and newest measurement of any outcome.
+    public func marketSummaries(appID: Int) throws -> [(market: MarketRecord, keywords: Int, lastMeasuredAt: Date?)] {
+        try db.rows("""
+            SELECT m.id, m.app_id, m.country_code, m.device, m.created_at, COUNT(DISTINCT k.id), MAX(o.fetched_at)
+            FROM markets m
+            LEFT JOIN keywords k ON k.market_id = m.id
+            LEFT JOIN rank_observations o ON o.keyword_id = k.id
+            WHERE m.app_id = ?
+            GROUP BY m.id
+            ORDER BY m.country_code, m.device
+            """, [.int(appID)]) { row in (Self.market(row), row.int(5), row.isNull(6) ? nil : row.date(6)) }
     }
 
     /// Every market that has keywords, with its newest measurement of any outcome (nil when never measured).
@@ -225,10 +256,10 @@ public actor Store {
 
     // MARK: Row mapping
 
-    private static let appColumns = "track_id, bundle_id, name, seller_name, icon_url, primary_genre, store_version, created_at"
+    private static let appColumns = "track_id, bundle_id, name, seller_name, icon_url, primary_genre, store_version, created_at, ads_genre"
     private static func app(_ row: Row) -> AppRecord {
         AppRecord(trackID: row.int(0), bundleID: row.optionalText(1), name: row.text(2), sellerName: row.text(3), iconURL: row.optionalText(4),
-                  primaryGenre: row.optionalText(5), storeVersion: row.optionalText(6), createdAt: row.date(7))
+                  primaryGenre: row.optionalText(5), storeVersion: row.optionalText(6), createdAt: row.date(7), adsGenre: row.optionalText(8))
     }
 
     private static let marketColumns = "id, app_id, country_code, device, created_at"

@@ -26,9 +26,11 @@ public struct AppRecord: Sendable, Hashable, Codable {
     public var primaryGenre: String?
     public var storeVersion: String?
     public var createdAt: Date
+    /// Raw `AppleAdsGenre` used for popularity lookups; nil searches every genre.
+    public var adsGenre: String?
 
     public init(trackID: Int, bundleID: String?, name: String, sellerName: String, iconURL: String?, primaryGenre: String?,
-                storeVersion: String?, createdAt: Date) {
+                storeVersion: String?, createdAt: Date, adsGenre: String? = nil) {
         self.trackID = trackID
         self.bundleID = bundleID
         self.name = name
@@ -37,11 +39,15 @@ public struct AppRecord: Sendable, Hashable, Codable {
         self.primaryGenre = primaryGenre
         self.storeVersion = storeVersion
         self.createdAt = createdAt
+        self.adsGenre = adsGenre
     }
 
+    /// A newly tracked app; its Apple Ads genre follows the App Store category when Apple has a counterpart, as in the
+    /// macOS app.
     public init(_ app: SearchResultApp, createdAt: Date) {
         self.init(trackID: app.trackID, bundleID: app.bundleID, name: app.name, sellerName: app.sellerName,
-                  iconURL: app.iconURL?.absoluteString, primaryGenre: app.primaryGenre, storeVersion: app.version, createdAt: createdAt)
+                  iconURL: app.iconURL?.absoluteString, primaryGenre: app.primaryGenre, storeVersion: app.version, createdAt: createdAt,
+                  adsGenre: AppleAdsGenre(appStoreGenre: app.primaryGenre)?.rawValue)
     }
 
     var ownApp: KeywordJudgement.OwnApp { .init(trackID: trackID, name: name, sellerName: sellerName) }

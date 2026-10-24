@@ -32,6 +32,71 @@ public struct Engine: Sendable {
         return try await app(found.trackID)
     }
 
+    /// Apps for the Add App search: an App Store link or ID looks up that app (in the link's country when it has one),
+    /// anything else searches app names in `countryCode`. Nothing is stored.
+    public func findApps(query: String, countryCode: String) async throws -> [SearchResultApp] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw EngineError.invalidArgument("Type an app name, App Store link or app ID.") }
+        if let link = AppStoreURL.parse(trimmed) {
+            let storefront = try Self.storefront(link.countryCode ?? countryCode)
+            return try await search.lookup(trackID: link.trackID, storefront: storefront).map { [$0] } ?? []
+        }
+        return try await search.lookup(term: trimmed, storefront: try Self.storefront(countryCode), limit: 25)
+    }
+
+    /// Tracks the app and creates a market per country for `device`, skipping markets that already exist.
+    public func addApp(reference: String, lookupCountry: String?, markets countries: [String], device: DeviceContext) async throws -> AppRecord {
+        let storefronts = try countries.map(Self.storefront)
+        let app = try await addApp(reference: reference, countryCode: lookupCountry)
+        for storefront in storefronts {
+            _ = try await store.market(appID: app.trackID, countryCode: storefront.countryCode, device: device)
+        }
+        return app
+    }
+
+    /// Sets the Apple Ads genre used for popularity (nil: search every genre).
+    public func setAdsGenre(appID: Int, genre: AppleAdsGenre?) async throws -> AppRecord {
+        _ = try await app(appID)
+        try await store.setAdsGenre(trackID: appID, genre: genre?.rawValue)
+        return try await app(appID)
+    }
+
+    // MARK: Markets
+
+    /// A market as lists show it.
+    public struct MarketSummary: Sendable, Codable, Equatable {
+        public let country: String
+        public let countryName: String
+        public let device: String
+        public let keywords: Int
+        public let lastMeasuredAt: Date?
+    }
+
+    public func addMarket(appID: Int, countryCode: String, device: DeviceContext) async throws -> MarketSummary {
+        _ = try await app(appID)
+        let market = try await store.market(appID: appID, countryCode: try Self.storefront(countryCode).countryCode, device: device)
+        guard let summary = try await markets(appID: appID).first(where: { $0.country == market.countryCode && $0.device == market.device.rawValue }) else {
+            throw EngineError.database("The market \(Self.title(market)) could not be read back.")
+        }
+        return summary
+    }
+
+    public func markets(appID: Int) async throws -> [MarketSummary] {
+        _ = try await app(appID)
+        return try await store.marketSummaries(appID: appID).map { row in
+            MarketSummary(country: row.market.countryCode, countryName: StorefrontRegistry.lookup(row.market.countryCode)?.name ?? row.market.countryCode,
+                          device: row.market.device.rawValue, keywords: row.keywords, lastMeasuredAt: row.lastMeasuredAt)
+        }
+    }
+
+    /// Removes the market with its keywords and measurements.
+    public func removeMarket(appID: Int, countryCode: String, device: DeviceContext) async throws {
+        let country = try Self.storefront(countryCode).countryCode
+        guard try await store.removeMarket(appID: appID, countryCode: country, device: device) else {
+            throw EngineError.notFound("App \(appID) has no \(country) · \(device.rawValue) market.")
+        }
+    }
+
     public func app(_ trackID: Int) async throws -> AppRecord {
         guard let app = try await store.app(trackID: trackID) else {
             throw EngineError.notFound("App \(trackID) is not tracked. Add it first.")

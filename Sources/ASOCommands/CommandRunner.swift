@@ -79,10 +79,75 @@ public struct CommandRunner: Sendable {
 
     private func dispatch(_ command: String, _ args: Arguments) async throws {
         switch (command, args.positionals.dropFirst().first) {
-        case ("app", "add"):
+        case ("app", "search"):
             try args.allow(["country"])
-            let app = try await engine(args).addApp(reference: try args.positional(2, "App Store link or app ID"), countryCode: args.option("country"))
-            write(args, app) { Self.sentence("Tracking \($0.name) (\($0.trackID)) by \($0.sellerName)") }
+            let query = Array(args.positionals.dropFirst(2)).joined(separator: " ")
+            guard !query.isEmpty else { throw UsageError("Missing app name, App Store link or ID.") }
+            let apps = try await engine(args).findApps(query: query, countryCode: args.option("country") ?? "US")
+            write(args, apps) { apps in
+                guard !apps.isEmpty else { return "No apps found." }
+                var table = TextTable([.init("ID", .right), .init("App"), .init("Seller"), .init("Genre"), .init("Ratings", .right)])
+                for app in apps { table.add([String(app.trackID), app.name, app.sellerName, app.primaryGenre ?? "", app.ratingCount.map(String.init) ?? ""]) }
+                return table.render()
+            }
+        case ("app", "add"):
+            try args.allow(["country", "markets", "device"])
+            let reference = try args.positional(2, "App Store link or app ID")
+            let markets = (args.option("markets") ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let app = try await engine(args).addApp(reference: reference, lookupCountry: args.option("country"), markets: markets,
+                                                    device: try deviceOption(args) ?? .iPhone)
+            write(args, app) { app in
+                Self.sentence("Tracking \(app.name) (\(app.trackID)) by \(app.sellerName)")
+                    + (markets.isEmpty ? "" : " Markets: \(markets.map { $0.uppercased() }.joined(separator: ", ")).")
+            }
+        case ("app", "genre"):
+            try args.allow([])
+            let id = try args.integer(2, "app ID")
+            let raw = try args.positional(3, "Apple Ads genre or \"any\"")
+            let genre: AppleAdsGenre?
+            if raw.lowercased() == "any" {
+                genre = nil
+            } else if let match = AppleAdsGenre.allCases.first(where: { $0.rawValue.lowercased() == raw.lowercased() }) {
+                genre = match
+            } else {
+                throw UsageError("Unknown genre \"\(raw)\". Genres: any, \(AppleAdsGenre.allCases.map(\.rawValue).joined(separator: ", ")).")
+            }
+            let app = try await engine(args).setAdsGenre(appID: id, genre: genre)
+            write(args, app) { _ in "Apple Ads genre: \(genre?.displayName ?? "any (every genre is searched)")." }
+        case ("market", "add"):
+            try args.allow(["country", "device"])
+            let summary = try await engine(args).addMarket(appID: try args.integer(2, "app ID"), countryCode: try required(args, "country"),
+                                                           device: try deviceOption(args) ?? .iPhone)
+            write(args, summary) { "Market \($0.country) · \($0.device) (\($0.countryName)) is ready for keywords." }
+        case ("market", "list"):
+            try args.allow([])
+            let markets = try await engine(args).markets(appID: try args.integer(2, "app ID"))
+            write(args, markets) { markets in
+                guard !markets.isEmpty else { return "No markets yet. Add one with: aso market add <app ID> --country US" }
+                var table = TextTable([.init("Market"), .init("Country"), .init("Keywords", .right), .init("Measured")])
+                for m in markets {
+                    table.add(["\(m.country) \(m.device)", m.countryName, String(m.keywords),
+                               m.lastMeasuredAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"])
+                }
+                return table.render()
+            }
+        case ("market", "remove"):
+            try args.allow(["country", "device"])
+            let id = try args.integer(2, "app ID")
+            let country = try required(args, "country")
+            let device = try deviceOption(args) ?? .iPhone
+            try await engine(args).removeMarket(appID: id, countryCode: country, device: device)
+            write(args, ["removed": "\(country.uppercased()) \(device.rawValue)"]) { _ in
+                "Removed the \(country.uppercased()) · \(device.rawValue) market with its keywords and measurements."
+            }
+        case ("storefronts", _):
+            try args.allow([])
+            let storefronts = StorefrontRegistry.sortedByName.map { StorefrontInfo(code: $0.countryCode, name: $0.name, language: $0.defaultLocale.rawValue) }
+            write(args, storefronts) { list in list.map { "\($0.code)  \($0.name)" }.joined(separator: "\n") }
+        case ("genres", _):
+            try args.allow([])
+            let genres = AppleAdsGenre.allCases.map { GenreInfo(id: $0.rawValue, name: $0.displayName) }
+            write(args, genres) { list in list.map { "\($0.id)  \($0.name)" }.joined(separator: "\n") }
         case ("app", "list"):
             try args.allow([])
             let apps = try await engine(args).store.apps()
@@ -269,6 +334,19 @@ public struct CommandRunner: Sendable {
         var errorDescription: String? { "The metadata has errors." }
     }
 
+    /// A storefront as pickers list it.
+    struct StorefrontInfo: Encodable {
+        let code: String
+        let name: String
+        /// The language the storefront's store uses by default (e.g. "tr", "en-US").
+        let language: String
+    }
+
+    struct GenreInfo: Encodable {
+        let id: String
+        let name: String
+    }
+
     /// One measured keyword as `measure --json` reports it on stderr.
     struct MeasureProgressLine: Encodable {
         let completed: Int
@@ -417,10 +495,17 @@ public struct CommandRunner: Sendable {
         Track App Store ranks and check keywords from the command line. Every number says where it came from:
         "> 200" means not in the top 200 results, never rank 201.
 
-        Apps
-          app add <App Store link or ID> [--country CC]   Start tracking an app
+        Apps and markets
+          app search <name, link or ID> [--country CC]    Find an app (nothing is stored)
+          app add <App Store link or ID> [--country CC] [--markets US,DE,…] [--device iphone|ipad|mac]
+                                                          Start tracking an app, optionally in several markets
           app list                                        Tracked apps
+          app genre <app ID> <GENRE|any>                  Apple Ads genre used for popularity (see: aso genres)
           app remove <app ID>                             Stop tracking an app and delete its data
+          market add <app ID> --country CC [--device ...]
+          market list <app ID>                            Markets with their keyword count and last measurement
+          market remove <app ID> --country CC [--device ...]
+          storefronts  ·  genres                          The 50 App Store countries; the Apple Ads genres
 
         Keywords
           keywords add <app ID> <keyword>... --country CC [--device iphone|ipad|mac]
