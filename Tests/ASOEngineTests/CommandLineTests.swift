@@ -26,11 +26,11 @@ struct Harness {
         engine = try makeEngine(search: search, hints: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads, revenue: revenue)
     }
 
-    func run(_ arguments: [String], environment: [String: String] = [:]) async -> (code: Int32, console: Console) {
+    func run(_ arguments: [String], environment: [String: String] = [:], input: String = "") async -> (code: Int32, console: Console) {
         let console = Console()
         let engine = self.engine
         let directories = self.directories
-        let runner = CommandRunner(environment: environment, output: { console.write($0) }, errors: { console.writeError($0) }) { directory in
+        let runner = CommandRunner(environment: environment, output: { console.write($0) }, errors: { console.writeError($0) }, input: { input }) { directory in
             directories.append(directory)
             return engine
         }

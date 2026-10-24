@@ -167,6 +167,42 @@ public actor Store {
         );
         CREATE INDEX revenue_snapshots_project ON revenue_snapshots (project_id, fetched_at);
         """,
+        // 8: metadata per locale (what Apple holds, and the draft being written) and the legal footer settings per app.
+        """
+        CREATE TABLE metadata_baselines (
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            locale TEXT NOT NULL,
+            name TEXT NOT NULL,
+            subtitle TEXT NOT NULL,
+            keywords TEXT NOT NULL,
+            promotional_text TEXT NOT NULL,
+            description TEXT NOT NULL,
+            whats_new TEXT NOT NULL,
+            source TEXT NOT NULL,
+            app_info_localization_id TEXT,
+            version_localization_id TEXT,
+            version_string TEXT,
+            version_state TEXT,
+            fetched_at REAL NOT NULL,
+            PRIMARY KEY (app_id, locale)
+        );
+        CREATE TABLE metadata_drafts (
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            locale TEXT NOT NULL,
+            name TEXT NOT NULL,
+            subtitle TEXT NOT NULL,
+            keywords TEXT NOT NULL,
+            promotional_text TEXT NOT NULL,
+            description TEXT NOT NULL,
+            whats_new TEXT NOT NULL,
+            updated_at REAL NOT NULL,
+            PRIMARY KEY (app_id, locale)
+        );
+        ALTER TABLE apps ADD COLUMN legal_footer_enabled INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE apps ADD COLUMN eula_url TEXT NOT NULL DEFAULT '';
+        ALTER TABLE apps ADD COLUMN privacy_url TEXT NOT NULL DEFAULT '';
+        ALTER TABLE apps ADD COLUMN legal_note TEXT NOT NULL DEFAULT '';
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -469,6 +505,71 @@ public actor Store {
     }
 
     private static func list(_ joined: String) -> [String] { joined.split(separator: "|").map(String.init) }
+
+    // MARK: Metadata
+
+    private static let fieldColumns = "name, subtitle, keywords, promotional_text, description, whats_new"
+
+    private static func fieldValues(_ f: MetadataFields) -> [SQLValue] {
+        [.text(f.name), .text(f.subtitle), .text(f.keywords), .text(f.promotionalText), .text(f.description), .text(f.whatsNew)]
+    }
+
+    private static func fields(_ row: Row, from first: Int32) -> MetadataFields {
+        MetadataFields(name: row.text(first), subtitle: row.text(first + 1), keywords: row.text(first + 2), promotionalText: row.text(first + 3),
+                       description: row.text(first + 4), whatsNew: row.text(first + 5))
+    }
+
+    /// Stores the baseline of one locale, replacing the one before.
+    public func replaceBaseline(_ baseline: MetadataBaselineRecord, appID: Int) throws {
+        try db.query("""
+            INSERT OR REPLACE INTO metadata_baselines (app_id, locale, \(Self.fieldColumns), source, app_info_localization_id,
+                version_localization_id, version_string, version_state, fetched_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [.int(appID), .text(baseline.locale)] + Self.fieldValues(baseline.fields)
+                + [.text(baseline.source), SQLValue(baseline.appInfoLocalizationID), SQLValue(baseline.versionLocalizationID),
+                   SQLValue(baseline.versionString), SQLValue(baseline.versionState), SQLValue(baseline.fetchedAt)])
+    }
+
+    public func baselines(appID: Int) throws -> [MetadataBaselineRecord] {
+        try db.rows("""
+            SELECT locale, \(Self.fieldColumns), source, app_info_localization_id, version_localization_id, version_string, version_state, fetched_at
+            FROM metadata_baselines WHERE app_id = ? ORDER BY locale
+            """, [.int(appID)]) { row in
+            MetadataBaselineRecord(locale: row.text(0), fields: Self.fields(row, from: 1), source: row.text(7), appInfoLocalizationID: row.optionalText(8),
+                                   versionLocalizationID: row.optionalText(9), versionString: row.optionalText(10), versionState: row.optionalText(11),
+                                   fetchedAt: row.date(12))
+        }
+    }
+
+    /// Stores the draft of one locale, replacing the one before.
+    public func replaceDraft(_ draft: MetadataDraftRecord, appID: Int) throws {
+        try db.query("INSERT OR REPLACE INTO metadata_drafts (app_id, locale, \(Self.fieldColumns), updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     [.int(appID), .text(draft.locale)] + Self.fieldValues(draft.fields) + [SQLValue(draft.updatedAt)])
+    }
+
+    /// Drops the draft of one locale. False when there was none.
+    @discardableResult
+    public func removeDraft(appID: Int, locale: String) throws -> Bool {
+        try db.query("DELETE FROM metadata_drafts WHERE app_id = ? AND locale = ?", [.int(appID), .text(locale)])
+        return db.changes > 0
+    }
+
+    public func drafts(appID: Int) throws -> [MetadataDraftRecord] {
+        try db.rows("SELECT locale, \(Self.fieldColumns), updated_at FROM metadata_drafts WHERE app_id = ? ORDER BY locale", [.int(appID)]) { row in
+            MetadataDraftRecord(locale: row.text(0), fields: Self.fields(row, from: 1), updatedAt: row.date(7))
+        }
+    }
+
+    public func legalFooter(appID: Int) throws -> LegalFooterSettings? {
+        try db.rows("SELECT legal_footer_enabled, eula_url, privacy_url, legal_note FROM apps WHERE track_id = ?", [.int(appID)]) { row in
+            LegalFooterSettings(enabled: row.int(0) != 0, eulaURL: row.text(1), privacyURL: row.text(2), note: row.text(3))
+        }.first
+    }
+
+    public func setLegalFooter(_ settings: LegalFooterSettings, appID: Int) throws {
+        try db.query("UPDATE apps SET legal_footer_enabled = ?, eula_url = ?, privacy_url = ?, legal_note = ? WHERE track_id = ?",
+                     [.int(settings.enabled ? 1 : 0), .text(settings.eulaURL), .text(settings.privacyURL), .text(settings.note), .int(appID)])
+    }
 
     // MARK: Ratings
 

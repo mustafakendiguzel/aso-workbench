@@ -157,6 +157,10 @@ public struct CommandRunner: Sendable {
             try args.allow([])
             let genres = AppleAdsGenre.allCases.map { GenreInfo(id: $0.rawValue, name: $0.displayName) }
             write(args, genres) { list in list.map { "\($0.id)  \($0.name)" }.joined(separator: "\n") }
+        case ("locales", _):
+            try args.allow([])
+            let locales = AppLocale.allCases.map { GenreInfo(id: $0.rawValue, name: $0.displayName) }
+            write(args, locales) { list in list.map { "\($0.id)  \($0.name)" }.joined(separator: "\n") }
         case ("app", "list"):
             try args.allow([])
             let apps = try await engine(args).store.apps()
@@ -301,6 +305,58 @@ public struct CommandRunner: Sendable {
             try args.allow([])
             let id = try args.integer(2, "app ID")
             write(args, try await engine(args).revenueReport(appID: id)) { Self.revenueText($0) }
+        case ("metadata", "locales"):
+            try args.allow([])
+            write(args, try await engine(args).metadataLocales(appID: try args.integer(2, "app ID"))) { Self.metadataLocalesTable($0) }
+        case ("metadata", "show"):
+            try args.allow(["locale"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id)
+            write(args, try await workbench.metadata(appID: id, locale: locale)) { Self.metadataText($0) }
+        case ("metadata", "draft"), ("metadata", "baseline"):
+            try args.allow(Set(["locale", "stdin"] + MetadataField.allCases.map(Self.optionName)))
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+            let start = try await workbench.metadata(appID: id, locale: locale)
+            let isDraft = args.positionals[1] == "draft"
+            let fields = try metadataFields(args, startingFrom: isDraft ? start.draft : start.baseline?.fields ?? .empty)
+            let report = isDraft ? try await workbench.saveDraft(appID: id, locale: locale, fields: fields)
+                                               : try await workbench.setManualBaseline(appID: id, locale: locale, fields: fields)
+            write(args, report) { Self.metadataText($0) }
+        case ("metadata", "reset"):
+            try args.allow(["locale"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+            write(args, try await workbench.resetDraft(appID: id, locale: locale)) { Self.metadataText($0) }
+        case ("metadata", "legal"):
+            try args.allow(["on", "off", "eula", "privacy", "note"])
+            guard !(args.flag("on") && args.flag("off")) else { throw UsageError("Give --on or --off, not both.") }
+            let enabled: Bool? = args.flag("on") ? true : args.flag("off") ? false : nil
+            let settings = try await engine(args).setLegalFooter(appID: try args.integer(2, "app ID"), enabled: enabled, eulaURL: args.option("eula"),
+                                                                 privacyURL: args.option("privacy"), note: args.option("note"))
+            write(args, settings) { s in
+                "Legal footer \(s.enabled ? "on" : "off") · Terms of Use \(s.effectiveEULA)\(s.eulaURL.isEmpty ? " (Apple's standard EULA)" : "")"
+                    + " · Privacy Policy \(s.privacyURL.isEmpty ? "not set" : s.privacyURL)" + (s.note.isEmpty ? "" : " · note: \(s.note)")
+            }
+        case ("metadata", "footer"):
+            try args.allow(["locale"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locales = try args.option("locale").map { [try Self.locale($0)] }
+            let batch = try await workbench.insertLegalFooter(appID: id, locales: locales)
+            write(args, batch) { b in
+                "Legal footer added to \(b.changed.count) of \(b.locales) draft(s)" + (b.changed.isEmpty ? "; every one already had it." : ": \(b.changed.joined(separator: ", ")).")
+            }
+        case ("metadata", "fill-whats-new"):
+            try args.allow([])
+            let batch = try await engine(args).fillEmptyWhatsNew(appID: try args.integer(2, "app ID"))
+            write(args, batch) { b in
+                "What's New filled with the default note in \(b.changed.count) of \(b.locales) locale(s)"
+                    + (b.changed.isEmpty ? "; every one already had notes." : ": \(b.changed.joined(separator: ", ")).")
+            }
         case ("ratings", "check"):
             try args.allow(["country", "all"])
             let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
@@ -539,6 +595,57 @@ public struct CommandRunner: Sendable {
 
     private func credentials(_ args: Arguments) throws -> CredentialStore {
         CredentialStore(directory: dataDirectory(args))
+    }
+
+    static func optionName(_ field: MetadataField) -> String {
+        switch field {
+        case .name: "name"
+        case .subtitle: "subtitle"
+        case .keywords: "keywords"
+        case .promotionalText: "promotional-text"
+        case .description: "description"
+        case .whatsNew: "whats-new"
+        }
+    }
+
+    static func locale(_ raw: String) throws -> AppLocale {
+        guard let locale = AppLocale.parse(raw) else {
+            throw UsageError("\"\(raw)\" is not an App Store locale. Locales: \(AppLocale.allCases.map(\.rawValue).joined(separator: ", ")).")
+        }
+        return locale
+    }
+
+    /// --locale, or the first locale worth writing when the command can do without it.
+    private func metadataLocale(_ args: Arguments, engine: Engine, appID: Int, required: Bool = false) async throws -> AppLocale {
+        if let raw = args.option("locale") { return try Self.locale(raw) }
+        guard !required else { throw UsageError("Give the locale with --locale, e.g. --locale en-US.") }
+        let first = try await engine.metadataLocales(appID: appID).first?.locale ?? AppLocale.enUS.rawValue
+        return try Self.locale(first)
+    }
+
+    /// Every field from standard input as JSON (--stdin), or the given field options over `start`.
+    private func metadataFields(_ args: Arguments, startingFrom start: MetadataFields) throws -> MetadataFields {
+        if args.flag("stdin") {
+            guard args.names.isDisjoint(with: MetadataField.allCases.map(Self.optionName)) else {
+                throw UsageError("Give the fields either as JSON on standard input (--stdin) or as options, not both.")
+            }
+            do {
+                return try JSONDecoder().decode(MetadataFields.self, from: Data(input().utf8))
+            } catch {
+                throw UsageError("Standard input must be a JSON object with name, subtitle, keywords, promotionalText, description and whatsNew.")
+            }
+        }
+        var fields = start
+        var given = 0
+        for field in MetadataField.allCases {
+            guard let value = args.option(Self.optionName(field)) else { continue }
+            fields[field] = value
+            given += 1
+        }
+        guard given > 0 else {
+            throw UsageError("Give at least one field: --name, --subtitle, --keywords, --promotional-text, --description, --whats-new (or --stdin).")
+        }
+        return fields
     }
 
     private func serviceArgument(_ args: Arguments) throws -> CredentialStore.Service {
@@ -795,6 +902,52 @@ public struct CommandRunner: Sendable {
         return text
     }
 
+    static func metadataLocalesTable(_ locales: [Engine.MetadataLocale]) -> String {
+        var table = TextTable([.init("Locale"), .init("Language"), .init("Market"), .init("Baseline"), .init("Draft"), .init("Changed", .right),
+                               .init("Errors", .right)])
+        for l in locales {
+            table.add([l.locale, l.name, l.market ?? "", l.baseline.map { $0 == "asc" ? "App Store Connect" : "manual" } ?? "none",
+                       l.hasDraft ? "saved" : "", l.baseline == nil ? "" : String(l.changes), l.errors == 0 ? "" : String(l.errors)])
+        }
+        return table.render()
+    }
+
+    static func metadataText(_ report: Engine.MetadataReport) -> String {
+        var lines = ["\(report.locale) · \(report.name)" + (report.market.map { " · rules read for \($0)" } ?? "")]
+        if let b = report.baseline {
+            lines.append("Baseline: " + (b.source == "asc" ? "App Store Connect" : "entered manually")
+                         + (b.versionString.map { " · version \($0)\(b.versionState.map { " (\($0))" } ?? "")" } ?? "") + " · \(shortDate(b.fetchedAt))")
+        } else {
+            lines.append("No baseline: set one with aso metadata baseline to see what changes.")
+        }
+        lines.append(report.draftUpdatedAt.map { "Draft saved \(shortDate($0))." } ?? "No draft yet; the fields below are the baseline.")
+        lines.append("")
+        for field in MetadataField.allCases {
+            let value = report.draft[field]
+            let m = TextMeasure(value)
+            let bytes = m.isMultiByte || field == .keywords ? ", \(m.utf8Bytes) bytes" : ""
+            lines.append("\(field.title) (\(m.codePoints)/\(field.limit)\(bytes)):")
+            lines.append(value.isEmpty ? "  (empty)" : value.split(separator: "\n", omittingEmptySubsequences: false).map { "  " + $0 }.joined(separator: "\n"))
+        }
+        lines.append("")
+        lines.append("ASO rules: \(report.rules.score)/100 · \(report.rules.charactersUsed)/160 indexed characters")
+        for f in report.rules.findings { lines.append("  \(f.kind.rawValue)  \(f.message)") }
+        for i in report.issues { lines.append("  \(i.severity)  \(i.field.title): \(i.message)") }
+        lines.append("Legal footer: " + (!report.legal.settings.enabled ? "off" : report.legal.inDescription ? "in the description" : "not in the description yet"))
+        if report.baseline != nil {
+            lines.append("")
+            lines.append(report.changes.isEmpty ? "The draft equals the baseline." : "Changes against the baseline:")
+            for c in report.changes {
+                if c.field == .keywords, let k = report.keywordChange {
+                    lines.append("  Keywords: + \(k.added.joined(separator: ", ")) · − \(k.removed.joined(separator: ", ")) · \(k.kept.count) kept")
+                } else {
+                    lines.append("  \(c.field.title): \"\(c.before)\" → \"\(c.after)\"")
+                }
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
     static func adsText(_ report: Engine.AdsReport) -> String {
         guard let synced = report.syncedAt, let start = report.periodStart, let end = report.periodEnd else {
             return "No campaign results stored for this app. Read them with: aso ads sync"
@@ -893,7 +1046,7 @@ public struct CommandRunner: Sendable {
           market add <app ID> --country CC [--device ...]
           market list <app ID>                            Markets with their keyword count and last measurement
           market remove <app ID> --country CC [--device ...]
-          storefronts  ·  genres                          The App Store countries the engine knows; the Apple Ads genres
+          storefronts  ·  genres  ·  locales              The App Store countries, the Apple Ads genres, the listing languages
 
         Keywords
           keywords add <app ID> <keyword>... --country CC [--device iphone|ipad|mac]
@@ -924,6 +1077,19 @@ public struct CommandRunner: Sendable {
         Revenue (RevenueCat, read-only)
           revenue refresh                                 Read every project's MRR, subscriptions, 28-day revenue, customers, trials
           revenue show <app ID>                           The app's project (by bundle ID, then name) and its daily history
+
+        Metadata (drafts stay on this computer)
+          metadata locales <app ID>                       Locales worth writing: baseline, draft, changes and errors
+          metadata show <app ID> [--locale L]             The draft, its counters, ASO rules and changes against the baseline
+          metadata draft <app ID> --locale L (--name T | --subtitle T | --keywords K | --promotional-text T | --description T | --whats-new T | --stdin)
+                                                          Save fields of the draft; --stdin reads every field as JSON
+          metadata baseline <app ID> --locale L (field options | --stdin)
+                                                          What is live on the App Store today, typed in, to diff against
+          metadata reset <app ID> --locale L              Drop the draft and start again from the baseline
+          metadata legal <app ID> [--on | --off] [--eula URL] [--privacy URL] [--note TEXT]
+                                                          Terms of Use and Privacy Policy links for every description
+          metadata footer <app ID> [--locale L]           Append those links to the drafts (each in its own language)
+          metadata fill-whats-new <app ID>                Give drafts without release notes the default note in their language
 
         Releases and changes
           markers list <app ID>                           Releases (seen when measuring or checking ratings) and notes

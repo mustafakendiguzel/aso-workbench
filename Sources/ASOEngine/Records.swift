@@ -208,3 +208,57 @@ public struct MarkerRecord: Sendable, Codable, Equatable {
 
     public var marker: Marker { Marker(date: date, title: title, kind: kind) }
 }
+
+/// What Apple holds for one locale of an app: pulled from App Store Connect ("asc") or typed in ("manual"). Drafts are
+/// diffed against it, and an apply refuses to write when Apple no longer holds it.
+public struct MetadataBaselineRecord: Sendable, Codable, Equatable {
+    public let locale: String
+    public let fields: MetadataFields
+    public let source: String
+    public let appInfoLocalizationID: String?
+    public let versionLocalizationID: String?
+    public let versionString: String?
+    public let versionState: String?
+    public let fetchedAt: Date
+
+    public init(locale: String, fields: MetadataFields, source: String, appInfoLocalizationID: String? = nil, versionLocalizationID: String? = nil,
+                versionString: String? = nil, versionState: String? = nil, fetchedAt: Date) {
+        self.locale = locale
+        self.fields = fields
+        self.source = source
+        self.appInfoLocalizationID = appInfoLocalizationID
+        self.versionLocalizationID = versionLocalizationID
+        self.versionString = versionString
+        self.versionState = versionState
+        self.fetchedAt = fetchedAt
+    }
+}
+
+/// The listing being written for one locale; stays on this computer until it is applied.
+public struct MetadataDraftRecord: Sendable, Codable, Equatable {
+    public let locale: String
+    public let fields: MetadataFields
+    public let updatedAt: Date
+}
+
+/// The Terms of Use and Privacy Policy links appended to every locale's description, as the macOS app keeps them per app.
+public struct LegalFooterSettings: Sendable, Codable, Equatable {
+    public var enabled: Bool
+    /// A custom Terms of Use URL; empty uses Apple's standard EULA.
+    public var eulaURL: String
+    public var privacyURL: String
+    /// An optional line above the links, one language for every locale.
+    public var note: String
+
+    public init(enabled: Bool = true, eulaURL: String = "", privacyURL: String = "", note: String = "") {
+        self.enabled = enabled
+        self.eulaURL = eulaURL
+        self.privacyURL = privacyURL
+        self.note = note
+    }
+
+    public var effectiveEULA: String {
+        let custom = eulaURL.trimmingCharacters(in: .whitespaces)
+        return custom.isEmpty ? LegalFooter.appleStandardEULA : custom
+    }
+}
