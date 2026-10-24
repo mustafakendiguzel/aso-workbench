@@ -128,7 +128,7 @@ public sealed class AsoProcessCliTests
             ? ("cmd.exe", new[] { "/c", "echo out& echo err one 1>&2& echo err two 1>&2& exit /b 3" })
             : ("/bin/sh", new[] { "-c", "echo out; echo 'err one' 1>&2; echo 'err two' 1>&2; exit 3" });
         var lines = new List<string>();
-        var result = await new AsoProcessCli(shell).RunAsync(arguments, line => { lock (lines) lines.Add(line.Trim()); }, TestContext.Current.CancellationToken);
+        var result = await new AsoProcessCli(shell).RunAsync(arguments, null, line => { lock (lines) lines.Add(line.Trim()); }, TestContext.Current.CancellationToken);
         Assert.Equal(3, result.ExitCode);
         Assert.Equal("out", result.Output.Trim());
         Assert.Equal(["err one", "err two"], lines);

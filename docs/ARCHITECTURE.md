@@ -41,7 +41,8 @@ Sources/
 │   └── RevenueCatProvider
 ├── CSQLite/           the platform's own SQLite as a Swift module (no package dependency)
 ├── ASOEngine/         platform-neutral workbench: Store (SQLite, versioned schema), Engine (add app, keywords,
-│                      measure, reports), KeywordReportRow, data folder and version
+│                      measure, reports), KeywordReportRow, EngineSettings (settings.json), CredentialStore and
+│                      Connections (credentials.json, verify), data folder and version
 ├── ASOCommands/       the `aso` command line: arguments, commands, text tables and JSON (see docs/CLI.md)
 ├── ASOCLI/            `aso` executable, a one-line entry point into ASOCommands
 └── ASOWorkbench/

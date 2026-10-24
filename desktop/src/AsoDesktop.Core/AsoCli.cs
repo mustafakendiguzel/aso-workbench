@@ -9,8 +9,9 @@ public sealed record CliResult(int ExitCode, string Output, string Errors);
 /// <summary>Runs the aso command. The process implementation is <see cref="AsoProcessCli"/>; tests use a fake.</summary>
 public interface IAsoCli
 {
+    /// <param name="standardInput">Written to the command's stdin, then closed: how keys reach aso, never as arguments.</param>
     /// <param name="onErrorLine">Called for each stderr line as it arrives (progress), on a background thread.</param>
-    Task<CliResult> RunAsync(IReadOnlyList<string> arguments, Action<string>? onErrorLine, CancellationToken cancellationToken);
+    Task<CliResult> RunAsync(IReadOnlyList<string> arguments, string? standardInput, Action<string>? onErrorLine, CancellationToken cancellationToken);
 }
 
 /// <summary>A failed aso run, with the command's own message.</summary>
@@ -35,16 +36,20 @@ public sealed class AsoProcessCli(string executablePath, string? dataDirectory =
 {
     public string ExecutablePath { get; } = executablePath;
 
-    public async Task<CliResult> RunAsync(IReadOnlyList<string> arguments, Action<string>? onErrorLine, CancellationToken cancellationToken)
+    public async Task<CliResult> RunAsync(IReadOnlyList<string> arguments, string? standardInput, Action<string>? onErrorLine,
+                                         CancellationToken cancellationToken)
     {
         var start = new ProcessStartInfo(ExecutablePath)
         {
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            // No byte-order mark: it would become the first character of a key.
+            StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
         };
         // Global options go first: everything after a "--" in the arguments is positional.
         if (dataDirectory is not null)
@@ -56,6 +61,10 @@ public sealed class AsoProcessCli(string executablePath, string? dataDirectory =
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
 
         using var process = Process.Start(start) ?? throw new AsoCliException($"Could not start {ExecutablePath}.", exitCode: 0);
+        // Always closed, so a command that reads stdin never waits for a console.
+        if (standardInput is not null)
+            await process.StandardInput.WriteAsync(standardInput.AsMemory(), cancellationToken).ConfigureAwait(false);
+        process.StandardInput.Close();
         var errors = new StringBuilder();
         var readErrors = Task.Run(async () =>
         {

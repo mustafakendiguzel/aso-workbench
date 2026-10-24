@@ -65,7 +65,27 @@ public enum ValidationSeverity
 
 public sealed record ValidationIssue(string Field, ValidationSeverity Severity, string Message);
 
-internal sealed record VersionInfo(string Version);
+/// <summary>The engine's preferences (<c>aso settings --json</c>).</summary>
+public sealed record EngineSettings(
+    int ResultDepth,
+    double PacingSeconds,
+    int GoldenMinPopularity,
+    int GoldenMaxDifficulty,
+    int WriterEasyDifficulty,
+    int WriterMaxDifficulty,
+    string DeltaReference,
+    bool AutoMeasureOnLaunch,
+    int StaleHours,
+    string WriterModel,
+    [property: JsonPropertyName("adsReferenceAppID")] string AdsReferenceAppId);
+
+/// <summary>A service's stored keys without the secrets (<c>aso connections --json</c>).</summary>
+public sealed record ConnectionStatus(string Service, string Title, bool Configured, IReadOnlyDictionary<string, string> Details);
+
+internal sealed record VerifyResult(string Service, string Result);
+
+/// <summary><c>aso --version --json</c>: the engine's version and the data folder it uses.</summary>
+public sealed record EngineInfo(string Version, string? DataDirectory);
 
 internal static class Json
 {

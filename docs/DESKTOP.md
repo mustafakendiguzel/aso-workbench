@@ -39,4 +39,10 @@ CI (`.github/workflows/desktop.yml`) builds and tests it on Windows and Linux fo
 
 ## Scope
 
-The first version covers what the engine offers today: tracked apps, keywords per market with rank, Δ, difficulty and brand verdicts, rank measurement, search results, autocomplete, difficulty with every component, and the metadata check. Popularity, publishing, the AI writer and revenue follow when the engine gains them.
+The window covers what the engine offers today: tracked apps, keywords per market with rank, Δ, difficulty and brand verdicts, rank measurement, search results, autocomplete, difficulty with every component, the metadata check, and Settings:
+
+- **General:** engine version and data folder (with a button that opens it).
+- **Measurement:** results per keyword, pacing, golden thresholds, writer tiers, the Δ reference, and the start-up refresh of markets not measured recently.
+- **Connections:** Apple Ads, App Store Connect, OpenRouter and RevenueCat, each with what it unlocks, where its data goes and how to get the key; Save, Test connection and Remove. Key files are passed to `aso` as paths and pasted keys through standard input, so the window never stores or shows a secret, and the fields are cleared after saving. Each guide says plainly that this version stores and tests the key while the features that use it are still to come.
+
+Popularity, publishing, the AI writer, revenue and the Apple Ads website session follow when the engine gains them.

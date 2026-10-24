@@ -8,7 +8,12 @@ public sealed class MainViewModelTests
     private static (MainViewModel, FakeCli) Make(Func<string, CliResult> byCommand)
     {
         var cli = new FakeCli();
-        cli.Respond = args => args.Contains("--version") ? FakeCli.Fixture("version") : byCommand(FakeCli.Command(args));
+        cli.Respond = args => args.Contains("--version") ? FakeCli.Fixture("version") : FakeCli.Command(args) switch
+        {
+            "settings" => FakeCli.Fixture("settings"),
+            "connections" => FakeCli.Fixture("connections"),
+            var command => byCommand(command),
+        };
         return (new MainViewModel(new AsoClient(cli)), cli);
     }
 

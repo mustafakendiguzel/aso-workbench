@@ -54,7 +54,9 @@ public struct CommandRunner: Sendable {
             return ExitCode.usage
         }
         if arguments.flag("version") || arguments.positionals.first == "version" {
-            output(arguments.flag("json") ? Self.json(["version": EngineEnvironment.version]) : "aso \(EngineEnvironment.version)")
+            output(arguments.flag("json")
+                ? Self.json(["version": EngineEnvironment.version, "dataDirectory": dataDirectory(arguments).path])
+                : "aso \(EngineEnvironment.version)")
             return ExitCode.success
         }
         guard !arguments.flag("help"), let command = arguments.positionals.first, command != "help" else {

@@ -15,12 +15,14 @@ public sealed partial class MainViewModel : ObservableObject
         Keywords = new KeywordsViewModel(client, Status);
         Research = new ResearchViewModel(client, Status);
         Metadata = new MetadataViewModel(client, Status);
+        Settings = new SettingsViewModel(client, Status);
     }
 
     public StatusViewModel Status { get; } = new();
     public KeywordsViewModel Keywords { get; }
     public ResearchViewModel Research { get; }
     public MetadataViewModel Metadata { get; }
+    public SettingsViewModel Settings { get; }
 
     public ObservableCollection<AppRecord> Apps { get; } = [];
 
@@ -37,13 +39,38 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial string? EngineVersion { get; set; }
 
+    /// <summary>Where the engine keeps engine.sqlite, settings.json and credentials.json.</summary>
+    [ObservableProperty]
+    public partial string? DataDirectory { get; set; }
+
+    /// <summary>Start-up: engine version, settings, connections and apps; then, if the setting is on, the stale-market refresh.</summary>
     [RelayCommand]
-    private Task LoadAsync() => Status.RunAsync("Loading tracked apps…", async () =>
+    private async Task LoadAsync()
     {
-        EngineVersion = await client.VersionAsync().ConfigureAwait(true);
-        await ReloadAppsAsync(keepSelection: null).ConfigureAwait(true);
-        Status.Info(Apps.Count == 0 ? "No apps yet. Paste an App Store link on the left to start." : $"{Apps.Count} tracked app(s).");
-    });
+        await Settings.LoadCommand.ExecuteAsync(null).ConfigureAwait(true);
+        await Status.RunAsync("Loading tracked apps…", async () =>
+        {
+            var engine = await client.EngineInfoAsync().ConfigureAwait(true);
+            EngineVersion = engine.Version;
+            DataDirectory = engine.DataDirectory;
+            await ReloadAppsAsync(keepSelection: null).ConfigureAwait(true);
+            Status.Info(Apps.Count == 0 ? "No apps yet. Paste an App Store link on the left to start." : $"{Apps.Count} tracked app(s).");
+        }).ConfigureAwait(true);
+        if (Settings.Current?.AutoMeasureOnLaunch == true) await MeasureStaleCommand.ExecuteAsync(null).ConfigureAwait(true);
+    }
+
+    /// <summary>Measures every market not measured within the stale-hours setting, as the macOS app does when it opens.</summary>
+    [RelayCommand(IncludeCancelCommand = true)]
+    private Task MeasureStaleAsync(CancellationToken cancellationToken) =>
+        Status.RunAsync("Refreshing markets not measured recently…", async () =>
+        {
+            var progress = new Progress<MeasureStep>(step => Status.Info($"Refreshing {step.Completed}/{step.Total}: {step.Keyword} in {step.Market}"));
+            var summary = await client.MeasureStaleAsync(progress, cancellationToken).ConfigureAwait(true);
+            if (Keywords.App is not null) await Keywords.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+            Status.Info(summary.Measured == 0
+                ? "Every market was measured recently."
+                : $"Refreshed {summary.Measured} keyword(s): {summary.Found} ranked, {summary.Outside} outside, {summary.Failed} failed.");
+        });
 
     private bool CanAddApp() => !string.IsNullOrWhiteSpace(NewAppReference);
 

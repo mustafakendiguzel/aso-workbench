@@ -49,6 +49,38 @@ Keywords that start with `-` go after `--`: `aso keywords add 361285480 --countr
 - Exit codes: `0` success, `1` the command failed (the message says why), `64` the command was called wrongly (the usage follows). `validate` exits with `1` when a hard limit is broken and still prints the issues.
 - Global options (`--json`, `--data-dir`) may come before the command; keywords and terms that start with `-` go after `--`.
 
+## Settings
+
+`aso settings` shows the preferences with what each accepts; `aso settings set <setting> <value>` changes one; `aso settings reset` restores the defaults. They are the macOS app's preferences with its defaults, stored in `settings.json`:
+
+| Setting | Default | Used by |
+|---|---|---|
+| `resultDepth` | 200 (50, 100 or 200) | `measure`, unless `--depth` says otherwise |
+| `pacingSeconds` | 3.1 (1–6) | every public search; the API allows roughly 20 requests a minute |
+| `goldenMinPopularity`, `goldenMaxDifficulty` | 30, 45 | the golden verdict in `keywords list` |
+| `writerEasyDifficulty`, `writerMaxDifficulty` | 35, 55 | the metadata writer's tiers |
+| `deltaReference` | `lastMarker` (`previous`, `first`, `week`) | Δ in `keywords list`, unless `--delta` says otherwise |
+| `autoMeasureOnLaunch`, `staleHours` | false, 20 (6–72) | front ends at start-up; `measure --stale` |
+| `writerModel` | `deepseek/deepseek-v4-pro` | the metadata writer |
+| `adsReferenceAppID` | empty | the Apple Ads website session |
+
+`aso measure --stale [--stale-hours N]` measures every market, across all apps, whose newest measurement is older than `staleHours` (or that was never measured).
+
+## Connections
+
+`aso connections` lists which services have keys, with their identifiers and the public-key fingerprint, never a secret. Keys are read from a file or from standard input, **never from arguments**, because other users of the computer can see a process's arguments:
+
+```bash
+aso connections set apple-ads --client-id SEARCHADS.… --key-id … --org-id … --key-file aso-ads-private.pem
+aso connections set asc --issuer-id … --key-file AuthKey_2X9R4HXF34.p8      # the key ID is read from Apple's file name
+aso connections set openrouter --key-stdin < openrouter.txt
+aso connections set revenuecat --keys-file revenuecat-keys.txt               # one key per line
+aso connections verify apple-ads
+aso connections remove openrouter
+```
+
+Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700, file 0600 where the system has POSIX permissions), and each goes only to its own service. This version stores and tests them; the features that use them (popularity, publishing, the writer, revenue) come to the command line in later versions.
+
 ## Data
 
 The data file is `engine.sqlite` in the data folder:

@@ -89,6 +89,7 @@ struct CommandRunnerTests {
         #expect(help.console.output.contains("Usage: aso <command>"))
         let version = await harness.run(["--version", "--json"])
         #expect(version.console.output.contains("\"version\" : \"\(EngineEnvironment.version)\""))
+        #expect(version.console.output.contains("\"dataDirectory\" : "))
         #expect(harness.directories.last == nil)
     }
 

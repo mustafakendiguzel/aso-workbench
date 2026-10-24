@@ -9,8 +9,9 @@ namespace AsoDesktop.Core;
 /// </summary>
 public sealed class AsoClient(IAsoCli cli)
 {
-    public async Task<string> VersionAsync(CancellationToken ct = default) =>
-        (await RunAsync<VersionInfo>(["--version"], ct).ConfigureAwait(false)).Version;
+    public Task<EngineInfo> EngineInfoAsync(CancellationToken ct = default) => RunAsync<EngineInfo>(["--version"], ct);
+
+    public async Task<string> VersionAsync(CancellationToken ct = default) => (await EngineInfoAsync(ct).ConfigureAwait(false)).Version;
 
     public Task<IReadOnlyList<AppRecord>> ListAppsAsync(CancellationToken ct = default) =>
         RunAsync<IReadOnlyList<AppRecord>>(["app", "list"], ct);
@@ -58,11 +59,53 @@ public sealed class AsoClient(IAsoCli cli)
     /// <summary>The issues, also when aso exits with 1 because one of them is an error.</summary>
     public async Task<IReadOnlyList<ValidationIssue>> ValidateAsync(string title, string subtitle, string keywords, CancellationToken ct = default)
     {
-        var result = await cli.RunAsync(["--json", "validate", "--title", title, "--subtitle", subtitle, "--keywords", keywords], null, ct)
+        var result = await cli.RunAsync(["--json", "validate", "--title", title, "--subtitle", subtitle, "--keywords", keywords], null, null, ct)
             .ConfigureAwait(false);
         if (result.ExitCode is not (0 or 1) || string.IsNullOrWhiteSpace(result.Output)) throw AsoCliException.From(result);
         return Json.Parse<IReadOnlyList<ValidationIssue>>(result.Output, "validate");
     }
+
+    /// <summary>Every market not measured within the stored staleHours, across all apps (the start-up refresh).</summary>
+    public Task<MeasureSummary> MeasureStaleAsync(IProgress<MeasureStep>? progress = null, CancellationToken ct = default) =>
+        RunAsync<MeasureSummary>(["measure", "--stale"], ct, line => { if (ParseStep(line) is { } step) progress?.Report(step); });
+
+    // MARK: Settings
+
+    public Task<EngineSettings> SettingsAsync(CancellationToken ct = default) => RunAsync<EngineSettings>(["settings"], ct);
+
+    public Task<EngineSettings> SetSettingAsync(string name, string value, CancellationToken ct = default) =>
+        RunAsync<EngineSettings>(["settings", "set", name, "--", value], ct);
+
+    public Task<EngineSettings> ResetSettingsAsync(CancellationToken ct = default) => RunAsync<EngineSettings>(["settings", "reset"], ct);
+
+    // MARK: Connections (keys go through stdin or a key file, never arguments)
+
+    public Task<IReadOnlyList<ConnectionStatus>> ConnectionsAsync(CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<ConnectionStatus>>(["connections"], ct);
+
+    /// <param name="key">Either a path to the .pem file or the pasted PEM text.</param>
+    public Task<ConnectionStatus> SaveAppleAdsAsync(string clientId, string keyId, string orgId, KeySource key, CancellationToken ct = default) =>
+        RunAsync<ConnectionStatus>(["connections", "set", "apple-ads", "--client-id", clientId, "--key-id", keyId, "--org-id", orgId, .. key.Arguments("key")],
+                                   ct, standardInput: key.Text);
+
+    /// <param name="keyId">Optional when the key file keeps Apple's name, AuthKey_&lt;KEYID&gt;.p8.</param>
+    public Task<ConnectionStatus> SaveAppStoreConnectAsync(string? keyId, string issuerId, KeySource key, CancellationToken ct = default) =>
+        RunAsync<ConnectionStatus>(["connections", "set", "asc", "--issuer-id", issuerId, .. Option("key-id", keyId), .. key.Arguments("key")],
+                                   ct, standardInput: key.Text);
+
+    public Task<ConnectionStatus> SaveOpenRouterKeyAsync(string apiKey, CancellationToken ct = default) =>
+        RunAsync<ConnectionStatus>(["connections", "set", "openrouter", "--key-stdin"], ct, standardInput: apiKey);
+
+    /// <param name="keys">One key per line.</param>
+    public Task<ConnectionStatus> SaveRevenueCatKeysAsync(string keys, CancellationToken ct = default) =>
+        RunAsync<ConnectionStatus>(["connections", "set", "revenuecat", "--keys-stdin"], ct, standardInput: keys);
+
+    /// <summary>One authenticated call against the service; returns what it answered.</summary>
+    public async Task<string> VerifyConnectionAsync(string service, CancellationToken ct = default) =>
+        (await RunAsync<VerifyResult>(["connections", "verify", service], ct).ConfigureAwait(false)).Result;
+
+    public async Task RemoveConnectionAsync(string service, CancellationToken ct = default) =>
+        await RunAsync<JsonElement>(["connections", "remove", service], ct).ConfigureAwait(false);
 
     internal static MeasureStep? ParseStep(string line)
     {
@@ -71,10 +114,11 @@ public sealed class AsoClient(IAsoCli cli)
         catch (JsonException) { return null; }
     }
 
-    private async Task<T> RunAsync<T>(IReadOnlyList<string> arguments, CancellationToken ct, Action<string>? onErrorLine = null)
+    private async Task<T> RunAsync<T>(IReadOnlyList<string> arguments, CancellationToken ct, Action<string>? onErrorLine = null,
+                                      string? standardInput = null)
     {
         // Global options go first: everything after a "--" is a keyword or term.
-        var result = await cli.RunAsync(["--json", .. arguments], onErrorLine, ct).ConfigureAwait(false);
+        var result = await cli.RunAsync(["--json", .. arguments], standardInput, onErrorLine, ct).ConfigureAwait(false);
         if (result.ExitCode != 0) throw AsoCliException.From(result);
         return Json.Parse<T>(result.Output, arguments[0]);
     }
@@ -82,4 +126,13 @@ public sealed class AsoClient(IAsoCli cli)
     private static string Id(long appId) => appId.ToString(CultureInfo.InvariantCulture);
 
     private static string[] Option(string name, string? value) => string.IsNullOrWhiteSpace(value) ? [] : [$"--{name}", value];
+}
+
+/// <summary>Where a private key comes from: a file aso reads itself, or pasted text sent through stdin.</summary>
+public sealed record KeySource(string? FilePath, string? Text)
+{
+    public static KeySource File(string path) => new(path, null);
+    public static KeySource Pasted(string text) => new(null, text);
+
+    internal string[] Arguments(string option) => FilePath is not null ? [$"--{option}-file", FilePath] : [$"--{option}-stdin"];
 }

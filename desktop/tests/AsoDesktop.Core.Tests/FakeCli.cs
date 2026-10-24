@@ -12,10 +12,14 @@ internal sealed class FakeCli : IAsoCli
     /// <summary>Stderr lines delivered before the result, as progress arrives from the real command.</summary>
     public List<string> ErrorLines { get; } = [];
 
-    public Task<CliResult> RunAsync(IReadOnlyList<string> arguments, Action<string>? onErrorLine, CancellationToken cancellationToken)
+    /// <summary>The stdin each call received, in order.</summary>
+    public List<string?> Inputs { get; } = [];
+
+    public Task<CliResult> RunAsync(IReadOnlyList<string> arguments, string? standardInput, Action<string>? onErrorLine, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Calls.Add(arguments);
+        Inputs.Add(standardInput);
         foreach (var line in ErrorLines) onErrorLine?.Invoke(line);
         return Task.FromResult(Respond(arguments));
     }
