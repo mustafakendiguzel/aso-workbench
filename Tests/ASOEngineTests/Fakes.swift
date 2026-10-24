@@ -164,9 +164,31 @@ let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
                 reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil,
-                ads: FakeAds? = nil, revenue: FakeRevenue? = nil, publisher: FakePublisher? = nil) throws -> Engine {
+                ads: FakeAds? = nil, revenue: FakeRevenue? = nil, publisher: FakePublisher? = nil, writer: FakeWriter? = nil) throws -> Engine {
     Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads,
-           revenue: revenue, publisher: publisher)
+           revenue: revenue, publisher: publisher, writer: writer)
+}
+
+/// The writer's model without the network: answers by system and user prompt (nil fails the call) and records every call.
+final class FakeWriter: TextModel, @unchecked Sendable {
+    private let lock = NSLock()
+    private var log: [(system: String, user: String)] = []
+    let answer: @Sendable (_ system: String, _ user: String) -> String?
+
+    init(_ answer: @escaping @Sendable (_ system: String, _ user: String) -> String?) { self.answer = answer }
+
+    var calls: [(system: String, user: String)] { lock.lock(); defer { lock.unlock() }; return log }
+
+    private func record(_ system: String, _ user: String) {
+        lock.lock(); defer { lock.unlock() }
+        log.append((system, user))
+    }
+
+    func complete(system: String, user: String, temperature: Double, maxTokens: Int) async throws -> TextCompletion {
+        record(system, user)
+        guard let text = answer(system, user) else { throw ASOError.network("offline") }
+        return TextCompletion(text: text, cost: "$0.0020")
+    }
 }
 
 /// App Store Connect without the network: one app's listing per locale and its versions. Writes change the listing and

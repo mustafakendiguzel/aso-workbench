@@ -18,12 +18,15 @@ public struct Engine: Sendable {
     public let revenue: (any RevenueSource)?
     /// App Store Connect with the stored key; nil when none is stored.
     public let publisher: (any MetadataPublisher)?
+    /// The metadata writer's model through OpenRouter; nil when no key is stored.
+    public let writer: (any TextModel)?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
                 popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil,
-                revenue: (any RevenueSource)? = nil, publisher: (any MetadataPublisher)? = nil) {
+                revenue: (any RevenueSource)? = nil, publisher: (any MetadataPublisher)? = nil, writer: (any TextModel)? = nil) {
         self.revenue = revenue
         self.publisher = publisher
+        self.writer = writer
         self.store = store
         self.search = search
         self.suggestions = suggestions

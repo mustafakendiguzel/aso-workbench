@@ -52,7 +52,8 @@ public struct CommandRunner: Sendable {
                                         judge: openRouter.map { JevClient(apiKey: $0) },
                                         ads: ads.map { AppleAdsCampaignProvider(credentials: $0) },
                                         revenue: revenueKeys.isEmpty ? nil : RevenueCatAccounts(keys: revenueKeys),
-                                        publisher: asc.map { AppStoreConnectPublisher(credentials: $0) })
+                                        publisher: asc.map { AppStoreConnectPublisher(credentials: $0) },
+                                        writer: openRouter.map { OpenRouterTextModel(client: LLMClient(apiKey: $0), model: settings.writerModel) })
                       })
     }
 
@@ -425,6 +426,62 @@ public struct CommandRunner: Sendable {
             write(args, results) { $0.isEmpty ? "No locale has a draft to apply." : $0.map(Self.publishText).joined(separator: "\n") }
             let missed = results.filter { !["applied", "partial"].contains($0.status) }.map(\.locale)
             guard missed.isEmpty else { throw NotSent("Not applied: \(missed.joined(separator: ", ")).") }
+        case ("metadata", "write"):
+            try args.allow(["locale", "strategy", "brand", "notes", "rewrite-copy", "save"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+            let result = try await workbench.writeMetadata(appID: id, locale: locale, strategy: try strategyOption(args), brand: args.option("brand"),
+                                                           notes: args.option("notes") ?? "", rewriteCopy: args.flag("rewrite-copy"),
+                                                           save: args.flag("save"), tiers: try settings(args).writerTiers)
+            write(args, result) { Self.writeText($0) }
+        case ("metadata", "improve"):
+            try args.allow(["locale", "brand", "save"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
+            let result = try await workbench.improveMetadata(appID: id, locale: locale, brand: args.option("brand"), save: args.flag("save"),
+                                                             tiers: try settings(args).writerTiers)
+            write(args, result) { r in
+                "\(r.locale): rules score \(r.before) → \(r.proposal.score)." + (r.saved ? " Saved as the draft." : " Not saved; add --save to keep it.")
+                    + (r.cost.map { " Cost \($0)." } ?? "") + "\n\n" + Self.proposalText(r.proposal)
+            }
+        case ("metadata", "write-all"):
+            try args.allow(["locales", "strategy", "brand", "notes"])
+            let id = try args.integer(2, "app ID")
+            let workbench = try await engine(args)
+            let locales = try args.option("locales").map { raw in
+                try raw.split(separator: ",").map { try Self.locale($0.trimmingCharacters(in: .whitespaces)) }
+            }
+            let errors = self.errors
+            let jsonProgress = args.flag("json")
+            let results = try await workbench.writeAllMetadata(appID: id, locales: locales, strategy: try strategyOption(args), brand: args.option("brand"),
+                                                               notes: args.option("notes") ?? "", tiers: try settings(args).writerTiers) { locale in
+                errors(jsonProgress ? Self.json(["locale": locale], pretty: false) : "Writing \(locale)…")
+            }
+            write(args, results) { lines in
+                var table = TextTable([.init("Locale"), .init("Market"), .init("Score", .right), .init("Covers"), .init("Title"), .init("Subtitle")])
+                for l in lines {
+                    guard let p = l.proposal else { table.add([l.locale, l.market ?? "", "", "", "Failed: \(l.error ?? "")"]); continue }
+                    table.add([l.locale, l.market ?? "", String(p.score), "\(p.covered.count)/\(p.covered.count + p.missed.count)", p.fields.name, p.fields.subtitle])
+                }
+                return lines.isEmpty ? "No locale to write." : table.render() + "\n\nThe best proposal of each locale was saved as its draft."
+            }
+        case ("metadata", "whats-new"):
+            try args.allow(["from", "text", "stdin", "locales"])
+            let id = try args.integer(2, "app ID")
+            guard let from = args.option("from") else { throw UsageError("Give the locale the notes are written in with --from, e.g. --from en-US.") }
+            guard (args.option("text") != nil) != args.flag("stdin") else { throw UsageError("Give the release notes with --text or --stdin (one of them).") }
+            let locales = try args.option("locales").map { raw in
+                try raw.split(separator: ",").map { try Self.locale($0.trimmingCharacters(in: .whitespaces)) }
+            }
+            let results = try await engine(args).writeWhatsNew(appID: id, source: args.option("text") ?? input(), sourceLocale: try Self.locale(from),
+                                                               locales: locales, tiers: try settings(args).writerTiers)
+            write(args, results) { lines in
+                lines.isEmpty ? "No other locale to write." : lines.map { l in
+                    "\(l.locale): " + (l.text.map { $0.replacingOccurrences(of: "\n", with: " / ") } ?? "Failed: \(l.error ?? "")")
+                }.joined(separator: "\n")
+            }
         case ("metadata", "log"):
             try args.allow([])
             write(args, try await engine(args).changeLog(appID: try args.integer(2, "app ID"))) { log in
@@ -609,6 +666,15 @@ public struct CommandRunner: Sendable {
         let message: String
         init(_ message: String) { self.message = message }
         var errorDescription: String? { message }
+    }
+
+    /// --strategy feature (feature words first, the default) or brand (brand first).
+    private func strategyOption(_ args: Arguments) throws -> MetadataWriter.BrandStrategy {
+        switch args.option("strategy")?.lowercased() {
+        case nil, "feature": .featureFirst
+        case "brand": .brandFirst
+        case let other?: throw UsageError("--strategy must be feature or brand, not \"\(other)\".")
+        }
     }
 
     /// --copy-screenshots-from, which only applies to locales that are created.
@@ -1054,6 +1120,26 @@ public struct CommandRunner: Sendable {
         return lines.joined(separator: "\n")
     }
 
+    static func proposalText(_ p: Engine.WrittenProposal) -> String {
+        var lines = ["\(p.label) · rules \(p.score)/100 · \(p.charactersUsed)/160 indexed characters · covers \(p.covered.count) of \(p.covered.count + p.missed.count)"]
+        lines.append("  Title:    \(p.fields.name)")
+        lines.append("  Subtitle: \(p.fields.subtitle)")
+        lines.append("  Keywords: \(p.fields.keywords)")
+        if !p.fields.promotionalText.isEmpty { lines.append("  Promotional text: \(p.fields.promotionalText)") }
+        if !p.rationale.isEmpty { lines.append("  Why: \(p.rationale)") }
+        if !p.missed.isEmpty { lines.append("  Misses: \(p.missed.joined(separator: ", "))") }
+        for repair in p.repairs { lines.append("  Repaired: \(repair)") }
+        for f in p.findings.prefix(5) { lines.append("  \(f.kind.rawValue)  \(f.message)") }
+        return lines.joined(separator: "\n")
+    }
+
+    static func writeText(_ r: Engine.WriteResult) -> String {
+        guard !r.proposals.isEmpty else { return "The model gave no usable proposal for \(r.locale)." }
+        let head = "\(r.locale) · evidence from \(r.market ?? "no tracked market")" + (r.cost.map { " · cost \($0)" } ?? "")
+            + (r.saved ? "\nThe first proposal was saved as the draft." : "\nNothing saved; add --save to keep the first proposal as the draft.")
+        return head + "\n\n" + r.proposals.map(proposalText).joined(separator: "\n\n")
+    }
+
     static func planText(_ plan: Engine.PublishPlan) -> String {
         var lines = ["\(plan.locale) · \(plan.name) · " + (plan.exists ? "on App Store Connect" : "new on App Store Connect")
                      + " · version \(plan.version ?? "?") (\(plan.versionState ?? "?"))"]
@@ -1220,6 +1306,16 @@ public struct CommandRunner: Sendable {
                                                           Terms of Use and Privacy Policy links for every description
           metadata footer <app ID> [--locale L]           Append those links to the drafts (each in its own language)
           metadata fill-whats-new <app ID>                Give drafts without release notes the default note in their language
+
+        Writer (OpenRouter key; each call costs a little on your account)
+          metadata write <app ID> --locale L [--strategy feature|brand] [--brand B] [--notes T] [--rewrite-copy] [--save]
+                                                          Three proposals from the market's evidence, scored by the rules
+          metadata improve <app ID> --locale L [--brand B] [--save]
+                                                          Make the draft better; refused when it would score lower
+          metadata write-all <app ID> [--locales a,b] [--strategy feature|brand] [--brand B] [--notes T]
+                                                          Write every locale and save each best proposal as its draft
+          metadata whats-new <app ID> --from L (--text T | --stdin) [--locales a,b]
+                                                          Release notes in other languages, saved into each draft
 
         Publishing (App Store Connect key; writes need --yes)
           metadata pull <app ID>                          Read every locale from App Store Connect as the baseline

@@ -32,6 +32,7 @@ Sources/
 │   │                  KeywordPlan (the writer's tiers and phrase coverage)
 │   ├── Validation/    ASORules (review + repair), MetadataValidator, MetadataDiff, TextMeasure,
 │   │                  LegalFooter, ReleaseNotesDefaults, MetadataPublishing (apply checks and outcome)
+│   ├── Writing/       MetadataWriter (the AI writer: prompts, repair, ranking; the model behind TextModel)
 │   ├── Training/      PublicFeatures / JevFeatures → model columns, evaluation metrics
 │   └── AppInfo.swift  version, repository, semantic-version comparison
 ├── ASOProviders/
@@ -44,7 +45,7 @@ Sources/
 ├── CSQLite/           the platform's own SQLite as a Swift module (no package dependency)
 ├── ASOEngine/         platform-neutral workbench: Store (SQLite, versioned schema), Engine (add app, keywords,
 │                      measure, reports), Catalog (ratings, reviews, competitors), Changes (release markers,
-│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), Discovery (candidates, Jev, golden), Ads (campaign results), Revenue (RevenueCat snapshots), Metadata (drafts, baselines, legal footer), Publish (App Store Connect pull, plan, apply, change log), KeywordReportRow and
+│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), Discovery (candidates, Jev, golden), Ads (campaign results), Revenue (RevenueCat snapshots), Metadata (drafts, baselines, legal footer), Publish (App Store Connect pull, plan, apply, change log), Writer (AI proposals, Make better, What's New), KeywordReportRow and
 │                      KeywordDetail, EngineSettings (settings.json), CredentialStore and
 │                      Connections (credentials.json, verify), data folder and version
 ├── ASOCommands/       the `aso` command line: arguments, commands, text tables and JSON (see docs/CLI.md)
