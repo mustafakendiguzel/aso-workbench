@@ -245,6 +245,7 @@ public struct CommandRunner: Sendable {
                 "Checked \(c.storefronts) storefront(s): \(c.recorded) reading(s) stored, \(c.newRatings) new rating(s) since the previous check."
                     + (c.unavailable.isEmpty ? "" : " No ratings in \(c.unavailable.joined(separator: ", ")).")
                     + (c.failed.isEmpty ? "" : " Failed: \(c.failed.joined(separator: ", ")).")
+                    + (c.newRelease.map { " New release marker: \($0.title), \(Self.shortDate($0.date))." } ?? "")
             }
         case ("ratings", "list"):
             try args.allow([])
@@ -272,6 +273,24 @@ public struct CommandRunner: Sendable {
             let report = try await engine(args).competitors(appID: id, countryCode: try required(args, "country"), device: try deviceOption(args) ?? .iPhone,
                                                             depth: try args.integerOption("depth", default: 10, range: 1...50))
             write(args, report) { Self.competitorsText($0, appID: id) }
+        case ("markers", "list"):
+            try args.allow([])
+            let id = try args.integer(2, "app ID")
+            write(args, try await engine(args).markers(appID: id)) { Self.markersTable($0, appID: id) }
+        case ("markers", "add"):
+            try args.allow(["title", "date"])
+            let marker = try await engine(args).addNote(appID: try args.integer(2, "app ID"), title: try required(args, "title"),
+                                                        date: try dateOption(args, "date"))
+            write(args, marker) { "Added note \($0.id): \($0.title), \(Self.shortDate($0.date))." }
+        case ("markers", "remove"):
+            try args.allow([])
+            let markerID = try args.integer(3, "marker ID")
+            try await engine(args).removeMarker(appID: try args.integer(2, "app ID"), id: markerID)
+            write(args, ["removed": markerID]) { _ in "Removed marker \(markerID)." }
+        case ("impact", _):
+            try args.allow([])
+            let report = try await engine(args).impact(appID: try args.integer(1, "app ID"), markerID: try args.integer(2, "marker ID"))
+            write(args, report) { Self.impactText($0) }
         case ("search", _):
             try args.allow(["country", "device", "limit"])
             let limit = try args.integerOption("limit", default: 25, range: 1...200)
@@ -488,6 +507,18 @@ public struct CommandRunner: Sendable {
         return reference
     }
 
+    /// An ISO 8601 date and time ("2026-10-20T14:30:00Z", or with an offset), or a day ("2026-10-20", midnight UTC).
+    private func dateOption(_ args: Arguments, _ name: String) throws -> Date? {
+        guard let raw = args.option(name) else { return nil }
+        let full = ISO8601DateFormatter()
+        let day = ISO8601DateFormatter()
+        day.formatOptions = [.withFullDate]
+        guard let date = full.date(from: raw) ?? day.date(from: raw) else {
+            throw UsageError("--\(name) must be a date like 2026-10-20 or 2026-10-20T14:30:00Z, got \"\(raw)\".")
+        }
+        return date
+    }
+
     private func write<T: Encodable>(_ args: Arguments, _ value: T, text: (T) -> String) {
         output(args.flag("json") ? Self.json(value) : text(value))
     }
@@ -614,6 +645,38 @@ public struct CommandRunner: Sendable {
             + "\n\nOnly tracked searches count; this is not a competitor's full keyword set."
     }
 
+    static func markersTable(_ markers: [MarkerRecord], appID: Int) -> String {
+        guard !markers.isEmpty else {
+            return "Nothing on the timeline yet. Releases are recorded when you measure or check ratings; pin a note with: aso markers add \(appID) --title TEXT"
+        }
+        var table = TextTable([.init("ID", .right), .init("Date"), .init("Kind"), .init("Title"), .init("Seen in")])
+        for m in markers { table.add([String(m.id), Self.shortDate(m.date), m.kind, m.title, m.country ?? ""]) }
+        return table.render() + "\n\nThe effect of one: aso impact \(appID) <marker ID>"
+    }
+
+    static func impactText(_ report: Engine.ImpactReport) -> String {
+        let head = "Effect of \(report.marker.title) · \(Self.shortDate(report.marker.date))"
+        guard !report.rows.isEmpty else {
+            return head + "\n\nNo keyword has a measurement both before and after it. Measure before a change and keep measuring after it."
+        }
+        var text = head + String(format: "\nNet value change %+.1f  ·  gained %+.1f  ·  lost %.1f", report.net, report.gained, report.lost)
+        text += "  ·  improved \(report.improved), worsened \(report.worsened), same \(report.same)\n\n"
+        var table = TextTable([.init("Keyword"), .init("Market"), .init("Before", .right), .init("After", .right), .init("Δ", .right),
+                               .init("Value"), .init("Gain", .right)])
+        for r in report.rows {
+            let outside = "> \(r.depth)"
+            let before: String = r.before.map { "#\($0)" } ?? outside
+            let after: String = r.after.map { "#\($0)" } ?? outside
+            let delta: String = r.delta > 0 ? "+\(r.delta)" : String(r.delta)
+            let gain: String = r.value == 0 ? "0" : String(format: "%+.2f", r.gain)
+            table.add([r.keyword, "\(r.country) \(r.device)", before, after, delta, r.tier, gain])
+        }
+        text += table.render()
+        text += "\n\nValue = popularity × (1 − (difficulty/100)²) × fit, 0 for brands, unrelated terms and terms without popularity."
+        text += " Gain = visibility change (#1 100 … #10 50 … #50 8) × value / 100."
+        return text
+    }
+
     static let usage = """
         Usage: aso <command> [options]
 
@@ -651,6 +714,13 @@ public struct CommandRunner: Sendable {
           competitors <app ID> --country CC [--device ...] [--depth 1-50]
                                                           Apps in the latest results of your tracked keywords (default top 10)
           measure reads ratings and new reviews in the measured storefronts first.
+
+        Releases and changes
+          markers list <app ID>                           Releases (seen when measuring or checking ratings) and notes
+          markers add <app ID> --title TEXT [--date 2026-10-20|2026-10-20T14:30:00Z]
+                                                          Pin a note (e.g. "keywords updated") to compare ranks around
+          markers remove <app ID> <marker ID>
+          impact <app ID> <marker ID>                     Ranks before and after it, weighted by what each keyword is worth
 
         Research (nothing is stored)
           search <term> --country CC [--device ...] [--limit 1-200]

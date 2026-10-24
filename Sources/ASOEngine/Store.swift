@@ -83,6 +83,21 @@ public actor Store {
             PRIMARY KEY (app_id, review_id)
         );
         """,
+        // 4: release markers (App Store releases seen by a lookup, and notes), and the version last looked at for a
+        // release, so a release marker that was removed is not added back.
+        """
+        CREATE TABLE markers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            date REAL NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            version TEXT,
+            country_code TEXT
+        );
+        CREATE INDEX markers_app ON markers (app_id, date);
+        ALTER TABLE apps ADD COLUMN release_checked_version TEXT;
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -163,7 +178,7 @@ public actor Store {
                      [.int(appID), .text(country), .text(device.rawValue), SQLValue(Date())])
         guard let market = try db.rows("SELECT \(Self.marketColumns) FROM markets WHERE app_id = ? AND country_code = ? AND device = ?",
                                         [.int(appID), .text(country), .text(device.rawValue)], map: Self.market).first else {
-            throw EngineError.database("The market \(country) · \(device.rawValue) could not be created.")
+            throw EngineError.database("The market \(country) Â· \(device.rawValue) could not be created.")
         }
         return market
     }
@@ -346,6 +361,44 @@ public actor Store {
             StoredReview(id: row.text(0), country: row.text(1), title: row.text(2), body: row.text(3), rating: row.int(4), author: row.text(5),
                          version: row.optionalText(6), date: row.isNull(7) ? nil : row.date(7), fetchedAt: row.date(8), isNew: row.int(9) == 1)
         }
+    }
+
+    // MARK: Markers
+
+    /// Records the release of `version` unless it was already looked at: the first look at an app records its current
+    /// release, a new version records another, and a version whose marker was removed is not added back.
+    public func recordRelease(version: String, date: Date, countryCode: String, appID: Int) throws -> MarkerRecord? {
+        try db.transaction {
+            let checked: [String?] = try db.rows("SELECT release_checked_version FROM apps WHERE track_id = ?", [.int(appID)]) { $0.optionalText(0) }
+            guard let last = checked.first, last != version else { return nil }
+            try db.query("UPDATE apps SET release_checked_version = ?, store_version = ? WHERE track_id = ?",
+                         [.text(version), .text(version), .int(appID)])
+            let known = try db.rows("SELECT EXISTS (SELECT 1 FROM markers WHERE app_id = ? AND kind = 'release' AND version = ?)",
+                                    [.int(appID), .text(version)]) { $0.int(0) == 1 }.first ?? false
+            guard !known else { return nil }
+            return try addMarker(appID: appID, date: date, kind: "release", title: "v\(version)", version: version, countryCode: countryCode)
+        }
+    }
+
+    @discardableResult
+    public func addMarker(appID: Int, date: Date, kind: String, title: String, version: String? = nil, countryCode: String? = nil) throws -> MarkerRecord {
+        try db.query("INSERT INTO markers (app_id, date, kind, title, version, country_code) VALUES (?, ?, ?, ?, ?, ?)",
+                     [.int(appID), SQLValue(date), .text(kind), .text(title), SQLValue(version), SQLValue(countryCode)])
+        return MarkerRecord(id: db.lastInsertID, date: date, kind: kind, title: title, version: version, country: countryCode)
+    }
+
+    /// The app's markers, oldest first.
+    public func markers(appID: Int) throws -> [MarkerRecord] {
+        try db.rows("SELECT id, date, kind, title, version, country_code FROM markers WHERE app_id = ? ORDER BY date, id", [.int(appID)]) { row in
+            MarkerRecord(id: row.int(0), date: row.date(1), kind: row.text(2), title: row.text(3), version: row.optionalText(4), country: row.optionalText(5))
+        }
+    }
+
+    /// False when the app has no marker with this id.
+    @discardableResult
+    public func removeMarker(id: Int, appID: Int) throws -> Bool {
+        try db.query("DELETE FROM markers WHERE id = ? AND app_id = ?", [.int(id), .int(appID)])
+        return db.changes > 0
     }
 
     // MARK: Row mapping

@@ -41,7 +41,7 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     public let note: String
 
     init(keyword: KeywordRecord, market: MarketRecord, app: AppRecord, observations: [RankObservationRecord],
-         deltaReference: DeltaReference, golden thresholds: GoldenThresholds) {
+         deltaReference: DeltaReference, golden thresholds: GoldenThresholds, markers: [Marker] = []) {
         let history = RankHistory(observations) { $0.point }
         let latest = observations.max { $0.fetchedAt < $1.fetchedAt }
         let measured = history.latestMeasured
@@ -50,7 +50,7 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
                                          measurement: measured.map { .init(results: $0.results, signals: signals) },
                                          brandProbability: keyword.brandProbability, navigational: keyword.navigational,
                                          fitProbability: keyword.fitProbability, popularity: nil)
-        let delta = history.delta(reference: deltaReference, markers: [])
+        let delta = history.delta(reference: deltaReference, markers: markers)
         let difficulty = judgement.difficulty
 
         self.keyword = keyword.text

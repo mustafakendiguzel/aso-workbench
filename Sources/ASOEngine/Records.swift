@@ -129,3 +129,17 @@ public struct StoredReview: Sendable, Codable, Equatable {
 
     static func key(_ review: CustomerReview) -> String { "\(review.countryCode)|\(review.id)" }
 }
+
+/// A point in time ranks are compared around: an App Store release seen by a lookup, or a note pinned to a date.
+public struct MarkerRecord: Sendable, Codable, Equatable {
+    public let id: Int
+    public let date: Date
+    /// "release" · "note"
+    public let kind: String
+    public let title: String
+    /// For a release: its version and the storefront it was seen in.
+    public let version: String?
+    public let country: String?
+
+    public var marker: Marker { Marker(date: date, title: title, kind: kind) }
+}

@@ -182,7 +182,8 @@ public struct Engine: Sendable {
         let app = try await app(appID)
         let (market, keyword) = try await trackedKeyword(text, appID: appID, countryCode: countryCode, device: device)
         let observations = try await store.observations(keywordID: keyword.id)
-        let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, deltaReference: deltaReference, golden: golden)
+        let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, deltaReference: deltaReference, golden: golden,
+                                   markers: try await rankMarkers(appID: appID))
         return KeywordDetail(row: row, app: app, observations: observations)
     }
 
@@ -248,12 +249,13 @@ public struct Engine: Sendable {
     public func keywordReport(appID: Int, countryCode: String? = nil, device: DeviceContext? = nil,
                               deltaReference: DeltaReference = .previous, golden: GoldenThresholds = .standard) async throws -> [KeywordReportRow] {
         let app = try await app(appID)
+        let markers = try await rankMarkers(appID: appID)
         var rows: [KeywordReportRow] = []
         for market in try await selectedMarkets(appID: appID, countryCode: countryCode, device: device) {
             for keyword in try await store.keywords(marketID: market.id) {
                 let observations = try await store.observations(keywordID: keyword.id)
                 rows.append(KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations,
-                                             deltaReference: deltaReference, golden: golden))
+                                             deltaReference: deltaReference, golden: golden, markers: markers))
             }
         }
         return rows

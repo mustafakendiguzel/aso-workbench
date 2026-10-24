@@ -207,7 +207,8 @@ struct CatalogTests {
 
         let check = await harness.run(["ratings", "check", id])
         #expect(check.code == 0)
-        #expect(check.console.output == "Checked 1 storefront(s): 1 reading(s) stored, 0 new rating(s) since the previous check.")
+        #expect(check.console.output.hasPrefix("Checked 1 storefront(s): 1 reading(s) stored, 0 new rating(s) since the previous check."))
+        #expect(check.console.output.contains("New release marker: v1.0"))   // the first look records the current release
         let list = await harness.run(["--json", "ratings", "list", id])
         #expect(list.console.output.contains("\"countryName\" : \"United States\""))
         #expect(await harness.run(["ratings", "check", id, "--all", "--country", "US"]).code == 64)

@@ -18,10 +18,12 @@ extension Engine {
         /// Storefronts whose request failed, and ones where the App Store has no rating count for the app.
         public var failed: [String] = []
         public var unavailable: [String] = []
+        /// The release marker recorded when a lookup showed a version not looked at before.
+        public var newRelease: MarkerRecord?
     }
 
     /// Reads the rating count and average in each storefront (one public request each): the app's markets, or the
-    /// countries given.
+    /// countries given. The same lookups detect a new App Store release and record it as a marker.
     public func checkRatings(appID: Int, countries: [String]? = nil, clock: @Sendable () -> Date = { Date() }) async throws -> RatingsCheck {
         _ = try await app(appID)
         let storefronts = try await catalogStorefronts(appID: appID, countries: countries)
@@ -36,11 +38,15 @@ extension Engine {
                 check.failed.append(storefront.countryCode)
                 continue
             }
+            let now = clock()
+            if let info, let release = try await recordReleaseIfNew(info, appID: appID, countryCode: storefront.countryCode, now: now) {
+                check.newRelease = release
+            }
             guard let info, info.ratingCount != nil else {
                 check.unavailable.append(storefront.countryCode)
                 continue
             }
-            if let new = try await recordRating(of: info, appID: appID, countryCode: storefront.countryCode, at: clock()) {
+            if let new = try await recordRating(of: info, appID: appID, countryCode: storefront.countryCode, at: now) {
                 check.recorded += 1
                 check.newRatings += new
             }
@@ -216,7 +222,8 @@ extension Engine {
 
     // MARK: Helpers
 
-    /// Ratings and new reviews before a measurement. Best effort: a failed read never stops the measurement.
+    /// A new release, ratings and new reviews before a measurement, so the measurement lands on the right side of a
+    /// release marker. Best effort: a failed read never stops the measurement.
     func readCatalogQuietly(appID: Int, storefronts: [Storefront]) async {
         let countries = storefronts.map(\.countryCode)
         _ = try? await checkRatings(appID: appID, countries: countries)
