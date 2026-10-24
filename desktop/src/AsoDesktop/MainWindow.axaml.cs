@@ -24,6 +24,12 @@ public sealed partial class MainWindow : Window
              + $"Put {executableName} next to this app, add its folder to PATH, or set ASO_CLI to its full path, then start the app again.",
     };
 
+    private async void ShowAddApp(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } vm) return;
+        if (await new AddAppDialog(vm.CreateAddApp()).ShowDialog<Core.AppRecord?>(this) is { } app) await vm.AppAddedAsync(app);
+    }
+
     // Links in the connection guides open in the default browser; only web links are opened.
     private async void OpenLink(object? sender, RoutedEventArgs e)
     {

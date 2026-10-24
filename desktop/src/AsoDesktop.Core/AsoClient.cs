@@ -19,6 +19,39 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<AppRecord> AddAppAsync(string reference, string? country, CancellationToken ct = default) =>
         RunAsync<AppRecord>(["app", "add", reference, .. Option("country", country)], ct);
 
+    /// <summary>Tracks the app with one market per country for <paramref name="device"/>.</summary>
+    public Task<AppRecord> AddAppAsync(string reference, string? lookupCountry, IReadOnlyCollection<string> markets, string device,
+                                       CancellationToken ct = default) =>
+        RunAsync<AppRecord>(["app", "add", reference, .. Option("country", lookupCountry), .. Option("markets", string.Join(',', markets)),
+                             "--device", device], ct);
+
+    /// <summary>Search by name, App Store link or ID; nothing is stored.</summary>
+    public Task<IReadOnlyList<SearchResultApp>> FindAppsAsync(string query, string country, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<SearchResultApp>>(["app", "search", "--country", country, "--", query], ct);
+
+    /// <param name="genre">An Apple Ads genre ID, or null for every genre.</param>
+    public Task<AppRecord> SetAdsGenreAsync(long appId, string? genre, CancellationToken ct = default) =>
+        RunAsync<AppRecord>(["app", "genre", Id(appId), genre ?? "any"], ct);
+
+    public Task<IReadOnlyList<MarketSummary>> MarketsAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<MarketSummary>>(["market", "list", Id(appId)], ct);
+
+    public Task<MarketSummary> AddMarketAsync(long appId, string country, string device, CancellationToken ct = default) =>
+        RunAsync<MarketSummary>(["market", "add", Id(appId), "--country", country, "--device", device], ct);
+
+    public async Task RemoveMarketAsync(long appId, string country, string device, CancellationToken ct = default) =>
+        await RunAsync<JsonElement>(["market", "remove", Id(appId), "--country", country, "--device", device], ct).ConfigureAwait(false);
+
+    public Task<IReadOnlyList<StorefrontInfo>> StorefrontsAsync(CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<StorefrontInfo>>(["storefronts"], ct);
+
+    public Task<IReadOnlyList<GenreInfo>> GenresAsync(CancellationToken ct = default) => RunAsync<IReadOnlyList<GenreInfo>>(["genres"], ct);
+
+    /// <summary>Measures one market's keywords.</summary>
+    public Task<MeasureSummary> MeasureMarketAsync(long appId, string country, string device, IProgress<MeasureStep>? progress = null,
+                                                   CancellationToken ct = default) =>
+        MeasureAsync(appId, country, device, progress, ct);
+
     public async Task RemoveAppAsync(long appId, CancellationToken ct = default) =>
         await RunAsync<JsonElement>(["app", "remove", Id(appId)], ct).ConfigureAwait(false);
 

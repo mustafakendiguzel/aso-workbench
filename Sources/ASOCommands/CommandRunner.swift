@@ -505,7 +505,7 @@ public struct CommandRunner: Sendable {
           market add <app ID> --country CC [--device ...]
           market list <app ID>                            Markets with their keyword count and last measurement
           market remove <app ID> --country CC [--device ...]
-          storefronts  ·  genres                          The 50 App Store countries; the Apple Ads genres
+          storefronts  ·  genres                          The App Store countries the engine knows; the Apple Ads genres
 
         Keywords
           keywords add <app ID> <keyword>... --country CC [--device iphone|ipad|mac]

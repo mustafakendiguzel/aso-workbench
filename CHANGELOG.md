@@ -7,6 +7,7 @@ The in-app updater shows the section of the new version as its release notes.
 ## [Unreleased]
 
 ### Added
+- Apps and markets outside the macOS app: `aso app search`, `app add --markets --device`, `app genre`, `market add|list|remove`, `storefronts` and `genres`. The Windows and Linux window gains an Add App dialog (search by name, device, several markets), an Overview with the Apple Ads genre and the markets, and a Keywords view per market.
 - Settings and connections outside the macOS app: `aso settings` (the app's preferences and defaults) and `aso connections` (store, inspect, test and remove the Apple Ads, App Store Connect, OpenRouter and RevenueCat keys; keys only from files or standard input). The Windows and Linux window has a Settings tab with General, Measurement and Connections, connection dots in the sidebar, and the start-up refresh of markets not measured recently (`aso measure --stale`).
 - A window for Windows and Linux (`desktop/`, C# and Avalonia) on top of `aso`: tracked apps, keywords with rank, Δ, difficulty and brand verdicts, rank measurement with progress, search, autocomplete, difficulty components and the metadata check. See [docs/DESKTOP.md](docs/DESKTOP.md).
 - `aso measure --json` reports progress as JSON Lines on stderr, and `aso difficulty --json` includes every component with its weight and explanation.

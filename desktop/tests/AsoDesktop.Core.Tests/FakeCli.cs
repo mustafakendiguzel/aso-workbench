@@ -32,7 +32,7 @@ internal sealed class FakeCli : IAsoCli
     public static string Command(IReadOnlyList<string> arguments)
     {
         var words = arguments.Where(a => a != "--json").TakeWhile(a => !a.StartsWith('-')).ToList();
-        return words is [("app" or "keywords") and var group, var action, ..] ? $"{group} {action}" : words.FirstOrDefault() ?? "";
+        return words is [("app" or "keywords" or "market") and var group, var action, ..] ? $"{group} {action}" : words.FirstOrDefault() ?? "";
     }
 }
 

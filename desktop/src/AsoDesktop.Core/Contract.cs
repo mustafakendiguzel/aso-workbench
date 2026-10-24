@@ -15,7 +15,23 @@ public sealed record AppRecord(
     [property: JsonPropertyName("iconURL")] string? IconUrl,
     string? PrimaryGenre,
     string? StoreVersion,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? AdsGenre = null);
+
+/// <summary>A market of an app (<c>aso market list</c>).</summary>
+public sealed record MarketSummary(string Country, string CountryName, string Device, int Keywords, DateTimeOffset? LastMeasuredAt)
+{
+    public string Title => $"{Country} · {Device}";
+}
+
+/// <summary>An App Store country (<c>aso storefronts</c>).</summary>
+public sealed record StorefrontInfo(string Code, string Name, string Language)
+{
+    public string Title => $"{Name} ({Code})";
+}
+
+/// <summary>An Apple Ads genre (<c>aso genres</c>).</summary>
+public sealed record GenreInfo(string Id, string Name);
 
 /// <summary>One tracked keyword as reports show it.</summary>
 public sealed record KeywordReportRow(
@@ -50,7 +66,8 @@ public sealed record SearchResultApp(
     double? AverageRating,
     int? RatingCount,
     string? PrimaryGenre,
-    string? Version);
+    string? Version,
+    [property: JsonPropertyName("iconURL")] string? IconUrl = null);
 
 public sealed record DifficultyComponent(string Name, string Weight, double Value, string Explanation);
 

@@ -27,26 +27,27 @@ public sealed record KeywordRow(KeywordReportRow Report)
 public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel status) : ObservableObject
 {
     public static IReadOnlyList<string> Devices { get; } = ["iphone", "ipad", "mac"];
-    public static IReadOnlyList<string> DeltaReferences { get; } = ["previous", "first", "week"];
+    public static IReadOnlyList<string> DeltaReferences { get; } = ["lastMarker", "previous", "first", "week"];
 
     public ObservableCollection<KeywordRow> Rows { get; } = [];
 
+    /// <summary>Called after keywords were added, removed or measured, so market lists can update their counts.</summary>
+    public Func<Task>? MarketsChanged { get; set; }
+
+    [ObservableProperty]
+    public partial AppRecord? App { get; set; }
+
+    /// <summary>The market whose keywords are shown, added and measured, as in the macOS app.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddKeywordsCommand), nameof(MeasureCommand), nameof(RefreshCommand))]
-    public partial AppRecord? App { get; set; }
+    public partial MarketSummary? Market { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddKeywordsCommand))]
     public partial string NewKeywords { get; set; } = "";
 
     [ObservableProperty]
-    public partial string NewCountry { get; set; } = "US";
-
-    [ObservableProperty]
-    public partial string NewDevice { get; set; } = "iphone";
-
-    [ObservableProperty]
-    public partial string Delta { get; set; } = "previous";
+    public partial string Delta { get; set; } = "lastMarker";
 
     [ObservableProperty]
     public partial KeywordRow? SelectedRow { get; set; }
@@ -63,47 +64,51 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private bool HasApp() => App is not null;
+    private bool HasMarket() => App is not null && Market is not null;
 
-    [RelayCommand(CanExecute = nameof(HasApp))]
-    private Task RefreshAsync() => App is not { } app ? Task.CompletedTask : status.RunAsync("Loading keywords…", async () =>
+    [RelayCommand(CanExecute = nameof(HasMarket))]
+    private Task RefreshAsync() => App is not { } app || Market is not { } market ? Task.CompletedTask : status.RunAsync("Loading keywords…", async () =>
     {
-        await ReloadAsync(app).ConfigureAwait(true);
-        status.Info(Rows.Count == 0 ? $"No keywords for {app.Name} yet." : $"{Rows.Count} keyword(s) for {app.Name}.");
+        await ReloadAsync(app, market).ConfigureAwait(true);
+        status.Info(Rows.Count == 0 ? $"No keywords in {market.Title} yet." : $"{Rows.Count} keyword(s) in {market.Title}.");
     });
 
-    private bool CanAddKeywords() => App is not null && ParseKeywords(NewKeywords).Count > 0;
+    private bool CanAddKeywords() => HasMarket() && ParseKeywords(NewKeywords).Count > 0;
 
     [RelayCommand(CanExecute = nameof(CanAddKeywords))]
-    private Task AddKeywordsAsync() => App is not { } app ? Task.CompletedTask : status.RunAsync("Adding keywords…", async () =>
+    private Task AddKeywordsAsync() => App is not { } app || Market is not { } market ? Task.CompletedTask : status.RunAsync("Adding keywords…", async () =>
     {
-        var result = await client.AddKeywordsAsync(app.TrackId, ParseKeywords(NewKeywords), NewCountry.Trim(), NewDevice).ConfigureAwait(true);
+        var result = await client.AddKeywordsAsync(app.TrackId, ParseKeywords(NewKeywords), market.Country, market.Device).ConfigureAwait(true);
         NewKeywords = "";
-        await ReloadAsync(app).ConfigureAwait(true);
+        await ReloadAsync(app, market).ConfigureAwait(true);
+        await NotifyMarketsAsync().ConfigureAwait(true);
         status.Info($"Added {result.Added.Count} keyword(s) in {result.Market}."
                     + (result.AlreadyTracked.Count > 0 ? $" Already tracked: {string.Join(", ", result.AlreadyTracked)}." : ""));
     });
 
     [RelayCommand]
-    private Task RemoveKeywordAsync(KeywordRow? row) => App is not { } app || row is null ? Task.CompletedTask :
+    private Task RemoveKeywordAsync(KeywordRow? row) => App is not { } app || Market is not { } market || row is null ? Task.CompletedTask :
         status.RunAsync($"Removing {row.Keyword}…", async () =>
         {
             await client.RemoveKeywordsAsync(app.TrackId, [row.Keyword], row.Report.Country, row.Report.Device).ConfigureAwait(true);
-            await ReloadAsync(app).ConfigureAwait(true);
+            await ReloadAsync(app, market).ConfigureAwait(true);
+            await NotifyMarketsAsync().ConfigureAwait(true);
             status.Info($"Removed {row.Keyword} from {row.Market}.");
         });
 
-    /// <summary>Fresh rank checks for every keyword of the app; cancellable (the Stop button binds to MeasureCancelCommand).</summary>
-    [RelayCommand(CanExecute = nameof(HasApp), IncludeCancelCommand = true)]
-    private Task MeasureAsync(CancellationToken cancellationToken) => App is not { } app ? Task.CompletedTask :
+    /// <summary>Fresh rank checks for every keyword of the market; cancellable (the Stop button binds to MeasureCancelCommand).</summary>
+    [RelayCommand(CanExecute = nameof(HasMarket), IncludeCancelCommand = true)]
+    private Task MeasureAsync(CancellationToken cancellationToken) => App is not { } app || Market is not { } market ? Task.CompletedTask :
         status.RunAsync("Measuring ranks, about 3 seconds per keyword…", async () =>
         {
             MeasureFraction = 0;
             var progress = new Progress<MeasureStep>(ShowStep);
             try
             {
-                var summary = await client.MeasureAsync(app.TrackId, progress: progress, ct: cancellationToken).ConfigureAwait(true);
-                await ReloadAsync(app).ConfigureAwait(true);
+                var summary = await client.MeasureMarketAsync(app.TrackId, market.Country, market.Device, progress, cancellationToken)
+                    .ConfigureAwait(true);
+                await ReloadAsync(app, market).ConfigureAwait(true);
+                await NotifyMarketsAsync().ConfigureAwait(true);
                 status.Info(summary.Measured == 0
                     ? "Nothing to measure. Add keywords first."
                     : $"Measured {summary.Measured}: {summary.Found} ranked, {summary.Outside} outside the results, {summary.Failed} failed.");
@@ -122,19 +127,32 @@ public sealed partial class KeywordsViewModel(AsoClient client, StatusViewModel 
 
     partial void OnDeltaChanged(string value)
     {
-        if (App is not null) RefreshCommand.Execute(null);
+        if (HasMarket()) RefreshCommand.Execute(null);
     }
 
-    partial void OnAppChanged(AppRecord? value)
+    partial void OnAppChanged(AppRecord? oldValue, AppRecord? newValue)
     {
+        if (oldValue?.TrackId == newValue?.TrackId) return;   // refreshed details of the same app
+        Market = null;
+    }
+
+    partial void OnMarketChanged(MarketSummary? oldValue, MarketSummary? newValue)
+    {
+        if (SameMarket(oldValue, newValue)) return;   // the same market with a refreshed count
         Rows.Clear();
         SelectedRow = null;
     }
 
-    private async Task ReloadAsync(AppRecord app)
+    /// <summary>Markets are the same when country and device match; counts and dates may differ between reads.</summary>
+    public static bool SameMarket(MarketSummary? a, MarketSummary? b) =>
+        a is not null && b is not null && a.Country == b.Country && a.Device == b.Device;
+
+    private Task NotifyMarketsAsync() => MarketsChanged?.Invoke() ?? Task.CompletedTask;
+
+    private async Task ReloadAsync(AppRecord app, MarketSummary market)
     {
-        var rows = await client.ListKeywordsAsync(app.TrackId, delta: Delta).ConfigureAwait(true);
-        if (App?.TrackId != app.TrackId) return;   // the selection moved on while loading
+        var rows = await client.ListKeywordsAsync(app.TrackId, market.Country, market.Device, Delta).ConfigureAwait(true);
+        if (App?.TrackId != app.TrackId || !SameMarket(Market, market)) return;   // the selection moved on while loading
         Rows.Clear();
         foreach (var row in rows) Rows.Add(new KeywordRow(row));
     }

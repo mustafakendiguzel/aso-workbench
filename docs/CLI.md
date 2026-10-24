@@ -17,9 +17,15 @@ See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system librarie
 
 | Command | What it does |
 |---|---|
-| `aso app add <App Store link or ID> [--country CC]` | Starts tracking an app (looked up in the link's country, else `--country`, else US). |
+| `aso app search <name, link or ID> [--country CC]` | Finds apps by name, or the app behind a link or ID. Nothing is stored. |
+| `aso app add <App Store link or ID> [--country CC] [--markets US,DE,…] [--device iphone\|ipad\|mac]` | Starts tracking an app (looked up in the link's country, else `--country`, else US), optionally with one market per country. Its Apple Ads genre follows its App Store category. |
 | `aso app list` | Tracked apps. |
+| `aso app genre <app ID> <GENRE\|any>` | The Apple Ads genre whose popularity lists are used (`aso genres` lists them); `any` searches every genre. |
 | `aso app remove <app ID>` | Stops tracking an app and deletes its keywords and measurements. |
+| `aso market add <app ID> --country CC [--device ...]` | Adds a market (one App Store country and device). |
+| `aso market list <app ID>` | The app's markets with their keyword count and last measurement. |
+| `aso market remove <app ID> --country CC [--device ...]` | Removes a market with its keywords and measurements. |
+| `aso storefronts` · `aso genres` | The App Store countries and the Apple Ads genres, for pickers. |
 | `aso keywords add <app ID> <keyword>... --country CC [--device iphone\|ipad\|mac]` | Tracks keywords in one market. Duplicates (ignoring case and spacing) are skipped. |
 | `aso keywords remove <app ID> <keyword>... --country CC [--device ...]` | Stops tracking keywords. |
 | `aso keywords list <app ID> [--country CC] [--device ...] [--delta previous\|first\|week]` | Latest rank, Δ, difficulty and brand verdict per keyword. |

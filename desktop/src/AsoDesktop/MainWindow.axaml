@@ -101,14 +101,8 @@
               <TextBlock Classes="hint" Text="App Store Connect" />
             </StackPanel>
           </StackPanel>
-          <TextBlock Classes="label" Text="Add an app" />
-          <TextBox PlaceholderText="App Store link or app ID" Text="{Binding NewAppReference}" />
-          <DockPanel>
-            <TextBox DockPanel.Dock="Left" Width="64" MaxLength="2" PlaceholderText="US" Text="{Binding NewAppCountry}"
-                     ToolTip.Tip="Store to look the app up in (the link's own country wins)" />
-            <Button Margin="6,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    Content="Add app" Command="{Binding AddAppCommand}" />
-          </DockPanel>
+          <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Add app…"
+                  Click="ShowAddApp" HotKey="Ctrl+N" ToolTip.Tip="Find an app by name, App Store link or ID (Ctrl+N)" />
           <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Remove selected app…"
                   IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
             <Button.Flyout>
@@ -136,11 +130,84 @@
     </Border>
 
     <TabControl Margin="8,4,8,0">
-      <!-- Keywords of the selected app -->
+      <!-- The selected app: details, Apple Ads genre and markets -->
+      <TabItem Header="Overview">
+        <ScrollViewer IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel Spacing="4" MaxWidth="900" HorizontalAlignment="Left" Margin="0,4,0,0">
+            <TextBlock FontSize="22" FontWeight="SemiBold" Text="{Binding SelectedApp.Name, FallbackValue='Add an app to start'}" />
+            <TextBlock Classes="hint">
+              <Run Text="{Binding SelectedApp.SellerName, FallbackValue=''}" />
+              <Run Text="  ·  " />
+              <Run Text="{Binding SelectedApp.PrimaryGenre, FallbackValue=''}" />
+              <Run Text="  ·  App ID " />
+              <Run Text="{Binding SelectedApp.TrackId, FallbackValue=''}" />
+              <Run Text="  ·  " />
+              <Run Text="{Binding SelectedApp.BundleId, FallbackValue=''}" />
+            </TextBlock>
+
+            <DockPanel Margin="0,16,0,0">
+              <TextBlock Text="Apple Ads genre" VerticalAlignment="Center" Margin="0,0,10,0"
+                         ToolTip.Tip="The genre whose monthly Search Term Rank lists give popularity. Any searches every genre." />
+              <ComboBox Width="320" ItemsSource="{Binding Genres}" SelectedItem="{Binding SelectedGenre}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="core:GenreInfo">
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </DockPanel>
+
+            <TextBlock Classes="heading" Text="Markets" Margin="0,20,0,4" />
+            <TextBlock Classes="hint" Text="A market is one App Store country and device. Keywords, ranks and measurements belong to a market." />
+            <DataGrid ItemsSource="{Binding Markets}" SelectedItem="{Binding SelectedMarket}" AutoGenerateColumns="False" IsReadOnly="True"
+                      GridLinesVisibility="Horizontal" MaxHeight="320" Margin="0,8,0,0">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="core:MarketSummary" Header="Market" Binding="{Binding Title}" Width="Auto" />
+                <DataGridTextColumn x:DataType="core:MarketSummary" Header="Country" Binding="{Binding CountryName}" Width="*" />
+                <DataGridTextColumn x:DataType="core:MarketSummary" Header="Keywords" Binding="{Binding Keywords}" Width="Auto" />
+                <DataGridTextColumn x:DataType="core:MarketSummary" Header="Last measured"
+                                    Binding="{Binding LastMeasuredAt, StringFormat='{}{0:g}', FallbackValue='never', TargetNullValue='never'}" Width="Auto" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+              <ComboBox Width="260" ItemsSource="{Binding Storefronts}" SelectedItem="{Binding NewMarketCountry}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="core:StorefrontInfo">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <ComboBox ItemsSource="{x:Static vm:MainViewModel.Devices}" SelectedItem="{Binding NewMarketDevice}" />
+              <Button Content="Add market" Command="{Binding AddMarketCommand}" />
+              <Button Content="Remove selected market…"
+                      IsEnabled="{Binding SelectedMarket, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Button.Flyout>
+                  <Flyout>
+                    <StackPanel Width="260" Spacing="8">
+                      <TextBlock TextWrapping="Wrap" Text="Remove this market with its keywords and measurements? This cannot be undone." />
+                      <Button Content="Remove" Command="{Binding RemoveMarketCommand}" CommandParameter="{Binding SelectedMarket}" />
+                    </StackPanel>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Keywords of the selected market -->
       <TabItem Header="Keywords">
         <DockPanel IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,4,0,8">
-            <Button Classes="accent" Content="Measure ranks" Command="{Binding Keywords.MeasureCommand}"
+            <ComboBox Width="150" ItemsSource="{Binding Markets}" SelectedItem="{Binding SelectedMarket}"
+                      PlaceholderText="No market" ToolTip.Tip="The market whose keywords are shown, added and measured">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="core:MarketSummary">
+                  <TextBlock Text="{Binding Title}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Classes="accent" Content="Measure ranks" Command="{Binding Keywords.MeasureCommand}" HotKey="Ctrl+R"
                     ToolTip.Tip="A fresh App Store search for every keyword, about 3 seconds each" />
             <Button Content="Stop" Command="{Binding Keywords.MeasureCancelCommand}"
                     IsVisible="{Binding Keywords.MeasureCommand.IsRunning}" />
@@ -156,13 +223,9 @@
                   Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
             <StackPanel Spacing="6">
               <TextBlock Classes="heading" Text="Add keywords" />
+              <TextBlock Classes="hint" Text="{Binding SelectedMarket.Title, StringFormat='To the {0} market', FallbackValue='Add a market on Overview first'}" />
               <TextBox AcceptsReturn="True" Height="140" TextWrapping="Wrap" Text="{Binding Keywords.NewKeywords}"
                        PlaceholderText="One per line or separated by commas" />
-              <DockPanel>
-                <TextBox DockPanel.Dock="Left" Width="64" MaxLength="2" Text="{Binding Keywords.NewCountry}" PlaceholderText="US" />
-                <ComboBox Margin="6,0,0,0" HorizontalAlignment="Stretch"
-                          ItemsSource="{x:Static vm:KeywordsViewModel.Devices}" SelectedItem="{Binding Keywords.NewDevice}" />
-              </DockPanel>
               <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Add"
                       Command="{Binding Keywords.AddKeywordsCommand}" />
 
