@@ -7,6 +7,8 @@ The in-app updater shows the section of the new version as its release notes.
 ## [Unreleased]
 
 ### Added
+- A window for Windows and Linux (`desktop/`, C# and Avalonia) on top of `aso`: tracked apps, keywords with rank, Δ, difficulty and brand verdicts, rank measurement with progress, search, autocomplete, difficulty components and the metadata check. See [docs/DESKTOP.md](docs/DESKTOP.md).
+- `aso measure --json` reports progress as JSON Lines on stderr, and `aso difficulty --json` includes every component with its weight and explanation.
 - `aso`, the engine on the command line: track apps and keywords, measure ranks, list them with Δ, difficulty and brand verdicts, and look up search results, autocomplete, difficulty and metadata limits. Text or `--json` output; its own SQLite data file. See [docs/CLI.md](docs/CLI.md).
 
 ### Changed

@@ -56,6 +56,7 @@ Sources/
 Resources/   Info.plist, icon, models/ (bundled CoreML popularity model + report)
 scripts/     bundle-app.sh (build → .app), release.sh (.dmg/.zip + GitHub release)
 Tests/       ASOCoreTests, ASOProvidersTests (live Apple tests are opt-in), ASOEngineTests (store, engine, CLI)
+desktop/     the Windows and Linux window (C#, Avalonia) on top of `aso`, see DESKTOP.md
 ```
 
 ## How data flows

@@ -7,6 +7,9 @@ DerivedData/
 # The package graph depends on the build host (swift-crypto only off Apple platforms), so no single
 # resolved file fits every platform.
 Package.resolved
+# .NET build output of the Windows and Linux window
+desktop/**/bin/
+desktop/**/obj/
 *.xcodeproj
 *.xcworkspace
 
