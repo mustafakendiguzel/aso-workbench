@@ -86,15 +86,27 @@ public enum KeywordCSV {
     public static let header = "keyword,storefront,device,rank,observed_count,delta,popularity_1_100,popularity_source,popularity_genre,fit_probability,difficulty,difficulty_tier,rating_mass_median_top10,title_matches_top10,measured_at,provider"
 
     public static func render(_ rows: [KeywordReportRow]) -> String {
-        let lines = rows.map { r in
-            [r.keyword, r.country, r.device, r.rank.map(String.init) ?? "", String(r.observedCount ?? 0), r.delta.map(String.init) ?? "",
-             r.popularity.map(String.init) ?? "", r.popularity == nil ? "unavailable" : "", "",
-             r.fit.map { String(format: "%.2f", $0) } ?? "", r.difficulty.map { String(Int($0.rounded())) } ?? "", r.difficultyTier ?? "",
-             r.medianRatingsTop10.map(String.init) ?? "", r.titleMatchesTop10.map(String.init) ?? "",
-             r.measuredAt?.ISO8601Format() ?? "", r.provider ?? ""]
-                .map(escape).joined(separator: ",")
-        }
+        let lines = rows.map { fields($0).map(escape).joined(separator: ",") }
         return ([header] + lines).joined(separator: "\n") + "\n"
+    }
+
+    // Built field by field: one array literal of this many optional chains is too slow for the type checker.
+    private static func fields(_ r: KeywordReportRow) -> [String] {
+        var fields: [String] = [r.keyword, r.country, r.device]
+        fields.append(r.rank.map(String.init) ?? "")
+        fields.append(String(r.observedCount ?? 0))
+        fields.append(r.delta.map(String.init) ?? "")
+        fields.append(r.popularity.map(String.init) ?? "")
+        fields.append(r.popularity == nil ? "unavailable" : "")
+        fields.append("")
+        fields.append(r.fit.map { String(format: "%.2f", $0) } ?? "")
+        fields.append(r.difficulty.map { String(Int($0.rounded())) } ?? "")
+        fields.append(r.difficultyTier ?? "")
+        fields.append(r.medianRatingsTop10.map(String.init) ?? "")
+        fields.append(r.titleMatchesTop10.map(String.init) ?? "")
+        fields.append(r.measuredAt?.ISO8601Format() ?? "")
+        fields.append(r.provider ?? "")
+        return fields
     }
 
     /// RFC 4180: quote a field that contains a comma, quote or line break, doubling its quotes.
