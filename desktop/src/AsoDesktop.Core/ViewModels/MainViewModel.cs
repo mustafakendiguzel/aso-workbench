@@ -47,6 +47,10 @@ public sealed partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Metadata.AscConnected = Settings.AppStoreConnect.IsConfigured;
         };
         Metadata.Published = () => Status.QuietlyAsync(Changes.ReloadAsync);
+        Settings.OpenRouter.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Metadata.WriterConnected = Settings.OpenRouter.IsConfigured;
+        };
     }
 
     public StatusViewModel Status { get; } = new();

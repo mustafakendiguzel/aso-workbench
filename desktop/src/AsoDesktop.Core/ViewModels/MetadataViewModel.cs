@@ -185,7 +185,7 @@ public sealed partial class MetadataViewModel : ObservableObject
                               nameof(CoverageHeadline), nameof(CoverageComplete), nameof(CoverageAvoid))]
     [NotifyCanExecuteChangedFor(nameof(ResetToBaselineCommand), nameof(SetBaselineCommand), nameof(SaveLegalCommand),
                                 nameof(InsertFooterHereCommand), nameof(InsertFooterEverywhereCommand), nameof(FillWhatsNewCommand),
-                                nameof(PullCommand))]
+                                nameof(PullCommand), nameof(ImproveCommand))]
     public partial MetadataReport? Report { get; set; }
 
     /// <summary>The App Store Connect key is stored: pulling and publishing work.</summary>
@@ -197,6 +197,21 @@ public sealed partial class MetadataViewModel : ObservableObject
     public string AscHint => AscConnected
         ? "Pull the live listing as the baseline, or publish drafts: each write is planned and confirmed first, then read back"
         : "Add the App Store Connect key in Settings → Connections to pull and publish the listing";
+
+    /// <summary>The OpenRouter key is stored: the AI writer works.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WriterHint))]
+    [NotifyCanExecuteChangedFor(nameof(ImproveCommand))]
+    public partial bool WriterConnected { get; set; }
+
+    public string WriterHint => WriterConnected
+        ? "Write with AI from this market's evidence; every proposal is repaired and scored by the rules. Each request costs a little on your OpenRouter account."
+        : "Add the OpenRouter key in Settings → Connections to write with AI";
+
+    /// <summary>The draft before the last Make better, to undo it.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UndoImproveCommand))]
+    public partial MetadataFields? BeforeImprove { get; set; }
 
     /// <summary>Called after anything was published (the timeline gains a change marker).</summary>
     public Func<Task>? Published { get; set; }
@@ -271,6 +286,7 @@ public sealed partial class MetadataViewModel : ObservableObject
         if (oldValue?.TrackId == newValue?.TrackId) return;
         CancelPendingSave();
         dirty = false;
+        BeforeImprove = null;
         Locales.Clear();
         Show(null, fields: true);
         if (newValue is not null) _ = status.QuietlyAsync(LoadLocalesAsync);
@@ -279,6 +295,7 @@ public sealed partial class MetadataViewModel : ObservableObject
     partial void OnSelectedLocaleChanged(MetadataLocaleLine? oldValue, MetadataLocaleLine? newValue)
     {
         if (oldValue?.Locale == newValue?.Locale) return;
+        BeforeImprove = null;
         _ = status.QuietlyAsync(async () =>
         {
             if (oldValue is not null) await FlushAsync(oldValue).ConfigureAwait(true);
@@ -419,6 +436,77 @@ public sealed partial class MetadataViewModel : ObservableObject
         await ReloadAsync().ConfigureAwait(true);
         status.Info($"What's New filled with the default note in {batch.Changed.Count} of {batch.Locales} locale(s); the others already had notes.");
     });
+
+    private bool CanImprove() => WriterConnected && Report is not null;
+
+    /// <summary>One better version of the draft (the rule findings become the model's instructions), saved as the draft; undoable.</summary>
+    [RelayCommand(CanExecute = nameof(CanImprove))]
+    private Task ImproveAsync() => Act("Making the draft better…", async (app, line) =>
+    {
+        await FlushAsync(line).ConfigureAwait(true);
+        var before = CurrentFields();
+        var result = await client.ImproveAsync(app.TrackId, line.Locale, null).ConfigureAwait(true);
+        BeforeImprove = before;
+        await ReloadAsync().ConfigureAwait(true);
+        await LoadLocalesAsync().ConfigureAwait(true);
+        var p = result.Proposal;
+        status.Info($"Made better: rules {result.Before} → {p.Score}, covers {p.Covered.Count} of {p.Covered.Count + p.Missed.Count} priority phrases"
+                    + (p.Repairs.Count > 0 ? $", {p.Repairs.Count} repair(s)" : "") + (result.Cost is { } c ? $", cost {c}." : "."));
+    });
+
+    private bool CanUndoImprove() => BeforeImprove is not null;
+
+    [RelayCommand(CanExecute = nameof(CanUndoImprove))]
+    private Task UndoImproveAsync() => BeforeImprove is not { } before ? Task.CompletedTask : Act("Restoring the draft…", async (app, line) =>
+    {
+        var report = await client.SaveDraftAsync(app.TrackId, line.Locale, before).ConfigureAwait(true);
+        BeforeImprove = null;
+        line.Status = Summary(report);
+        Show(report, fields: true);
+        status.Info("The draft is as it was before Make better.");
+    });
+
+    /// <summary>The dialog for three proposals for the selected locale; Use this saves one as the draft.</summary>
+    public async Task<WriteViewModel?> CreateWriteAsync()
+    {
+        if (App is not { } app || SelectedLocale is not { } line) return null;
+        await FlushAsync(line).ConfigureAwait(true);
+        return new WriteViewModel(client, app, line.Locale, async fields =>
+        {
+            var report = await client.SaveDraftAsync(app.TrackId, line.Locale, fields).ConfigureAwait(true);
+            BeforeImprove = null;
+            line.Status = Summary(report);
+            if (SelectedLocale?.Locale == line.Locale) Show(report, fields: true);
+            status.Info($"The proposal is the {line.Locale} draft now.");
+        });
+    }
+
+    /// <summary>The dialog that writes every chosen locale worth writing.</summary>
+    public async Task<WriteAllViewModel?> CreateWriteAllAsync()
+    {
+        if (App is not { } app) return null;
+        await FlushAsync().ConfigureAwait(true);
+        var worth = Locales.Select(l => l.Status).OfType<MetadataLocale>().ToList();
+        return new WriteAllViewModel(client, app, worth, AfterWritingAsync);
+    }
+
+    /// <summary>The dialog for release notes in every language, starting from the selected locale's notes.</summary>
+    public async Task<WhatsNewViewModel?> CreateWhatsNewAsync()
+    {
+        if (App is not { } app || SelectedLocale is not { } line) return null;
+        await FlushAsync(line).ConfigureAwait(true);
+        var worth = Locales.Select(l => l.Status).OfType<MetadataLocale>().ToList();
+        var source = worth.Any(l => l.Locale == line.Locale) ? line.Locale : worth.FirstOrDefault()?.Locale ?? line.Locale;
+        var notes = source == line.Locale ? Text("whatsNew") : "";
+        return new WhatsNewViewModel(client, app, worth, source, notes, AfterWritingAsync);
+    }
+
+    private async Task AfterWritingAsync()
+    {
+        BeforeImprove = null;
+        await LoadLocalesAsync().ConfigureAwait(true);
+        await ReloadAsync().ConfigureAwait(true);
+    }
 
     private bool CanPull() => AscConnected && Report is not null;
 

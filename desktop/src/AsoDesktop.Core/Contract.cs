@@ -354,6 +354,31 @@ public sealed record MetadataReport(
     LegalState Legal,
     KeywordCoverage? Coverage = null);
 
+/// <summary>One listing the AI writer proposed, repaired and scored by the engine's rules.</summary>
+public sealed record WrittenProposal(
+    string Label,
+    MetadataFields Fields,
+    string Rationale,
+    int Score,
+    int CharactersUsed,
+    IReadOnlyList<RulesFinding> Findings,
+    IReadOnlyList<ValidationIssue> Issues,
+    IReadOnlyList<string> Repairs,
+    IReadOnlyList<string> Covered,
+    IReadOnlyList<string> Missed);
+
+/// <summary>Three proposals for one locale, best first (<c>aso metadata write</c>).</summary>
+public sealed record WriteResult(string Locale, string? Market, IReadOnlyList<WrittenProposal> Proposals, bool Saved, string? Cost);
+
+/// <summary>Make better (<c>aso metadata improve</c>): the draft's score before and the improved version.</summary>
+public sealed record ImproveResult(string Locale, int Before, WrittenProposal Proposal, bool Saved, string? Cost);
+
+/// <summary>One locale of Write all locales: the proposal saved as its draft, or why there is none.</summary>
+public sealed record BatchWrite(string Locale, string? Market, WrittenProposal? Proposal, string? Error, string? Cost);
+
+/// <summary>One locale's translated release notes, or why there are none.</summary>
+public sealed record WhatsNewWrite(string Locale, string? Text, string? Error);
+
 /// <summary>Drafts changed by a footer insert or a What's New fill.</summary>
 public sealed record MetadataBatch(IReadOnlyList<string> Changed, int Locales);
 

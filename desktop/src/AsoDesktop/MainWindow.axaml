@@ -843,8 +843,21 @@
             <Button Margin="8,0,0,0" Content="Set baseline…" Click="SetBaseline" IsEnabled="{Binding Metadata.HasReport}"
                     ToolTip.Tip="Type or paste what is live on the App Store today; the draft is compared against it" />
             <Button Margin="8,0,0,0" Content="Reset draft to baseline" Command="{Binding Metadata.ResetToBaselineCommand}" />
-            <Button Margin="8,0,0,0" Content="Fill empty What's New" Command="{Binding Metadata.FillWhatsNewCommand}"
-                    ToolTip.Tip="Locales without release notes get the default note in their language; Apple refuses a version with an empty field" />
+            <DropDownButton Margin="8,0,0,0" Content="Write" IsEnabled="{Binding Metadata.HasReport}" ToolTip.Tip="{Binding Metadata.WriterHint}">
+              <DropDownButton.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem Header="Write this locale with AI…" Click="WriteLocale" IsEnabled="{Binding Metadata.WriterConnected}" />
+                  <MenuItem Header="Make better" Command="{Binding Metadata.ImproveCommand}" />
+                  <MenuItem Header="Undo Make better" Command="{Binding Metadata.UndoImproveCommand}" />
+                  <Separator />
+                  <MenuItem Header="Write all locales…" Click="WriteAll" IsEnabled="{Binding Metadata.WriterConnected}" />
+                  <MenuItem Header="What's New for all locales…" Click="WriteWhatsNew" IsEnabled="{Binding Metadata.WriterConnected}" />
+                  <Separator />
+                  <MenuItem Header="Fill empty What's New" Command="{Binding Metadata.FillWhatsNewCommand}"
+                            ToolTip.Tip="Locales without release notes get the default note in their language; Apple refuses a version with an empty field" />
+                </MenuFlyout>
+              </DropDownButton.Flyout>
+            </DropDownButton>
             <DropDownButton Margin="8,0,0,0" Content="App Store Connect" IsEnabled="{Binding Metadata.HasReport}"
                             ToolTip.Tip="{Binding Metadata.AscHint}">
               <DropDownButton.Flyout>
@@ -970,8 +983,6 @@
                     </StackPanel>
                   </StackPanel>
                 </Border>
-                <TextBlock Classes="hint" Margin="0,0,0,12"
-                           Text="The AI writer comes to Windows and Linux in a later version; until then it needs the macOS app." />
               </StackPanel>
             </ScrollViewer>
           </Grid>

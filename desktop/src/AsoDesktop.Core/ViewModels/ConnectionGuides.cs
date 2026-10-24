@@ -80,8 +80,8 @@ public static class ConnectionGuides
         LinkTitle: "Open OpenRouter keys",
         Link: "https://openrouter.ai/settings/keys")
     {
-        Availability = "This version uses the key for the brand, naturalness and fit checks in Find keywords. The writer and the other "
-                       + "checks come to Windows and Linux in later versions; until then they need the macOS app.",
+        Availability = "This version uses the key for the brand, naturalness and fit checks in Find keywords and for the metadata writer "
+                       + "(Metadata tab). Local-language ideas for other countries come to Windows and Linux in a later version.",
     };
 
     public static ConnectionGuide RevenueCat { get; } = new(

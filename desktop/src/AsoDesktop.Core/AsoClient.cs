@@ -109,6 +109,34 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<MetadataBatch> FillEmptyWhatsNewAsync(long appId, CancellationToken ct = default) =>
         RunAsync<MetadataBatch>(["metadata", "fill-whats-new", Id(appId)], ct);
 
+    // MARK: Writer (OpenRouter; every call costs a little on the user's account)
+
+    /// Three proposals for the locale; nothing is saved (the chosen one is saved as the draft with <see cref="SaveDraftAsync"/>).
+    public Task<WriteResult> WriteAsync(long appId, string locale, bool brandFirst, string? brand, string? notes, bool rewriteCopy,
+                                        CancellationToken ct = default) =>
+        RunAsync<WriteResult>(["metadata", "write", Id(appId), "--locale", locale, "--strategy", brandFirst ? "brand" : "feature",
+                               .. Option("brand", brand), .. Option("notes", notes), .. Flag("rewrite-copy", rewriteCopy)], ct);
+
+    /// Make better, saved as the draft; aso refuses a version that would score lower.
+    public Task<ImproveResult> ImproveAsync(long appId, string locale, string? brand, CancellationToken ct = default) =>
+        RunAsync<ImproveResult>(["metadata", "improve", Id(appId), "--locale", locale, .. Option("brand", brand), "--save"], ct);
+
+    /// Writes each locale and saves its best proposal; <paramref name="progress"/> gets each locale as it starts.
+    public Task<IReadOnlyList<BatchWrite>> WriteAllAsync(long appId, IReadOnlyCollection<string> locales, bool brandFirst, string? brand, string? notes,
+                                                         IProgress<string>? progress = null, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<BatchWrite>>(
+            ["metadata", "write-all", Id(appId), "--locales", string.Join(',', locales), "--strategy", brandFirst ? "brand" : "feature",
+             .. Option("brand", brand), .. Option("notes", notes)], ct,
+            line => { if (Parse<WriteStep>(line) is { } step) progress?.Report(step.Locale); });
+
+    /// Saves the release notes into the source locale and their translation into each target; the text goes through stdin.
+    public Task<IReadOnlyList<WhatsNewWrite>> WriteWhatsNewAsync(long appId, string sourceLocale, string text, IReadOnlyCollection<string> locales,
+                                                                 CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<WhatsNewWrite>>(["metadata", "whats-new", Id(appId), "--from", sourceLocale, "--stdin", "--locales", string.Join(',', locales)],
+                                               ct, standardInput: text);
+
+    private sealed record WriteStep(string Locale);
+
     // MARK: Publishing (App Store Connect; nothing is written without the confirming --yes)
 
     /// <summary>Reads every locale from App Store Connect as the baseline; nothing is written to Apple.</summary>

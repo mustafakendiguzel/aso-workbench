@@ -97,6 +97,21 @@ public sealed partial class MainWindow : Window
         if (await new BaselineDialog(locale.Locale, fields).ShowDialog<bool>(this)) await metadata.SetBaselineCommand.ExecuteAsync(fields);
     }
 
+    private async void WriteLocale(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Metadata is { } metadata && await metadata.CreateWriteAsync() is { } write) await new WriteDialog(write).ShowDialog(this);
+    }
+
+    private async void WriteAll(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Metadata is { } metadata && await metadata.CreateWriteAllAsync() is { } writeAll) await new WriteAllDialog(writeAll).ShowDialog(this);
+    }
+
+    private async void WriteWhatsNew(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Metadata is { } metadata && await metadata.CreateWhatsNewAsync() is { } whatsNew) await new WhatsNewDialog(whatsNew).ShowDialog(this);
+    }
+
     private async void PublishLocale(object? sender, RoutedEventArgs e) => await ShowPublishAsync(everyDraft: false);
 
     private async void PublishAll(object? sender, RoutedEventArgs e) => await ShowPublishAsync(everyDraft: true);
