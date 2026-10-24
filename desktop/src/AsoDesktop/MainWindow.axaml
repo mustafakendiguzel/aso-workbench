@@ -51,6 +51,11 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListAccentLowBrush}" />
     </Style>
+    <!-- Every section header on one row at the default window width -->
+    <Style Selector="TabControl.sections > TabItem">
+      <Setter Property="FontSize" Value="19" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Padding" Value="14" />
       <Setter Property="CornerRadius" Value="6" />
@@ -146,7 +151,7 @@
       </DockPanel>
     </Border>
 
-    <TabControl Margin="8,4,8,0">
+    <TabControl Classes="sections" Margin="8,4,8,0">
       <!-- The selected app: details, Apple Ads genre and markets -->
       <TabItem Header="Overview">
         <ScrollViewer IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
