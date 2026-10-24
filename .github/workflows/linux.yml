@@ -40,19 +40,54 @@ jobs:
       - name: Test
         run: swift test --skip-build --skip Live
 
-      - name: Build the aso command (release, Swift runtime linked in)
+      - name: Package the aso command (release, Swift runtime linked in)
         if: matrix.swift == '6.4'
-        run: |
-          swift build -c release --product aso --static-swift-stdlib
-          bin="$(swift build -c release --show-bin-path)"
-          "$bin/aso" --version
-          mkdir -p dist
-          tar -czf dist/aso-linux-x86_64.tar.gz -C "$bin" aso
+        run: scripts/package-linux.sh
 
       - name: Upload the aso command
         if: matrix.swift == '6.4'
         uses: actions/upload-artifact@v4
         with:
           name: aso-linux-x86_64
-          path: dist/aso-linux-x86_64.tar.gz
+          path: |
+            dist/aso-linux-x86_64.tar.gz
+            dist/aso-linux-x86_64.sha256
+          if-no-files-found: error
+
+  # The window with that aso next to it, on a plain Ubuntu runner (the .NET SDK is not in the Swift image).
+  package-window:
+    name: Window package
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: desktop/global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: aso-linux-x86_64
+          path: engine
+
+      - name: Package the window
+        run: |
+          tar -xzf engine/aso-linux-x86_64.tar.gz -C engine
+          scripts/package-linux.sh --aso engine/aso --window
+          # Both executables keep their executable bit in the archive.
+          listing="$(tar -tvzf dist/aso-workbench-linux-x86_64.tar.gz)"
+          for file in ASOWorkbench aso; do grep -Eq "^-rwx.* aso-workbench-linux-x86_64/$file$" <<< "$listing" || { echo "$file is not executable"; exit 1; }; done
+
+      - name: Upload the window
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-workbench-linux-x86_64
+          path: |
+            dist/aso-workbench-linux-x86_64.tar.gz
+            dist/aso-workbench-linux-x86_64.sha256
           if-no-files-found: error

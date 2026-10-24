@@ -37,6 +37,8 @@ dotnet test --solution AsoDesktop.slnx
 
 CI (`.github/workflows/desktop.yml`) builds and tests it on Windows and Linux for every pull request. .NET telemetry is turned off there (`DOTNET_CLI_TELEMETRY_OPTOUT=1`).
 
+**Linux package.** `scripts/package-linux.sh --window` builds `dist/aso-workbench-linux-x86_64.tar.gz`: one folder with the window published self-contained (the .NET runtime travels with it, no trimming because Avalonia's XAML uses reflection) and the single-binary `aso` next to it, where the window looks first. Unpack it anywhere and run `ASOWorkbench`; neither .NET nor Swift needs to be installed, only the system's SQLite and libcurl and what any desktop app needs (fontconfig, an X11 or XWayland session). `--aso PATH` packages a binary built elsewhere. CI builds one for every pull request (artifact `aso-workbench-linux-x86_64`).
+
 ## Scope
 
 The window covers what the engine offers today:
