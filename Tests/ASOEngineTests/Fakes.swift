@@ -32,6 +32,23 @@ struct FakeSuggestions: SuggestionProvider {
     }
 }
 
+/// The reviews feed without the network: canned reviews per country, countries that fail.
+struct FakeReviews: CustomerReviewProvider {
+    var byCountry: [String: [CustomerReview]] = [:]
+    var failing: Set<String> = []
+
+    func reviews(trackID: Int, storefront: Storefront, page: Int) async throws -> [CustomerReview] {
+        if failing.contains(storefront.countryCode) { throw ASOError.network("offline") }
+        return byCountry[storefront.countryCode] ?? []
+    }
+}
+
+func makeReview(_ id: String, _ country: String = "US", rating: Int = 5, title: String? = nil, body: String = "Works well.",
+                date: Date? = nil) -> CustomerReview {
+    CustomerReview(id: id, countryCode: country, title: title ?? "Review \(id)", body: body, rating: rating, author: "Reader \(id)", version: "2.0",
+                   date: date)
+}
+
 func makeApp(_ id: Int, _ name: String, seller: String? = nil, ratings: Int? = 100) -> SearchResultApp {
     SearchResultApp(trackID: id, bundleID: "com.example.\(id)", name: name, sellerName: seller ?? "Seller \(id)", iconURL: nil,
                     averageRating: 4.5, ratingCount: ratings, primaryGenre: "Productivity", releaseDate: nil, currentVersionReleaseDate: nil,
@@ -40,8 +57,9 @@ func makeApp(_ id: Int, _ name: String, seller: String? = nil, ratings: Int? = 1
 
 let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
-func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions()) throws -> Engine {
-    Engine(store: try Store.inMemory(), search: search, suggestions: hints)
+func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
+                reviews: FakeReviews = FakeReviews()) throws -> Engine {
+    Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews)
 }
 
 /// A fresh folder under the system temporary directory, removed by the caller.

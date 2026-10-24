@@ -32,7 +32,7 @@ struct KeywordDetailTests {
         let rivals = (1...12).map { makeApp($0, "Notes Rival \($0)", ratings: 1_000 * $0) }
         let engine = try await trackedEngine(results: ["notes": Array(rivals.prefix(6)) + [ownApp] + Array(rivals.dropFirst(6))])
         _ = try await engine.measure(appID: ownApp.trackID)
-        let deeper = Engine(store: engine.store, search: FakeSearch(results: ["notes": rivals]), suggestions: FakeSuggestions())
+        let deeper = Engine(store: engine.store, search: FakeSearch(results: ["notes": rivals]), suggestions: FakeSuggestions(), reviews: FakeReviews())
         _ = try await deeper.measure(appID: ownApp.trackID)
 
         let detail = try await engine.keywordDetail("NOTES", appID: ownApp.trackID, countryCode: "us", device: .iPhone)

@@ -57,6 +57,32 @@ public actor Store {
         """,
         // 2: the Apple Ads genre popularity lookups use (raw AppleAdsGenre value; NULL = search every genre).
         "ALTER TABLE apps ADD COLUMN ads_genre TEXT;",
+        // 3: rating readings per storefront, and written reviews keyed like the macOS app ("<country>|<feed id>").
+        """
+        CREATE TABLE ratings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            country_code TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            average REAL,
+            fetched_at REAL NOT NULL
+        );
+        CREATE INDEX ratings_app ON ratings (app_id, country_code, fetched_at);
+        CREATE TABLE reviews (
+            app_id INTEGER NOT NULL REFERENCES apps(track_id) ON DELETE CASCADE,
+            review_id TEXT NOT NULL,
+            country_code TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            author TEXT NOT NULL,
+            version TEXT,
+            date REAL,
+            fetched_at REAL NOT NULL,
+            is_new INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (app_id, review_id)
+        );
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
@@ -267,7 +293,66 @@ public actor Store {
         }
     }
 
+    // MARK: Ratings
+
+    public func addRating(_ reading: RatingReading, appID: Int) throws {
+        try db.query("INSERT INTO ratings (app_id, country_code, count, average, fetched_at) VALUES (?, ?, ?, ?, ?)",
+                     [.int(appID), .text(reading.countryCode), .int(reading.count), SQLValue(reading.average), SQLValue(reading.fetchedAt)])
+    }
+
+    /// The newest reading for the app in one storefront.
+    public func latestRating(appID: Int, countryCode: String) throws -> RatingReading? {
+        try db.rows("""
+            SELECT country_code, count, average, fetched_at FROM ratings WHERE app_id = ? AND country_code = ?
+            ORDER BY fetched_at DESC, id DESC LIMIT 1
+            """, [.int(appID), .text(countryCode)], map: Self.rating).first
+    }
+
+    public func ratings(appID: Int) throws -> [RatingReading] {
+        try db.rows("SELECT country_code, count, average, fetched_at FROM ratings WHERE app_id = ? ORDER BY fetched_at, id", [.int(appID)],
+                    map: Self.rating)
+    }
+
+    // MARK: Reviews
+
+    /// Stores one check's reviews: the previous check's "new" marks are cleared, and reviews not seen before are added.
+    /// They are marked new unless the app had no stored reviews: its first check is history, not news. Returns how
+    /// many were added.
+    @discardableResult
+    public func recordReviews(_ reviews: [CustomerReview], appID: Int, fetchedAt: Date) throws -> Int {
+        try db.transaction {
+            let hadReviews = try db.rows("SELECT EXISTS (SELECT 1 FROM reviews WHERE app_id = ?)", [.int(appID)]) { $0.int(0) == 1 }.first ?? false
+            try db.query("UPDATE reviews SET is_new = 0 WHERE app_id = ? AND is_new = 1", [.int(appID)])
+            var added = 0
+            for review in reviews {
+                try db.query("""
+                    INSERT OR IGNORE INTO reviews (app_id, review_id, country_code, title, body, rating, author, version, date, fetched_at, is_new)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, [.int(appID), .text(StoredReview.key(review)), .text(review.countryCode), .text(review.title), .text(review.body),
+                          .int(review.rating), .text(review.author), SQLValue(review.version), review.date.map { SQLValue($0) } ?? .null,
+                          SQLValue(fetchedAt), .int(hadReviews ? 1 : 0)])
+                added += db.changes
+            }
+            return added
+        }
+    }
+
+    /// The app's stored reviews, newest first (by review date, else by when they were read).
+    public func reviews(appID: Int) throws -> [StoredReview] {
+        try db.rows("""
+            SELECT review_id, country_code, title, body, rating, author, version, date, fetched_at, is_new FROM reviews WHERE app_id = ?
+            ORDER BY COALESCE(date, fetched_at) DESC, review_id
+            """, [.int(appID)]) { row in
+            StoredReview(id: row.text(0), country: row.text(1), title: row.text(2), body: row.text(3), rating: row.int(4), author: row.text(5),
+                         version: row.optionalText(6), date: row.isNull(7) ? nil : row.date(7), fetchedAt: row.date(8), isNew: row.int(9) == 1)
+        }
+    }
+
     // MARK: Row mapping
+
+    private static func rating(_ row: Row) -> RatingReading {
+        RatingReading(countryCode: row.text(0), count: row.int(1), average: row.optionalDouble(2), fetchedAt: row.date(3))
+    }
 
     private static let appColumns = "track_id, bundle_id, name, seller_name, icon_url, primary_genre, store_version, created_at, ads_genre"
     private static func app(_ row: Row) -> AppRecord {

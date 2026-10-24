@@ -92,7 +92,7 @@ struct EngineTests {
         #expect(row.rank == 3)
         #expect(row.delta == 7)
 
-        let offline = Engine(store: engine.store, search: FakeSearch(failing: ["notes"]), suggestions: FakeSuggestions())
+        let offline = Engine(store: engine.store, search: FakeSearch(failing: ["notes"]), suggestions: FakeSuggestions(), reviews: FakeReviews())
         _ = try await offline.measure(appID: ownApp.trackID)
         row = try #require(try await engine.keywordReport(appID: ownApp.trackID).first)
         #expect(row.status == "failed")
@@ -128,7 +128,7 @@ struct EngineTests {
     }
 
     func makeEngineSharing(_ engine: Engine, results: [String: [SearchResultApp]]) throws -> Engine {
-        Engine(store: engine.store, search: FakeSearch(results: results, apps: [ownApp.trackID: ownApp]), suggestions: FakeSuggestions())
+        Engine(store: engine.store, search: FakeSearch(results: results, apps: [ownApp.trackID: ownApp]), suggestions: FakeSuggestions(), reviews: FakeReviews())
     }
 }
 

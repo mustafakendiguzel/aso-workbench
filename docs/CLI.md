@@ -31,7 +31,12 @@ See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system librarie
 | `aso keywords list <app ID> [--country CC] [--device ...] [--delta lastMarker\|previous\|first\|week] [--csv]` | Latest rank, Δ, difficulty and brand verdict per keyword. `--csv` writes the macOS app's CSV columns. |
 | `aso keywords show <app ID> <keyword> --country CC [--device ...]` | The inspector: every measurement, latest and best rank, the latest top ten with your app marked, competition signals and difficulty components. |
 | `aso keywords note <app ID> <keyword> --country CC [--device ...] --text TEXT` | Saves a note on the keyword; an empty text clears it. |
-| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b]` | A fresh rank check for every keyword (or only those listed), about 3 seconds each (Apple limits public search). Progress goes to stderr. |
+| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b]` | A fresh rank check for every keyword (or only those listed), about 3 seconds each (Apple limits public search). It first reads the app's ratings and new reviews in the measured storefronts, as the macOS app does. Progress goes to stderr. |
+| `aso ratings check <app ID> [--country CC,… \| --all]` | Reads the rating count and average in each storefront: the app's markets, the countries given, or all of them. A reading that repeats the previous one within the hour is not stored. |
+| `aso ratings list <app ID>` | Per storefront: the latest count and average, the change since the previous reading and when a new rating last arrived. |
+| `aso reviews check <app ID> [--country CC,… \| --all]` | Reads the newest written reviews from Apple's public feed. Reviews not seen before are stored and marked new (the app's first check is history, not news); the next check clears the marks. When no storefront answers, nothing changes. |
+| `aso reviews list <app ID> [--country CC] [--min-rating 1-5] [--new] [--search TEXT]` | Stored reviews, newest first, with totals per star. |
+| `aso competitors <app ID> --country CC [--device ...] [--depth 1-50]` | Apps in the latest successful results of the market's tracked keywords (top 10 by default), by how many keywords they appear in, then average position. Only tracked searches count: this is not a competitor's full keyword set. |
 | `aso search <term> --country CC [--device ...] [--limit 1-200]` | Top results for a term right now. Nothing is stored. |
 | `aso hints <seed> --country CC` | App Store autocomplete for a prefix. |
 | `aso difficulty <term> --country CC [--device ...]` | Difficulty (0–100) from the top ten results, with every component. |

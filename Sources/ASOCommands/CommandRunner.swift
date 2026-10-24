@@ -41,7 +41,7 @@ public struct CommandRunner: Sendable {
                           let settings = try EngineSettings.load(from: directory)
                           return Engine(store: try Store(url: EngineEnvironment.storeURL(in: directory)),
                                         search: ITunesSearchProvider(pacer: RequestPacer(minimumInterval: settings.pacingSeconds)),
-                                        suggestions: AppStoreHintsProvider())
+                                        suggestions: AppStoreHintsProvider(), reviews: AppReviewsProvider())
                       })
     }
 
@@ -238,6 +238,40 @@ public struct CommandRunner: Sendable {
                 $0.measured == 0 ? nothing
                     : "Measured \($0.measured): \($0.found) ranked, \($0.outside) outside the results, \($0.failed) failed."
             }
+        case ("ratings", "check"):
+            try args.allow(["country", "all"])
+            let check = try await engine(args).checkRatings(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
+            write(args, check) { c in
+                "Checked \(c.storefronts) storefront(s): \(c.recorded) reading(s) stored, \(c.newRatings) new rating(s) since the previous check."
+                    + (c.unavailable.isEmpty ? "" : " No ratings in \(c.unavailable.joined(separator: ", ")).")
+                    + (c.failed.isEmpty ? "" : " Failed: \(c.failed.joined(separator: ", ")).")
+            }
+        case ("ratings", "list"):
+            try args.allow([])
+            let id = try args.integer(2, "app ID")
+            write(args, try await engine(args).ratings(appID: id)) { Self.ratingsTable($0, appID: id) }
+        case ("reviews", "check"):
+            try args.allow(["country", "all"])
+            let check = try await engine(args).checkReviews(appID: try args.integer(2, "app ID"), countries: try countriesOption(args))
+            write(args, check) { c in
+                "Checked \(c.storefronts) storefront(s): \(c.added) new review(s), \(c.stored) stored."
+                    + (c.failed.isEmpty ? "" : " Failed: \(c.failed.joined(separator: ", ")).")
+            }
+        case ("reviews", "list"):
+            try args.allow(["country", "min-rating", "new", "search"])
+            let id = try args.integer(2, "app ID")
+            if let country = args.option("country"), StorefrontRegistry.lookup(country.uppercased()) == nil {
+                throw UsageError("\"\(country)\" is not a supported App Store country code.")
+            }
+            let filter = Engine.ReviewFilter(country: args.option("country"), minRating: try args.integerOption("min-rating", default: 1, range: 1...5),
+                                             onlyNew: args.flag("new"), search: args.option("search"))
+            write(args, try await engine(args).reviewsReport(appID: id, filter: filter)) { Self.reviewsText($0, appID: id) }
+        case ("competitors", _):
+            try args.allow(["country", "device", "depth"])
+            let id = try args.integer(1, "app ID")
+            let report = try await engine(args).competitors(appID: id, countryCode: try required(args, "country"), device: try deviceOption(args) ?? .iPhone,
+                                                            depth: try args.integerOption("depth", default: 10, range: 1...50))
+            write(args, report) { Self.competitorsText($0, appID: id) }
         case ("search", _):
             try args.allow(["country", "device", "limit"])
             let limit = try args.integerOption("limit", default: 25, range: 1...200)
@@ -433,6 +467,18 @@ public struct CommandRunner: Sendable {
         return device
     }
 
+    /// `--country CC[,CC…]` or `--all`; nil means the app's market countries.
+    private func countriesOption(_ args: Arguments) throws -> [String]? {
+        if args.flag("all") {
+            guard args.option("country") == nil else { throw UsageError("Choose --country or --all, not both.") }
+            return Engine.allCountries
+        }
+        guard let raw = args.option("country") else { return nil }
+        let countries = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard !countries.isEmpty else { throw UsageError("--country needs at least one country code.") }
+        return countries
+    }
+
     /// The --delta option, or nil to use the setting.
     private func deltaOption(_ args: Arguments) throws -> DeltaReference? {
         guard let raw = args.option("delta") else { return nil }
@@ -524,6 +570,50 @@ public struct CommandRunner: Sendable {
         return table.render() + "\n\nΔ: \(reference.title); positive = moved up."
     }
 
+    static func ratingsTable(_ rows: [Engine.RatingRow], appID: Int) -> String {
+        guard !rows.isEmpty else { return "No ratings recorded yet. Read them with: aso ratings check \(appID)" }
+        var table = TextTable([.init("Storefront"), .init("Ratings", .right), .init("Average", .right), .init("Since last check", .right),
+                               .init("Last new rating"), .init("Checked")])
+        for r in rows {
+            table.add(["\(r.countryName) (\(r.country))", String(r.count), r.average.map { String(format: "%.2f", $0) } ?? "—",
+                       r.delta.map { $0 == 0 ? "—" : String(format: "%+d", $0) } ?? "first check",
+                       r.lastNewAt.map(Self.shortDate) ?? "—", Self.shortDate(r.checkedAt)])
+        }
+        return table.render()
+    }
+
+    static func reviewsText(_ report: Engine.ReviewsReport, appID: Int) -> String {
+        guard report.stored > 0 else { return "No written reviews stored yet. Read them with: aso reviews check \(appID)" }
+        let stars = (1...5).reversed().map { "\($0)★ \(report.stars[$0 - 1])" }.joined(separator: "  ")
+        var text = "\(report.stored) stored · \(report.new) new · " + (report.average.map { String(format: "average %.1f", $0) } ?? "") + "  ·  \(stars)"
+        guard !report.reviews.isEmpty else { return text + "\n\nNo reviews match." }
+        for r in report.reviews {
+            text += "\n\n" + String(repeating: "★", count: r.rating) + String(repeating: "☆", count: max(0, 5 - r.rating)) + "  \(r.title)"
+                + (r.isNew ? "  [new]" : "")
+            if !r.body.isEmpty { text += "\n" + r.body }
+            var byline: [String] = r.author.isEmpty ? [] : [r.author]
+            if let version = r.version { byline.append("v\(version)") }
+            byline.append(r.country)
+            byline.append(Self.shortDate(r.date ?? r.fetchedAt))
+            text += "\n" + byline.joined(separator: " · ")
+        }
+        return text
+    }
+
+    static func competitorsText(_ report: Engine.CompetitorsReport, appID: Int) -> String {
+        guard report.keywordsMeasured > 0 else {
+            return "No measurements yet in \(report.market). Competitors are the apps in those search results; measure first: aso measure \(appID)"
+        }
+        var table = TextTable([.init("App"), .init("Seller"), .init("Keywords", .right), .init("Top 10", .right), .init("Avg. position", .right),
+                               .init("Ratings", .right), .init("ID", .right)])
+        for c in report.competitors {
+            table.add([c.name, c.sellerName, String(c.keywords), String(c.top10), String(format: "%.1f", c.averagePosition),
+                       c.ratingCount.map(String.init) ?? "", String(c.trackID)])
+        }
+        return "Apps in the top \(report.depth) of \(report.keywordsMeasured) measured keyword(s) in \(report.market)\n\n" + table.render()
+            + "\n\nOnly tracked searches count; this is not a competitor's full keyword set."
+    }
+
     static let usage = """
         Usage: aso <command> [options]
 
@@ -552,6 +642,15 @@ public struct CommandRunner: Sendable {
           measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b,…]
                                                           Fresh rank check for each keyword (about 3 s each)
           measure --stale [--stale-hours N]               Every market not measured in the last N hours (setting staleHours)
+
+        Ratings, reviews and competitors
+          ratings check <app ID> [--country CC,… | --all]  Rating count and average per storefront (default: the app's markets)
+          ratings list <app ID>                           Per storefront: latest count, change since the last check, last new rating
+          reviews check <app ID> [--country CC,… | --all]  Read the newest written reviews; ones not seen before are marked new
+          reviews list <app ID> [--country CC] [--min-rating 1-5] [--new] [--search TEXT]
+          competitors <app ID> --country CC [--device ...] [--depth 1-50]
+                                                          Apps in the latest results of your tracked keywords (default top 10)
+          measure reads ratings and new reviews in the measured storefronts first.
 
         Research (nothing is stored)
           search <term> --country CC [--device ...] [--limit 1-200]

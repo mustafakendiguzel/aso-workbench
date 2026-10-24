@@ -11,7 +11,7 @@ public struct UsageError: Error, Equatable, CustomStringConvertible {
 /// Everything after `--` is positional, so keywords that start with a dash can still be passed.
 struct Arguments: Equatable {
     /// Options that take no value.
-    static let flagNames: Set<String> = ["json", "help", "version", "stale", "key-stdin", "keys-stdin", "csv"]
+    static let flagNames: Set<String> = ["json", "help", "version", "stale", "key-stdin", "keys-stdin", "csv", "all", "new"]
 
     private(set) var positionals: [String] = []
     private var options: [String: String] = [:]

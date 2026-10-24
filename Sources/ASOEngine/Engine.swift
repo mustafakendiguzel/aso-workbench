@@ -7,11 +7,13 @@ public struct Engine: Sendable {
     public let store: Store
     public let search: any SearchRankProvider
     public let suggestions: any SuggestionProvider
+    public let reviews: any CustomerReviewProvider
 
-    public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider) {
+    public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider) {
         self.store = store
         self.search = search
         self.suggestions = suggestions
+        self.reviews = reviews
     }
 
     // MARK: Apps
@@ -160,7 +162,7 @@ public struct Engine: Sendable {
             }
             only = wanted
         }
-        return try await measure(markets: markets, depth: depth, only: only, progress: progress)
+        return try await measure(markets: markets, depth: depth, only: only, readCatalog: true, progress: progress)
     }
 
     // MARK: Keyword detail and notes
@@ -191,7 +193,7 @@ public struct Engine: Sendable {
         try await store.setNote(note.trimmingCharacters(in: .whitespacesAndNewlines), keywordID: keyword.id)
     }
 
-    private func existingMarket(appID: Int, countryCode: String, device: DeviceContext) async throws -> MarketRecord {
+    func existingMarket(appID: Int, countryCode: String, device: DeviceContext) async throws -> MarketRecord {
         let country = try Self.storefront(countryCode).countryCode
         guard let market = try await store.markets(appID: appID).first(where: { $0.countryCode == country && $0.device == device }) else {
             throw EngineError.notFound("App \(appID) has no \(country) · \(device.rawValue) market.")
@@ -208,7 +210,9 @@ public struct Engine: Sendable {
         return try await measure(markets: stale, depth: depth, progress: progress)
     }
 
-    private func measure(markets: [MarketRecord], depth: Int, only: Set<String>? = nil,
+    /// `readCatalog`: first read the app's ratings and new reviews in the measured storefronts, as the macOS app does
+    /// before a measurement it is asked for (not before the start-up refresh).
+    private func measure(markets: [MarketRecord], depth: Int, only: Set<String>? = nil, readCatalog: Bool = false,
                          progress: @Sendable (MeasureProgress) -> Void) async throws -> MeasureSummary {
         var work: [(MarketRecord, Storefront, Int, KeywordRecord)] = []
         for market in markets {
@@ -216,6 +220,9 @@ public struct Engine: Sendable {
             for keyword in try await store.keywords(marketID: market.id) where only?.contains(keyword.normalized) ?? true {
                 work.append((market, storefront, market.appID, keyword))
             }
+        }
+        if readCatalog, let appID = work.first?.2 {
+            await readCatalogQuietly(appID: appID, storefronts: Self.unique(work.map(\.1)))
         }
         var summary = MeasureSummary()
         for (market, storefront, ownTrackID, keyword) in work {

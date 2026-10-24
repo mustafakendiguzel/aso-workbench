@@ -111,3 +111,21 @@ enum StoredOutcome {
         }
     }
 }
+
+/// A written review, stored once per storefront and feed id, so "new since the previous check" is exact.
+public struct StoredReview: Sendable, Codable, Equatable {
+    /// "<country>|<feed id>", the macOS app's review key.
+    public let id: String
+    public let country: String
+    public let title: String
+    public let body: String
+    public let rating: Int
+    public let author: String
+    public let version: String?
+    public let date: Date?
+    public let fetchedAt: Date
+    /// First seen in the most recent check; the next check clears it.
+    public let isNew: Bool
+
+    static func key(_ review: CustomerReview) -> String { "\(review.countryCode)|\(review.id)" }
+}

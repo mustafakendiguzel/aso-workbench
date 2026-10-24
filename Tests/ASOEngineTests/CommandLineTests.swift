@@ -20,8 +20,8 @@ struct Harness {
     let engine: Engine
     let directories = Directories()
 
-    init(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp])) throws {
-        engine = try makeEngine(search: search)
+    init(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), reviews: FakeReviews = FakeReviews()) throws {
+        engine = try makeEngine(search: search, reviews: reviews)
     }
 
     func run(_ arguments: [String], environment: [String: String] = [:]) async -> (code: Int32, console: Console) {
