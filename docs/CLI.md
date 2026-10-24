@@ -28,8 +28,10 @@ See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system librarie
 | `aso storefronts` · `aso genres` | The App Store countries and the Apple Ads genres, for pickers. |
 | `aso keywords add <app ID> <keyword>... --country CC [--device iphone\|ipad\|mac]` | Tracks keywords in one market. Duplicates (ignoring case and spacing) are skipped. |
 | `aso keywords remove <app ID> <keyword>... --country CC [--device ...]` | Stops tracking keywords. |
-| `aso keywords list <app ID> [--country CC] [--device ...] [--delta previous\|first\|week]` | Latest rank, Δ, difficulty and brand verdict per keyword. |
-| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200]` | A fresh rank check for every keyword, about 3 seconds each (Apple limits public search). Progress goes to stderr. |
+| `aso keywords list <app ID> [--country CC] [--device ...] [--delta lastMarker\|previous\|first\|week] [--csv]` | Latest rank, Δ, difficulty and brand verdict per keyword. `--csv` writes the macOS app's CSV columns. |
+| `aso keywords show <app ID> <keyword> --country CC [--device ...]` | The inspector: every measurement, latest and best rank, the latest top ten with your app marked, competition signals and difficulty components. |
+| `aso keywords note <app ID> <keyword> --country CC [--device ...] --text TEXT` | Saves a note on the keyword; an empty text clears it. |
+| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b]` | A fresh rank check for every keyword (or only those listed), about 3 seconds each (Apple limits public search). Progress goes to stderr. |
 | `aso search <term> --country CC [--device ...] [--limit 1-200]` | Top results for a term right now. Nothing is stored. |
 | `aso hints <seed> --country CC` | App Store autocomplete for a prefix. |
 | `aso difficulty <term> --country CC [--device ...]` | Difficulty (0–100) from the top ten results, with every component. |

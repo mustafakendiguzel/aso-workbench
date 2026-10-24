@@ -15,6 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Real JSON output of the aso command, captured from the engine, so the contract cannot drift silently. -->
-    <None Include="Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.json;Fixtures\*.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

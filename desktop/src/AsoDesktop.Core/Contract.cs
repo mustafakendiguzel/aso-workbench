@@ -50,7 +50,39 @@ public sealed record KeywordReportRow(
     bool BrandLike,
     bool Golden,
     DateTimeOffset? MeasuredAt,
-    string? Failure);
+    string? Failure,
+    string? DifficultyTier = null,
+    double? Fit = null,
+    int? MedianRatingsTop10 = null,
+    string? RatingMass = null,
+    int? TitleMatchesTop10 = null,
+    int? DistinctSellersTop10 = null,
+    string? Provider = null,
+    string Note = "");
+
+/// <summary>Everything the inspector shows for one keyword (<c>aso keywords show</c>).</summary>
+public sealed record KeywordDetail(
+    KeywordReportRow Row,
+    KeywordDetailSummary Summary,
+    IReadOnlyList<KeywordObservation> Observations,
+    IReadOnlyList<TopResult> TopResults,
+    DifficultyReport? Difficulty);
+
+/// <summary>Latest successful rank, best rank found, measurements that succeeded, and how many of those were outside.</summary>
+public sealed record KeywordDetailSummary(int? Latest, int? Best, int Measurements, int Outside);
+
+/// <summary>One measurement attempt; <c>Rank</c> is set when the app was found.</summary>
+public sealed record KeywordObservation(DateTimeOffset FetchedAt, string Status, int? Rank, int ObservedCount, string Label, string Provider, string? Failure);
+
+/// <summary>One of the latest top results; <c>IsOwnApp</c> marks the tracked app or another app from its seller.</summary>
+public sealed record TopResult(
+    int Position,
+    [property: JsonPropertyName("trackID")] long TrackId,
+    string Name,
+    string SellerName,
+    int? RatingCount,
+    double? AverageRating,
+    bool IsOwnApp);
 
 public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, IReadOnlyList<string> AlreadyTracked);
 
@@ -69,6 +101,7 @@ public sealed record SearchResultApp(
     string? Version,
     [property: JsonPropertyName("iconURL")] string? IconUrl = null);
 
+/// <summary>One part of the difficulty score, as the engine names and weighs it.</summary>
 public sealed record DifficultyComponent(string Name, string Weight, double Value, string Explanation);
 
 public sealed record DifficultyReport(double Score, string Tier, int SampleSize, IReadOnlyList<DifficultyComponent> Components);

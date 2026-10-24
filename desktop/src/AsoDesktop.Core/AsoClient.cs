@@ -47,6 +47,30 @@ public sealed class AsoClient(IAsoCli cli)
 
     public Task<IReadOnlyList<GenreInfo>> GenresAsync(CancellationToken ct = default) => RunAsync<IReadOnlyList<GenreInfo>>(["genres"], ct);
 
+    public Task<KeywordDetail> KeywordDetailAsync(long appId, string keyword, string country, string device, string delta,
+                                                  CancellationToken ct = default) =>
+        RunAsync<KeywordDetail>(["keywords", "show", Id(appId), "--country", country, "--device", device, "--delta", delta, "--", keyword], ct);
+
+    /// <summary>Replaces the keyword's note; an empty note clears it.</summary>
+    public async Task SetNoteAsync(long appId, string keyword, string country, string device, string note, CancellationToken ct = default) =>
+        await RunAsync<JsonElement>(["keywords", "note", Id(appId), "--country", country, "--device", device, "--text", note, "--", keyword], ct)
+            .ConfigureAwait(false);
+
+    /// <summary>Measures only these keywords of the market.</summary>
+    public Task<MeasureSummary> MeasureKeywordsAsync(long appId, string country, string device, IReadOnlyCollection<string> keywords,
+                                                     IProgress<MeasureStep>? progress = null, CancellationToken ct = default) =>
+        RunAsync<MeasureSummary>(["measure", Id(appId), "--country", country, "--device", device, "--keywords", string.Join(',', keywords)], ct,
+                                 line => { if (ParseStep(line) is { } step) progress?.Report(step); });
+
+    /// <summary>The market's keywords in the macOS app's CSV format.</summary>
+    public async Task<string> KeywordsCsvAsync(long appId, string country, string device, string delta, CancellationToken ct = default)
+    {
+        var result = await cli.RunAsync(["keywords", "list", Id(appId), "--country", country, "--device", device, "--delta", delta, "--csv"], null, null, ct)
+            .ConfigureAwait(false);
+        if (result.ExitCode != 0) throw AsoCliException.From(result);
+        return result.Output;
+    }
+
     /// <summary>Measures one market's keywords.</summary>
     public Task<MeasureSummary> MeasureMarketAsync(long appId, string country, string device, IProgress<MeasureStep>? progress = null,
                                                    CancellationToken ct = default) =>

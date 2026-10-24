@@ -43,7 +43,8 @@ The window covers what the engine offers today:
 
 - **Add app** (Ctrl+N): find an app by name, App Store link or ID, choose the device and the markets to track.
 - **Overview:** the app's details, its Apple Ads genre, and its markets with keyword counts and last measurement; add and remove markets (removal asks first).
-- **Keywords:** one market at a time, as in the macOS app: rank, Δ, difficulty and brand verdicts, adding keywords, and measuring the market (Ctrl+R) with progress and Stop.
+- **Keywords:** one market at a time, as in the macOS app: rank, Δ, difficulty with its tier, rating mass, title matches and brand verdicts. Filters (text, found in the results, hide brands, difficulty at most); measure the market (Ctrl+R) or only the selected keywords (Ctrl+Shift+R) with progress and Stop; copy (Ctrl+C) or remove (Delete, after a confirmation) the selection; export the macOS CSV (Ctrl+Shift+E).
+- **Inspector:** for the selected keyword, the rank chart (7 days to all, rank on a reversed log scale, crosses where the app was not in the results, the best rank highlighted), difficulty with every component, competition signals, the latest top ten with your app in bold, a note, and every measurement.
 - **Research:** search results, autocomplete and difficulty with every component; **Metadata:** the App Store rules check.
 - **Settings:**
   - **General:** engine version and data folder (with a button that opens it).
