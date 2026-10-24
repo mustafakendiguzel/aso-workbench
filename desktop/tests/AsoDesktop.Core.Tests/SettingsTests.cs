@@ -196,11 +196,11 @@ public sealed class SettingsViewModelTests
             Assert.StartsWith("https://", guide.Link, StringComparison.Ordinal);
             Assert.DoesNotContain("Mac", guide.DataFlow, StringComparison.Ordinal);
         }
-        // Apple Ads powers popularity, OpenRouter the discovery checks and RevenueCat revenue; App Store Connect is stored and tested only.
+        // Apple Ads powers popularity, OpenRouter the discovery checks, RevenueCat revenue and App Store Connect publishing.
         Assert.StartsWith("This version reads popularity", ConnectionGuides.AppleAds.Availability, StringComparison.Ordinal);
         Assert.StartsWith("This version uses the key for the brand", ConnectionGuides.OpenRouter.Availability, StringComparison.Ordinal);
         Assert.StartsWith("This version reads revenue", ConnectionGuides.RevenueCat.Availability, StringComparison.Ordinal);
-        Assert.Equal(ConnectionGuide.NotYetUsed, ConnectionGuides.AppStoreConnect.Availability);
+        Assert.StartsWith("This version pulls your listing and publishes drafts", ConnectionGuides.AppStoreConnect.Availability, StringComparison.Ordinal);
     }
 }
 

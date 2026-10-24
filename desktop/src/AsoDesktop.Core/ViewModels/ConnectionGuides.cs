@@ -56,7 +56,11 @@ public static class ConnectionGuides
             "Here: fill the Issuer ID, choose the .p8 file (the Key ID is read from its name, AuthKey_<KEYID>.p8), press Save.",
         ],
         LinkTitle: "Open App Store Connect",
-        Link: "https://appstoreconnect.apple.com/access/integrations/api");
+        Link: "https://appstoreconnect.apple.com/access/integrations/api")
+    {
+        Availability = "This version pulls your listing and publishes drafts from the Metadata tab: each write is planned and confirmed first, "
+                       + "then read back. New releases are still detected from the public App Store.",
+    };
 
     public static ConnectionGuide OpenRouter { get; } = new(
         Need: "Optional",

@@ -266,7 +266,7 @@ public sealed record Competitor(
 
 public sealed record CompetitorsReport(string Market, int Depth, int KeywordsMeasured, IReadOnlyList<Competitor> Competitors);
 
-/// <summary>A point on the app's timeline: an App Store release (<c>Kind</c> "release") or a note ("note").</summary>
+/// <summary>A point on the app's timeline: an App Store release (<c>Kind</c> "release"), a note ("note") or a listing applied to App Store Connect ("change").</summary>
 public sealed record Marker(long Id, DateTimeOffset Date, string Kind, string Title, string? Version, string? Country)
 {
     public bool IsRelease => Kind == "release";
@@ -346,6 +346,41 @@ public sealed record MetadataReport(
 
 /// <summary>Drafts changed by a footer insert or a What's New fill.</summary>
 public sealed record MetadataBatch(IReadOnlyList<string> Changed, int Locales);
+
+/// <summary>Every locale read from App Store Connect as the baseline (<c>aso metadata pull</c>).</summary>
+public sealed record MetadataPull(IReadOnlyList<string> Locales, string? Version, string? VersionState, bool Editable, string? PrivacyUrl);
+
+/// <summary>An iOS version on App Store Connect; only an editable one takes a new listing.</summary>
+public sealed record AscVersion(string Id, string Version, string State, bool Editable);
+
+public sealed record ScreenshotCopy(int Sets, int Copied, int Skipped, IReadOnlyList<string> Errors);
+
+/// <summary>What applying a locale would send, read from App Store Connect without writing (<c>aso metadata plan</c>).</summary>
+public sealed record PublishPlan(
+    string Locale,
+    string Name,
+    bool Exists,
+    string? Version,
+    string? VersionState,
+    bool Editable,
+    MetadataFields Draft,
+    IReadOnlyList<FieldChange> Changes,
+    IReadOnlyList<string> Automatic,
+    IReadOnlyList<ValidationIssue> Errors,
+    string? Blocked)
+{
+    public bool IsReady => Blocked is null;
+}
+
+/// <summary>One locale written (or not) to App Store Connect: applied, partial, refused or failed.</summary>
+public sealed record PublishResult(string Locale, string Status, string Message, IReadOnlyList<FieldChange> Changes, ScreenshotCopy? Screenshots)
+{
+    public bool Succeeded => Status is "applied" or "partial";
+}
+
+/// <summary>One attempt to write a locale's listing (<c>aso metadata log</c>).</summary>
+public sealed record ChangeLogEntry(long Id, DateTimeOffset CreatedAt, string Locale, string Status, IReadOnlyList<FieldChange> Changes, string Note,
+                                    string BaselineHash, string? ResultHash);
 
 /// <summary>The engine's preferences (<c>aso settings --json</c>).</summary>
 public sealed record EngineSettings(

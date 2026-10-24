@@ -631,7 +631,7 @@
                 <Separator Margin="0,4" />
               </StackPanel>
               <TextBlock DockPanel.Dock="Top" Classes="hint" IsVisible="{Binding !Changes.HasMarkers}"
-                         Text="Nothing on the timeline yet. Releases are detected from the App Store when you measure or check ratings; notes you add count too." />
+                         Text="Nothing on the timeline yet. Releases are detected from the App Store when you measure or check ratings; notes you add and listings you publish count too." />
               <ListBox ItemsSource="{Binding Changes.Markers}" SelectedItem="{Binding Changes.Selected}">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:MarkerLine">
@@ -652,7 +652,7 @@
           </Border>
 
           <TextBlock Classes="hint" Margin="0,12" IsVisible="{Binding !Changes.HasSelection}"
-                     Text="Select a release or note. Ranks measured before it are compared with the latest ones after it." />
+                     Text="Select a marker. Ranks measured before it are compared with the latest ones after it." />
           <DockPanel IsVisible="{Binding Changes.HasSelection}" Margin="0,4,0,0">
             <DockPanel DockPanel.Dock="Top">
               <Button DockPanel.Dock="Right" Content="Remove marker…">
@@ -835,6 +835,16 @@
             <Button Margin="8,0,0,0" Content="Reset draft to baseline" Command="{Binding Metadata.ResetToBaselineCommand}" />
             <Button Margin="8,0,0,0" Content="Fill empty What's New" Command="{Binding Metadata.FillWhatsNewCommand}"
                     ToolTip.Tip="Locales without release notes get the default note in their language; Apple refuses a version with an empty field" />
+            <DropDownButton Margin="8,0,0,0" Content="App Store Connect" IsEnabled="{Binding Metadata.HasReport}"
+                            ToolTip.Tip="{Binding Metadata.AscHint}">
+              <DropDownButton.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem Header="Pull the listing" Command="{Binding Metadata.PullCommand}" />
+                  <MenuItem Header="Publish this locale…" Click="PublishLocale" IsEnabled="{Binding Metadata.AscConnected}" />
+                  <MenuItem Header="Publish every draft…" Click="PublishAll" IsEnabled="{Binding Metadata.AscConnected}" />
+                </MenuFlyout>
+              </DropDownButton.Flyout>
+            </DropDownButton>
             <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Classes="hint" Text="{Binding Metadata.DraftText}" />
           </DockPanel>
           <Grid ColumnDefinitions="*,380" IsVisible="{Binding Metadata.HasReport}">
@@ -929,7 +939,7 @@
                   </StackPanel>
                 </Border>
                 <TextBlock Classes="hint" Margin="0,0,0,12"
-                           Text="Publishing to App Store Connect and the AI writer come to Windows and Linux in later versions; until then they need the macOS app." />
+                           Text="The AI writer comes to Windows and Linux in a later version; until then it needs the macOS app." />
               </StackPanel>
             </ScrollViewer>
           </Grid>

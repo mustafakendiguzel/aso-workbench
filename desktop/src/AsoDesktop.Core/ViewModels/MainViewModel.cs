@@ -42,6 +42,11 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Revenue.RevenueConnected = Settings.RevenueCat.IsConfigured;
         };
+        Settings.AppStoreConnect.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Metadata.AscConnected = Settings.AppStoreConnect.IsConfigured;
+        };
+        Metadata.Published = () => Status.QuietlyAsync(Changes.ReloadAsync);
     }
 
     public StatusViewModel Status { get; } = new();

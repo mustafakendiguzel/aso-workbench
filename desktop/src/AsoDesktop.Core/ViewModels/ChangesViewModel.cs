@@ -5,10 +5,10 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AsoDesktop.Core.ViewModels;
 
-/// <summary>A release or note on the timeline.</summary>
+/// <summary>A release, note or published listing on the timeline.</summary>
 public sealed record MarkerLine(Marker Marker)
 {
-    public string Kind => Marker.IsRelease ? "Release" : "Note";
+    public string Kind => Marker.Kind switch { "release" => "Release", "change" => "Published", _ => "Note" };
     public bool IsRelease => Marker.IsRelease;
     public string Title => Marker.Title;
     public string Date => Marker.Date.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
@@ -198,7 +198,8 @@ public sealed partial class ChangesViewModel(AsoClient client, StatusViewModel s
             await client.RemoveMarkerAsync(app.TrackId, selected.Marker.Id).ConfigureAwait(true);
             Selected = null;
             await ReloadAsync().ConfigureAwait(true);
-            status.Info($"Removed the {(selected.IsRelease ? "release" : "note")} “{selected.Title}”.");
+            var what = selected.Marker.Kind switch { "release" => "release", "change" => "published change", _ => "note" };
+            status.Info($"Removed the {what} “{selected.Title}”.");
         });
 
     private void ApplyFilters()

@@ -109,6 +109,43 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<MetadataBatch> FillEmptyWhatsNewAsync(long appId, CancellationToken ct = default) =>
         RunAsync<MetadataBatch>(["metadata", "fill-whats-new", Id(appId)], ct);
 
+    // MARK: Publishing (App Store Connect; nothing is written without the confirming --yes)
+
+    /// <summary>Reads every locale from App Store Connect as the baseline; nothing is written to Apple.</summary>
+    public Task<MetadataPull> PullMetadataAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<MetadataPull>(["metadata", "pull", Id(appId)], ct);
+
+    public Task<IReadOnlyList<AscVersion>> AscVersionsAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<AscVersion>>(["metadata", "versions", Id(appId)], ct);
+
+    /// <summary>Creates the next version on App Store Connect.</summary>
+    public Task<AscVersion> CreateVersionAsync(long appId, string version, CancellationToken ct = default) =>
+        RunAsync<AscVersion>(["metadata", "create-version", Id(appId), version, "--yes"], ct);
+
+    /// <summary>What applying the locale would send; writes nothing.</summary>
+    public Task<PublishPlan> PublishPlanAsync(long appId, string locale, bool createMissing, string? copyScreenshotsFrom,
+                                              CancellationToken ct = default) =>
+        RunAsync<PublishPlan>(["metadata", "plan", Id(appId), "--locale", locale, .. Flag("create-missing", createMissing),
+                               .. Option("copy-screenshots-from", copyScreenshotsFrom)], ct);
+
+    /// <summary>Plans for every locale with a draft, missing ones to be created; writes nothing.</summary>
+    public Task<IReadOnlyList<PublishPlan>> PublishPlansAsync(long appId, string? copyScreenshotsFrom, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<PublishPlan>>(["metadata", "plan", Id(appId), "--all", .. Option("copy-screenshots-from", copyScreenshotsFrom)], ct);
+
+    /// <summary>Writes the locale's draft to App Store Connect and re-reads it. A refused or failed write is a result, not an exception.</summary>
+    public Task<PublishResult> PublishAsync(long appId, string locale, bool createMissing, string? copyScreenshotsFrom, CancellationToken ct = default) =>
+        RunWithResultAsync<PublishResult>(["metadata", "apply", Id(appId), "--locale", locale, .. Flag("create-missing", createMissing),
+                                           .. Option("copy-screenshots-from", copyScreenshotsFrom), "--yes"], ct);
+
+    /// <summary>Writes each locale in turn, creating the ones App Store Connect does not have.</summary>
+    public Task<IReadOnlyList<PublishResult>> PublishAllAsync(long appId, IReadOnlyCollection<string> locales, string? copyScreenshotsFrom,
+                                                              CancellationToken ct = default) =>
+        RunWithResultAsync<IReadOnlyList<PublishResult>>(["metadata", "apply-all", Id(appId), "--locales", string.Join(',', locales),
+                                                          .. Option("copy-screenshots-from", copyScreenshotsFrom), "--yes"], ct);
+
+    public Task<IReadOnlyList<ChangeLogEntry>> ChangeLogAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<ChangeLogEntry>>(["metadata", "log", Id(appId)], ct);
+
     /// <summary>Reads the last <paramref name="days"/> of every campaign that promotes a tracked app.</summary>
     public Task<AdsSync> SyncAdsAsync(int days = 30, CancellationToken ct = default) =>
         RunAsync<AdsSync>(["ads", "sync", "--days", days.ToString(CultureInfo.InvariantCulture)], ct);
@@ -280,6 +317,14 @@ public sealed class AsoClient(IAsoCli cli)
         // Global options go first: everything after a "--" is a keyword or term.
         var result = await cli.RunAsync(["--json", .. arguments], standardInput, onErrorLine, ct).ConfigureAwait(false);
         if (result.ExitCode != 0) throw AsoCliException.From(result);
+        return Json.Parse<T>(result.Output, arguments[0]);
+    }
+
+    /// <summary>For commands that print their result and exit with 1 when it is not a success.</summary>
+    private async Task<T> RunWithResultAsync<T>(IReadOnlyList<string> arguments, CancellationToken ct)
+    {
+        var result = await cli.RunAsync(["--json", .. arguments], null, null, ct).ConfigureAwait(false);
+        if (result.ExitCode is not (0 or 1) || string.IsNullOrWhiteSpace(result.Output)) throw AsoCliException.From(result);
         return Json.Parse<T>(result.Output, arguments[0]);
     }
 

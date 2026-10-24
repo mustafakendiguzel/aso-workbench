@@ -97,6 +97,18 @@ public sealed partial class MainWindow : Window
         if (await new BaselineDialog(locale.Locale, fields).ShowDialog<bool>(this)) await metadata.SetBaselineCommand.ExecuteAsync(fields);
     }
 
+    private async void PublishLocale(object? sender, RoutedEventArgs e) => await ShowPublishAsync(everyDraft: false);
+
+    private async void PublishAll(object? sender, RoutedEventArgs e) => await ShowPublishAsync(everyDraft: true);
+
+    private async Task ShowPublishAsync(bool everyDraft)
+    {
+        if (ViewModel?.Metadata is not { } metadata || await metadata.CreatePublishAsync(everyDraft) is not { } publish) return;
+        var dialog = new PublishDialog(publish);
+        _ = publish.LoadAsync();
+        await dialog.ShowDialog(this);
+    }
+
     private async void ShowDiscovery(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(null);
 
     private async void ShowImport(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(ViewModel?.Competitors.Selected?.App);

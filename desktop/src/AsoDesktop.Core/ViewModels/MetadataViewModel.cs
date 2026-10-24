@@ -117,8 +117,9 @@ public sealed record MetadataChangeLine(string Title, string Before, string Afte
 }
 
 /// <summary>
-/// The macOS app's Metadata editor without App Store Connect: a draft per locale saved as you type, its counters, the ASO rules
-/// and validation from the engine, the changes against the baseline, and the legal footer. Nothing reaches Apple from here.
+/// The macOS app's Metadata editor: a draft per locale saved as you type, its counters, the ASO rules and validation from the
+/// engine, the changes against the baseline, and the legal footer. With the App Store Connect key the baseline is pulled from
+/// Apple and drafts are published through <see cref="PublishViewModel"/>; nothing reaches Apple otherwise.
 /// </summary>
 public sealed partial class MetadataViewModel : ObservableObject
 {
@@ -162,8 +163,22 @@ public sealed partial class MetadataViewModel : ObservableObject
                               nameof(ScoreIsGood), nameof(ScoreIsFair), nameof(ScoreIsPoor), nameof(IndexedWords), nameof(FollowsEveryRule),
                               nameof(ChangesText), nameof(LegalStatus), nameof(LegalPresent))]
     [NotifyCanExecuteChangedFor(nameof(ResetToBaselineCommand), nameof(SetBaselineCommand), nameof(SaveLegalCommand),
-                                nameof(InsertFooterHereCommand), nameof(InsertFooterEverywhereCommand), nameof(FillWhatsNewCommand))]
+                                nameof(InsertFooterHereCommand), nameof(InsertFooterEverywhereCommand), nameof(FillWhatsNewCommand),
+                                nameof(PullCommand))]
     public partial MetadataReport? Report { get; set; }
+
+    /// <summary>The App Store Connect key is stored: pulling and publishing work.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DraftText), nameof(AscHint))]
+    [NotifyCanExecuteChangedFor(nameof(PullCommand))]
+    public partial bool AscConnected { get; set; }
+
+    public string AscHint => AscConnected
+        ? "Pull the live listing as the baseline, or publish drafts: each write is planned and confirmed first, then read back"
+        : "Add the App Store Connect key in Settings → Connections to pull and publish the listing";
+
+    /// <summary>Called after anything was published (the timeline gains a change marker).</summary>
+    public Func<Task>? Published { get; set; }
 
     [ObservableProperty] public partial bool LegalEnabled { get; set; } = true;
     [ObservableProperty] public partial string EulaUrl { get; set; } = "";
@@ -179,10 +194,11 @@ public sealed partial class MetadataViewModel : ObservableObject
             ? (b.Source == "asc" ? "From App Store Connect" : "Entered manually")
               + (b.VersionString is { } v ? $" · version {v}" + (b.VersionState is { } s ? $" ({s})" : "") : "")
               + $" · {b.FetchedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)}"
-            : $"No baseline for {r.Locale}. Enter what is live on the App Store today with Set baseline to see what your draft changes.";
+            : $"No baseline for {r.Locale}. Pull it from App Store Connect, or enter what is live on the App Store today with Set baseline, to see what your draft changes.";
 
     public string DraftText => Report?.DraftUpdatedAt is { } at
-        ? $"Draft saved {at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)}. Drafts stay on this computer; nothing reaches Apple from here."
+        ? $"Draft saved {at.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)}. "
+          + (AscConnected ? "Drafts stay on this computer until you publish them." : "Drafts stay on this computer; nothing reaches Apple from here.")
         : "No draft yet: the fields show the baseline. Edits are saved as you type.";
 
     public string RulesHeadline => Report is { } r ? $"{r.Rules.Score}/100 · {r.Rules.CharactersUsed}/160 indexed characters" : "";
@@ -369,6 +385,35 @@ public sealed partial class MetadataViewModel : ObservableObject
         status.Info($"What's New filled with the default note in {batch.Changed.Count} of {batch.Locales} locale(s); the others already had notes.");
     });
 
+    private bool CanPull() => AscConnected && Report is not null;
+
+    /// <summary>Reads every locale from App Store Connect as the baseline; drafts are kept.</summary>
+    [RelayCommand(CanExecute = nameof(CanPull))]
+    private Task PullAsync() => Act("Reading App Store Connect…", async (app, line) =>
+    {
+        await FlushAsync(line).ConfigureAwait(true);
+        var pull = await client.PullMetadataAsync(app.TrackId).ConfigureAwait(true);
+        await LoadLocalesAsync().ConfigureAwait(true);
+        await ReloadAsync().ConfigureAwait(true);
+        status.Info($"Pulled {pull.Locales.Count} locale(s) from App Store Connect: version {pull.Version ?? "?"} ({pull.VersionState ?? "?"}), "
+                    + (pull.Editable ? "editable." : "not editable: create the next version in Publish.")
+                    + (pull.PrivacyUrl is { } url ? $" Privacy Policy for the legal footer: {url}." : ""));
+    });
+
+    /// <summary>The publish dialog for the selected locale, or for every draft; saves pending edits first.</summary>
+    public async Task<PublishViewModel?> CreatePublishAsync(bool everyDraft)
+    {
+        if (App is not { } app || SelectedLocale is not { } line) return null;
+        await FlushAsync(line).ConfigureAwait(true);
+        var onAppStoreConnect = Locales.Where(l => l.Status?.Baseline == "asc").Select(l => l.Locale).ToList();
+        return new PublishViewModel(client, app, everyDraft ? null : line.Locale, onAppStoreConnect, async () =>
+        {
+            await LoadLocalesAsync().ConfigureAwait(true);
+            await ReloadAsync().ConfigureAwait(true);
+            if (Published is { } after) await after().ConfigureAwait(true);
+        });
+    }
+
     private Task Act(string message, Func<AppRecord, MetadataLocaleLine, Task> work) =>
         App is { } app && SelectedLocale is { } line ? status.RunAsync(message, () => work(app, line)) : Task.CompletedTask;
 
@@ -413,5 +458,17 @@ public sealed partial class MetadataViewModel : ObservableObject
         Report = report;
     }
 
-    private string TitleOf(string key) => Fields.FirstOrDefault(f => f.Key == key)?.Title ?? key;
+    private static string TitleOf(string key) => FieldTitle(key);
+
+    /// <summary>The field's title as the editor shows it, from the engine's name for it.</summary>
+    public static string FieldTitle(string key) => key switch
+    {
+        "name" => "Name",
+        "subtitle" => "Subtitle",
+        "keywords" => "Keywords",
+        "promotionalText" => "Promotional Text",
+        "description" => "Description",
+        "whatsNew" => "What's New",
+        _ => key,
+    };
 }
