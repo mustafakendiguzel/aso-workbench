@@ -42,8 +42,12 @@ Keywords that start with `-` go after `--`: `aso keywords add 361285480 --countr
 
 ## Output and exit codes
 
-- Text by default; `--json` prints machine-readable JSON on stdout (dates in ISO 8601, absent values as `null`). Progress, warnings and errors always go to stderr, so JSON output can be piped.
-- Exit codes: `0` success, `1` the command failed (the message says why), `64` the command was called wrongly (the usage follows).
+- Text by default; `--json` prints machine-readable JSON on stdout (dates in ISO 8601; an absent value, such as the rank of a keyword outside the results, is left out rather than written as a number). Progress, warnings and errors always go to stderr, so JSON output can be piped.
+- With `--json`, `measure` writes its progress to stderr as JSON Lines, one object per measured keyword:
+  `{"completed":1,"keyword":"notes","market":"US · iphone","outcome":"#12","status":"found","total":20}` (`status` is `found`, `outside`, `failed` or `notChecked`).
+- `difficulty --json` gives the score, its tier, the sample size and every component with its name, weight and explanation, exactly as the engine weighs them.
+- Exit codes: `0` success, `1` the command failed (the message says why), `64` the command was called wrongly (the usage follows). `validate` exits with `1` when a hard limit is broken and still prints the issues.
+- Global options (`--json`, `--data-dir`) may come before the command; keywords and terms that start with `-` go after `--`.
 
 ## Data
 

@@ -48,7 +48,7 @@ public struct CommandRunner: Sendable {
             return ExitCode.usage
         }
         if arguments.flag("version") || arguments.positionals.first == "version" {
-            output(arguments.flag("json") ? json(["version": EngineEnvironment.version]) : "aso \(EngineEnvironment.version)")
+            output(arguments.flag("json") ? Self.json(["version": EngineEnvironment.version]) : "aso \(EngineEnvironment.version)")
             return ExitCode.success
         }
         guard !arguments.flag("help"), let command = arguments.positionals.first, command != "help" else {
@@ -117,9 +117,12 @@ public struct CommandRunner: Sendable {
             let id = try args.integer(1, "app ID")
             let depth = try args.integerOption("depth", default: 200, range: 1...200)
             let errors = self.errors
+            let jsonProgress = args.flag("json")
             let summary = try await engine(args).measure(appID: id, countryCode: args.option("country"), device: try deviceOption(args),
                                                          depth: depth) { step in
-                errors("[\(step.completed)/\(step.total)] \(step.market)  \(step.keyword)  \(step.outcome.shortLabel)")
+                // With --json, progress is one JSON object per line (JSON Lines) so front ends need not parse prose.
+                errors(jsonProgress ? Self.json(MeasureProgressLine(step), pretty: false)
+                                    : "[\(step.completed)/\(step.total)] \(step.market)  \(step.keyword)  \(step.outcome.shortLabel)")
             }
             write(args, summary) {
                 $0.measured == 0
@@ -149,10 +152,10 @@ public struct CommandRunner: Sendable {
                                                                 device: try deviceOption(args) ?? .iPhone) else {
                 throw EngineError.notFound("The search for \"\(term)\" returned no apps, so there is nothing to compare against.")
             }
-            write(args, score) { score in
+            write(args, DifficultyReport(score)) { report in
                 var table = TextTable([.init("Component"), .init("Weight", .right), .init("Score", .right)])
-                for component in score.components { table.add([component.name, component.weight, String(Int(component.value.rounded()))]) }
-                return "Difficulty \(Int(score.score.rounded())) of 100\n\n" + table.render()
+                for component in report.components { table.add([component.name, component.weight, String(Int(component.value.rounded()))]) }
+                return "Difficulty \(Int(report.score.rounded())) of 100\n\n" + table.render()
             }
         case ("validate", _):
             try args.allow(["title", "subtitle", "keywords"])
@@ -170,6 +173,53 @@ public struct CommandRunner: Sendable {
     /// Metadata that breaks a hard limit: the issues are already printed, the exit code says so.
     struct ValidationFailed: Error, LocalizedError {
         var errorDescription: String? { "The metadata has errors." }
+    }
+
+    /// One measured keyword as `measure --json` reports it on stderr.
+    struct MeasureProgressLine: Encodable {
+        let completed: Int
+        let total: Int
+        let market: String
+        let keyword: String
+        /// The same short label as text output: "#12", "> 200", "Error".
+        let outcome: String
+        let status: String
+
+        init(_ step: Engine.MeasureProgress) {
+            completed = step.completed
+            total = step.total
+            market = step.market
+            keyword = step.keyword
+            outcome = step.outcome.shortLabel
+            switch step.outcome {
+            case .found: status = "found"
+            case .outsideObservedRange: status = "outside"
+            case .requestFailed: status = "failed"
+            case .notChecked: status = "notChecked"
+            }
+        }
+    }
+
+    /// Difficulty with its components as the engine names and weighs them, so front ends show the same breakdown.
+    struct DifficultyReport: Encodable {
+        struct Component: Encodable {
+            let name: String
+            let weight: String
+            let value: Double
+            let explanation: String
+        }
+
+        let score: Double
+        let tier: String
+        let sampleSize: Int
+        let components: [Component]
+
+        init(_ score: DifficultyScore) {
+            self.score = score.score
+            tier = score.tier
+            sampleSize = score.sampleSize
+            components = score.components.map { .init(name: $0.name, weight: $0.weight, value: $0.value, explanation: $0.explanation) }
+        }
     }
 
     // MARK: Helpers
@@ -203,12 +253,13 @@ public struct CommandRunner: Sendable {
     }
 
     private func write<T: Encodable>(_ args: Arguments, _ value: T, text: (T) -> String) {
-        output(args.flag("json") ? json(value) : text(value))
+        output(args.flag("json") ? Self.json(value) : text(value))
     }
 
-    private func json<T: Encodable>(_ value: T) -> String {
+    /// Sorted keys, ISO 8601 dates; `pretty: false` keeps the object on one line (for JSON Lines).
+    static func json<T: Encodable>(_ value: T, pretty: Bool = true) -> String {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.outputFormatting = pretty ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes] : [.sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(value) else { return "{}" }
         return String(decoding: data, as: UTF8.self)

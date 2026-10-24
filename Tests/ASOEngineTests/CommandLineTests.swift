@@ -151,6 +151,43 @@ struct CommandRunnerTests {
         #expect(await harness.run(["app", "remove", id]).code == CommandRunner.ExitCode.failure)
     }
 
+    @Test("measure --json reports progress as one JSON object per stderr line")
+    func measureJSONProgress() async throws {
+        var search = FakeSearch(apps: [ownApp.trackID: ownApp])
+        search.results["notes"] = [makeApp(5, "Rival"), ownApp]
+        search.failing = ["journal"]
+        let harness = try Harness(search: search)
+        let id = String(ownApp.trackID)
+        _ = await harness.run(["app", "add", id])
+        _ = await harness.run(["keywords", "add", id, "notes", "journal", "--country", "US"])
+
+        let result = await harness.run(["measure", id, "--json"])
+        #expect(result.code == 0)
+        struct Line: Decodable, Equatable { let completed: Int; let total: Int; let market: String; let keyword: String; let outcome: String; let status: String }
+        let lines = try result.console.errors.split(separator: "\n").map { try JSONDecoder().decode(Line.self, from: Data($0.utf8)) }
+        #expect(lines == [.init(completed: 1, total: 2, market: "US · iphone", keyword: "journal", outcome: "Error", status: "failed"),
+                          .init(completed: 2, total: 2, market: "US · iphone", keyword: "notes", outcome: "#2", status: "found")])
+        let summary = try JSONDecoder().decode(Engine.MeasureSummary.self, from: Data(result.console.output.utf8))
+        #expect(summary == .init(measured: 2, found: 1, outside: 0, failed: 1))
+    }
+
+    @Test("difficulty --json carries the components as the engine names and weighs them")
+    func difficultyJSON() async throws {
+        var search = FakeSearch()
+        search.results["habit tracker"] = (1...12).map { makeApp($0, "Habit Tracker \($0)", ratings: 50_000) }
+        let result = await (try Harness(search: search)).run(["difficulty", "habit tracker", "--country", "US", "--json"])
+        #expect(result.code == 0)
+        struct Report: Decodable { struct Component: Decodable { let name: String; let weight: String; let value: Double; let explanation: String }
+                                   let score: Double; let tier: String; let sampleSize: Int; let components: [Component] }
+        let report = try JSONDecoder().decode(Report.self, from: Data(result.console.output.utf8))
+        let expected = try #require(DifficultyScore(results: search.results["habit tracker"]!, term: "habit tracker"))
+        #expect(report.score == expected.score)
+        #expect(report.sampleSize == expected.sampleSize)
+        #expect(report.components.map(\.name) == expected.components.map(\.name))
+        #expect(report.components.map(\.weight) == expected.components.map(\.weight))
+        #expect(report.components.allSatisfy { !$0.explanation.isEmpty })
+    }
+
     @Test("Metadata validation exits with 1 when a hard limit is broken")
     func validate() async throws {
         let harness = try Harness()
