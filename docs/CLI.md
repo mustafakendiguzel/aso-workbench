@@ -13,7 +13,7 @@ swift build -c release --product aso
 
 See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system libraries each platform needs.
 
-**Windows:** `scripts\package-windows.ps1` builds `dist\aso-windows-x86_64.zip`: `aso.exe` with exactly the Swift runtime DLLs it loads, checked by running it with nothing but Windows on `PATH`. Unzip it anywhere and run `aso.exe`; no Swift toolchain is needed. CI builds one for every pull request (artifact `aso-windows-x86_64`).
+**Windows:** `scripts\package-windows.ps1` builds `dist\aso-windows-x86_64.zip`: `aso.exe` with exactly the Swift runtime DLLs it loads, checked by running it with nothing but Windows on `PATH`. Unzip it anywhere and run `aso.exe`; no Swift toolchain is needed. CI builds one for every pull request (artifact `aso-windows-x86_64`). With `-Window` the script also packages the window with it ([DESKTOP.md](DESKTOP.md#build-run-test)).
 
 ## Commands
 

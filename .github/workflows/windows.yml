@@ -46,9 +46,18 @@ jobs:
       - name: Test
         run: swift test --skip-build --skip Live
 
-      - name: Package the aso command (release, with its Swift runtime DLLs)
+      - name: Install .NET (for the window)
         if: matrix.swift == '6.4.1'
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-windows.ps1
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: desktop/global.json
+
+      - name: Package the aso command and the window (release, with their runtimes)
+        if: matrix.swift == '6.4.1'
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+          DOTNET_NOLOGO: "1"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-windows.ps1 -Window
 
       - name: Upload the aso command
         if: matrix.swift == '6.4.1'
@@ -58,4 +67,14 @@ jobs:
           path: |
             dist/aso-windows-x86_64.zip
             dist/aso-windows-x86_64.sha256
+          if-no-files-found: error
+
+      - name: Upload the window
+        if: matrix.swift == '6.4.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-workbench-windows-x86_64
+          path: |
+            dist/aso-workbench-windows-x86_64.zip
+            dist/aso-workbench-windows-x86_64.sha256
           if-no-files-found: error

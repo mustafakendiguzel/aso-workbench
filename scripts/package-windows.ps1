@@ -3,10 +3,15 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\package-windows.ps1     -> dist\aso-windows-x86_64.zip
 #
+# With -Window it also publishes the Windows window (desktop/, self-contained .NET) with that aso folder next to
+# it, where the window looks first, so one folder runs without .NET or Swift installed:
+#
+#   ... package-windows.ps1 -Window                                          -> dist\aso-workbench-windows-x86_64.zip
+#
 # The Swift runtime cannot be linked statically on Windows yet (FoundationNetworking needs a static libcurl the
 # toolchain does not ship), so the DLLs travel next to the executable, which Windows searches first.
 [CmdletBinding()]
-param([string]$Output = 'dist')
+param([string]$Output = 'dist', [switch]$Window)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -55,11 +60,32 @@ try {
     $env:Path = $savedPath
 }
 
-$zip = Join-Path $Output 'aso-windows-x86_64.zip'
-Remove-Item $zip -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
-$hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  aso-windows-x86_64.zip" | Set-Content -Encoding ascii (Join-Path $Output 'aso-windows-x86_64.sha256')
+function Write-Zip([string]$folder, [string]$name) {
+    $zip = Join-Path $Output "$name.zip"
+    Remove-Item $zip -Force -ErrorAction SilentlyContinue
+    Compress-Archive -Path (Join-Path $folder '*') -DestinationPath $zip
+    $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $name.zip" | Set-Content -Encoding ascii (Join-Path $Output "$name.sha256")
+    Write-Host "-> $zip ($([int]((Get-Item $zip).Length / 1MB)) MB)"
+}
 
-Write-Host "-> $zip ($($shipped.Count) runtime DLLs, $([int]((Get-Item $zip).Length / 1MB)) MB)"
-Write-Host "  $reported"
+Write-Zip $stage 'aso-windows-x86_64'
+Write-Host "  $reported, $($shipped.Count) runtime DLLs"
+
+if ($Window) {
+    # Self-contained: the .NET runtime travels with the window. No trimming: Avalonia's XAML relies on reflection.
+    $app = Join-Path $Output 'aso-workbench-windows-x86_64'
+    Remove-Item $app -Recurse -Force -ErrorAction SilentlyContinue
+    $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+    $env:DOTNET_NOLOGO = '1'
+    dotnet publish desktop\src\AsoDesktop\AsoDesktop.csproj --configuration Release --runtime win-x64 --self-contained true `
+        -p:DebugType=none --output $app
+    if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+    # aso and its runtime go next to the window; a name both sides ship would make one overwrite the other.
+    foreach ($file in Get-ChildItem $stage -File) {
+        if (Test-Path (Join-Path $app $file.Name)) { throw "$($file.Name) is shipped by both the window and aso" }
+        Copy-Item $file.FullName $app
+    }
+    if (-not (Test-Path (Join-Path $app 'ASOWorkbench.exe'))) { throw 'The published window has no ASOWorkbench.exe' }
+    Write-Zip $app 'aso-workbench-windows-x86_64'
+}
