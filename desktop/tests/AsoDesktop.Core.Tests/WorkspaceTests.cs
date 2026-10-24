@@ -29,6 +29,9 @@ public sealed class MainViewModelTests
             "app list" => FakeCli.Fixture("app-list"),
             "market list" => FakeCli.Fixture("market-list"),
             "keywords list" => FakeCli.Fixture("keywords-list"),
+            "ratings list" => FakeCli.Fixture("ratings-list"),
+            "reviews list" => FakeCli.Fixture("reviews-list"),
+            "competitors" => FakeCli.Fixture("competitors"),
             _ => throw new InvalidOperationException(command),
         });
         await vm.LoadCommand.ExecuteAsync(null);
@@ -44,6 +47,11 @@ public sealed class MainViewModelTests
         Assert.Equal("PRODUCTIVITY_UTILITIES", vm.SelectedGenre?.Id);
         Assert.Equal("lastMarker", vm.Keywords.Delta);
         Assert.Contains(cli.Calls, c => c.SequenceEqual(["--json", "keywords", "list", "361285480", "--country", "TR", "--device", "iphone", "--delta", "lastMarker"]));
+        // The app's ratings and reviews, and the selected market's competitors, follow the selection.
+        Assert.Equal(2, vm.Ratings.Rows.Count);
+        Assert.Equal(3, vm.Reviews.Visible.Count);
+        Assert.Same(vm.SelectedMarket, vm.Competitors.Market);
+        Assert.Contains(cli.Calls, c => c.SequenceEqual(["--json", "competitors", "361285480", "--country", "TR", "--device", "iphone", "--depth", "10"]));
         Assert.False(vm.Status.IsError);
     }
 

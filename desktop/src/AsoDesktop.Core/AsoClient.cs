@@ -126,6 +126,28 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<MeasureSummary> MeasureStaleAsync(IProgress<MeasureStep>? progress = null, CancellationToken ct = default) =>
         RunAsync<MeasureSummary>(["measure", "--stale"], ct, line => { if (ParseStep(line) is { } step) progress?.Report(step); });
 
+    // MARK: Ratings, reviews and competitors
+
+    /// <summary>Reads ratings in the app's markets, or in every storefront (one public request each).</summary>
+    public Task<RatingsCheck> CheckRatingsAsync(long appId, bool everyStorefront = false, CancellationToken ct = default) =>
+        RunAsync<RatingsCheck>(["ratings", "check", Id(appId), .. Flag("all", everyStorefront)], ct);
+
+    public Task<IReadOnlyList<RatingRow>> RatingsAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<RatingRow>>(["ratings", "list", Id(appId)], ct);
+
+    /// <summary>Reads the newest written reviews in the app's markets, or in every storefront; unseen ones are marked new.</summary>
+    public Task<ReviewsCheck> CheckReviewsAsync(long appId, bool everyStorefront = false, CancellationToken ct = default) =>
+        RunAsync<ReviewsCheck>(["reviews", "check", Id(appId), .. Flag("all", everyStorefront)], ct);
+
+    /// <summary>Every stored review; the window filters them itself.</summary>
+    public Task<ReviewsReport> ReviewsAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<ReviewsReport>(["reviews", "list", Id(appId)], ct);
+
+    /// <param name="depth">How deep in each result list to look (1–50).</param>
+    public Task<CompetitorsReport> CompetitorsAsync(long appId, string country, string device, int depth, CancellationToken ct = default) =>
+        RunAsync<CompetitorsReport>(["competitors", Id(appId), "--country", country, "--device", device, "--depth",
+                                     depth.ToString(CultureInfo.InvariantCulture)], ct);
+
     // MARK: Settings
 
     public Task<EngineSettings> SettingsAsync(CancellationToken ct = default) => RunAsync<EngineSettings>(["settings"], ct);
@@ -183,6 +205,8 @@ public sealed class AsoClient(IAsoCli cli)
     private static string Id(long appId) => appId.ToString(CultureInfo.InvariantCulture);
 
     private static string[] Option(string name, string? value) => string.IsNullOrWhiteSpace(value) ? [] : [$"--{name}", value];
+
+    private static string[] Flag(string name, bool on) => on ? [$"--{name}"] : [];
 }
 
 /// <summary>Where a private key comes from: a file aso reads itself, or pasted text sent through stdin.</summary>

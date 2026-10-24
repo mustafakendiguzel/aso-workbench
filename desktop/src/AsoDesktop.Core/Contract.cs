@@ -106,6 +106,64 @@ public sealed record DifficultyComponent(string Name, string Weight, double Valu
 
 public sealed record DifficultyReport(double Score, string Tier, int SampleSize, IReadOnlyList<DifficultyComponent> Components);
 
+/// <summary>Ratings in one storefront (<c>aso ratings list</c>): the latest reading, the change since the previous one, and
+/// when a new rating was last seen between two readings.</summary>
+public sealed record RatingRow(
+    string Country,
+    string CountryName,
+    int Count,
+    double? Average,
+    int? Delta,
+    DateTimeOffset? PreviousAt,
+    DateTimeOffset CheckedAt,
+    DateTimeOffset? LastNewAt)
+{
+    public string Title => $"{CountryName} ({Country})";
+}
+
+/// <summary><c>aso ratings check</c>: readings stored, ratings that arrived since the previous reading, and the storefronts that
+/// failed or have no ratings for the app.</summary>
+public sealed record RatingsCheck(int Storefronts, int Recorded, int NewRatings, IReadOnlyList<string> Failed, IReadOnlyList<string> Unavailable);
+
+/// <summary>A stored written review; <c>IsNew</c> marks one first seen in the most recent check.</summary>
+public sealed record StoredReview(
+    string Id,
+    string Country,
+    string Title,
+    string Body,
+    int Rating,
+    string Author,
+    string? Version,
+    DateTimeOffset? Date,
+    DateTimeOffset FetchedAt,
+    bool IsNew);
+
+/// <summary><c>aso reviews list</c>: totals over every stored review (stars from one to five), and the reviews newest first.</summary>
+public sealed record ReviewsReport(int Stored, int New, double? Average, IReadOnlyList<int> Stars, IReadOnlyList<string> Countries,
+                                   IReadOnlyList<StoredReview> Reviews);
+
+public sealed record ReviewsCheck(int Storefronts, int Added, int Stored, IReadOnlyList<string> Failed);
+
+public sealed record CompetitorAppearance(string Keyword, int Position);
+
+/// <summary>An app seen in the latest results of the tracked keywords (<c>aso competitors</c>).</summary>
+public sealed record Competitor(
+    [property: JsonPropertyName("trackID")] long TrackId,
+    string Name,
+    string SellerName,
+    [property: JsonPropertyName("bundleID")] string? BundleId,
+    [property: JsonPropertyName("iconURL")] string? IconUrl,
+    string? PrimaryGenre,
+    int? RatingCount,
+    double? AverageRating,
+    DateTimeOffset? CurrentVersionReleaseDate,
+    int Keywords,
+    int Top10,
+    double AveragePosition,
+    IReadOnlyList<CompetitorAppearance> Appearances);
+
+public sealed record CompetitorsReport(string Market, int Depth, int KeywordsMeasured, IReadOnlyList<Competitor> Competitors);
+
 public enum ValidationSeverity
 {
     Info = 0,

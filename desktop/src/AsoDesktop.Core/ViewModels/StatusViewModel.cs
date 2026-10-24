@@ -26,6 +26,22 @@ public sealed partial class StatusViewModel : ObservableObject
         IsError = true;
     }
 
+    /// <summary>A background load that follows a selection: no busy message, only a failure is reported.</summary>
+    public async Task QuietlyAsync(Func<Task> job)
+    {
+        try
+        {
+            await job().ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (AsoCliException error)
+        {
+            Error(error.Message);
+        }
+    }
+
     /// <summary>Runs one job: busy while it runs; aso's own message on failure; "Stopped." when cancelled.</summary>
     public async Task RunAsync(string busyMessage, Func<Task> job)
     {

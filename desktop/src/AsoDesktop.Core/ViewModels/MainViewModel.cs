@@ -23,7 +23,10 @@ public sealed partial class MainViewModel : ObservableObject
         Research = new ResearchViewModel(client, Status);
         Metadata = new MetadataViewModel(client, Status);
         Settings = new SettingsViewModel(client, Status);
-        Keywords.MarketsChanged = RefreshMarketsAsync;
+        Ratings = new RatingsViewModel(client, Status);
+        Reviews = new ReviewsViewModel(client, Status);
+        Competitors = new CompetitorsViewModel(client, Status);
+        Keywords.MarketsChanged = KeywordsChangedAsync;
     }
 
     public StatusViewModel Status { get; } = new();
@@ -31,6 +34,9 @@ public sealed partial class MainViewModel : ObservableObject
     public ResearchViewModel Research { get; }
     public MetadataViewModel Metadata { get; }
     public SettingsViewModel Settings { get; }
+    public RatingsViewModel Ratings { get; }
+    public ReviewsViewModel Reviews { get; }
+    public CompetitorsViewModel Competitors { get; }
 
     public ObservableCollection<AppRecord> Apps { get; } = [];
     public ObservableCollection<MarketSummary> Markets { get; } = [];
@@ -122,6 +128,7 @@ public sealed partial class MainViewModel : ObservableObject
             var progress = new Progress<MeasureStep>(step => Status.Info($"Refreshing {step.Completed}/{step.Total}: {step.Keyword} in {step.Market}"));
             var summary = await client.MeasureStaleAsync(progress, cancellationToken).ConfigureAwait(true);
             if (Keywords.Market is not null) await Keywords.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+            await Competitors.LoadAsync().ConfigureAwait(true);
             Status.Info(summary.Measured == 0
                 ? "Every market was measured recently."
                 : $"Refreshed {summary.Measured} keyword(s): {summary.Found} ranked, {summary.Outside} outside, {summary.Failed} failed.");
@@ -130,6 +137,9 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnSelectedAppChanged(AppRecord? oldValue, AppRecord? newValue)
     {
         Keywords.App = newValue;
+        Ratings.App = newValue;
+        Reviews.App = newValue;
+        Competitors.App = newValue;
         ShowGenre(newValue);
         if (oldValue?.TrackId == newValue?.TrackId) return;   // the same app with refreshed details: keep its markets
         Markets.Clear();
@@ -140,6 +150,7 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnSelectedMarketChanged(MarketSummary? oldValue, MarketSummary? newValue)
     {
         Keywords.Market = newValue;
+        Competitors.Market = newValue;
         if (newValue is not null && !KeywordsViewModel.SameMarket(oldValue, newValue)) Keywords.RefreshCommand.Execute(null);
     }
 
@@ -160,6 +171,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Keeps the market list in step after keywords were added or measured.</summary>
     public Task RefreshMarketsAsync() => SelectedApp is { } app ? ReloadMarketsAsync(app, keep: SelectedMarket) : Task.CompletedTask;
+
+    /// <summary>After keywords were added, removed or measured: market counts, and what a measurement also read (ratings, new
+    /// reviews, the results competitors come from).</summary>
+    private async Task KeywordsChangedAsync()
+    {
+        await RefreshMarketsAsync().ConfigureAwait(true);
+        await Status.QuietlyAsync(Ratings.ReloadAsync).ConfigureAwait(true);
+        await Status.QuietlyAsync(Reviews.ReloadAsync).ConfigureAwait(true);
+        await Status.QuietlyAsync(Competitors.LoadAsync).ConfigureAwait(true);
+    }
 
     private void ShowGenre(AppRecord? app)
     {

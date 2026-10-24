@@ -3,6 +3,7 @@
         xmlns:vm="using:AsoDesktop.Core.ViewModels"
         xmlns:core="using:AsoDesktop.Core"
         xmlns:local="using:AsoDesktop"
+        xmlns:sys="using:System"
         x:Class="AsoDesktop.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="ASO Workbench"
@@ -34,6 +35,21 @@
     </Style>
     <Style Selector="Ellipse.dot.on">
       <Setter Property="Fill" Value="#2E9E4F" />
+    </Style>
+    <Style Selector="TextBlock.good">
+      <Setter Property="Foreground" Value="#2E9E4F" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+    <Style Selector="TextBlock.mixed">
+      <Setter Property="Foreground" Value="#CA8A04" />
+    </Style>
+    <Style Selector="Border.pill">
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListAccentLowBrush}" />
     </Style>
     <Style Selector="Border.card">
       <Setter Property="Padding" Value="14" />
@@ -192,6 +208,35 @@
                 </Button.Flyout>
               </Button>
             </StackPanel>
+
+            <!-- Ratings per storefront over time; read when a market is measured, or now with Check -->
+            <TextBlock Classes="heading" Text="Ratings by storefront" Margin="0,20,0,4" />
+            <Border Classes="card">
+              <StackPanel Spacing="8">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0">
+                    <Button Content="Check tracked storefronts" Command="{Binding Ratings.CheckCommand}" CommandParameter="markets"
+                            ToolTip.Tip="One App Store request per market country" />
+                    <Button Content="Check every storefront" Command="{Binding Ratings.CheckCommand}" CommandParameter="all"
+                            ToolTip.Tip="One App Store request per country, paced like every search: a few minutes" />
+                  </StackPanel>
+                  <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Ratings.Headline}" />
+                </DockPanel>
+                <TextBlock Classes="hint" Text="{Binding Ratings.LatestReview}"
+                           IsVisible="{Binding Ratings.LatestReview, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <DataGrid ItemsSource="{Binding Ratings.Rows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          MaxHeight="260" IsVisible="{Binding Ratings.HasRows}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Storefront" Binding="{Binding Storefront}" Width="*" />
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Ratings" Binding="{Binding Count}" SortMemberPath="Row.Count" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Average" Binding="{Binding Average}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Since last check" Binding="{Binding SinceLastCheck}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Last new rating" Binding="{Binding LastNewRating}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RatingLine" Header="Checked" Binding="{Binding Checked}" Width="Auto" />
+                  </DataGrid.Columns>
+                </DataGrid>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -344,6 +389,122 @@
               <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Measured" Binding="{Binding Measured}" Width="*" />
             </DataGrid.Columns>
           </DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Apps seen in the selected market's tracked searches; not a competitor's full keyword set -->
+      <TabItem Header="Competitors">
+        <DockPanel IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,4,0,6">
+            <ComboBox Width="150" ItemsSource="{Binding Markets}" SelectedItem="{Binding SelectedMarket}" PlaceholderText="No market">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="core:MarketSummary">
+                  <TextBlock Text="{Binding Title}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ComboBox ItemsSource="{x:Static vm:CompetitorsViewModel.Depths}" SelectedItem="{Binding Competitors.Depth}"
+                      ToolTip.Tip="How deep in each result list to look">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="sys:Int32">
+                  <TextBlock Text="{Binding StringFormat='Top {0}'}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Refresh" Command="{Binding Competitors.RefreshCommand}" />
+            <TextBlock Classes="hint" VerticalAlignment="Center" Text="{Binding Competitors.Headline}" />
+          </StackPanel>
+
+          <Border DockPanel.Dock="Right" Width="340" Margin="10,0,0,0" Padding="12" CornerRadius="6"
+                  Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <ScrollViewer>
+              <StackPanel Spacing="6">
+                <StackPanel Spacing="6" IsVisible="{Binding Competitors.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  <TextBlock Classes="heading" Margin="0" TextWrapping="Wrap" Text="{Binding Competitors.Selected.Name, FallbackValue=''}" />
+                  <TextBlock Classes="hint" Text="{Binding Competitors.Selected.Details, FallbackValue=''}" />
+                  <SelectableTextBlock Classes="hint" FontSize="12" Opacity="0.65" Text="{Binding Competitors.Selected.Identifiers, FallbackValue=''}" />
+                  <TextBlock Classes="hint" Text="{Binding Competitors.Selected.LastUpdate, StringFormat='Last update {0}', FallbackValue=''}"
+                             IsVisible="{Binding Competitors.Selected.LastUpdate, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}" />
+                  <TextBlock Classes="label" Text="Appears in these tracked keywords" />
+                  <ItemsControl ItemsSource="{Binding Competitors.Selected.Appearances, FallbackValue={x:Null}}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="core:CompetitorAppearance">
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                          <TextBlock Text="{Binding Keyword}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Classes="hint" Margin="8,0,0,0" Text="{Binding Position, StringFormat='#{0}'}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Classes="hint" Margin="0,8,0,0"
+                             Text="Only queries you track are shown. This is not the competitor's full keyword set." />
+                </StackPanel>
+                <TextBlock Classes="hint" Text="Select a competitor: its positions in your tracked keywords appear here."
+                           IsVisible="{Binding Competitors.Selected, Converter={x:Static ObjectConverters.IsNull}}" />
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding Competitors.Rows}" SelectedItem="{Binding Competitors.Selected}" AutoGenerateColumns="False"
+                    IsReadOnly="True" CanUserSortColumns="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="App" Binding="{Binding Name}" Width="2*" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Seller" Binding="{Binding Seller}" Width="*" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Keywords" Binding="{Binding Keywords}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Top 10" Binding="{Binding Top10}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Avg. position" Binding="{Binding AveragePosition}"
+                                  SortMemberPath="App.AveragePosition" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Ratings" Binding="{Binding Ratings}" SortMemberPath="RatingsOrder" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:CompetitorLine" Header="Rating" Binding="{Binding Rating}" Width="Auto" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Written reviews across the app's storefronts, newest first -->
+      <TabItem Header="Reviews">
+        <DockPanel IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="0,4,0,6">
+            <ComboBox Width="170" ItemsSource="{Binding Reviews.Countries}" SelectedItem="{Binding Reviews.Country}" />
+            <ComboBox ItemsSource="{x:Static vm:ReviewsViewModel.MinimumRatings}" SelectedItem="{Binding Reviews.MinRating}"
+                      ToolTip.Tip="Lowest star rating shown">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="sys:Int32">
+                  <TextBlock Text="{Binding StringFormat='≥ {0} ★'}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <CheckBox Content="New only" IsChecked="{Binding Reviews.OnlyNew}" />
+            <TextBox Width="200" PlaceholderText="Search reviews" Text="{Binding Reviews.Search}" />
+            <Button Content="Reset" Command="{Binding Reviews.ClearFiltersCommand}" />
+            <TextBlock Classes="hint" VerticalAlignment="Center" Text="{Binding Reviews.Summary}" />
+            <TextBlock Classes="hint" VerticalAlignment="Center" Text="{Binding Reviews.StarCounts}" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+            <Button Content="Check tracked storefronts" Command="{Binding Reviews.CheckCommand}" CommandParameter="markets"
+                    ToolTip.Tip="One request to Apple's public reviews feed per market country" />
+            <Button Content="Check every storefront" Command="{Binding Reviews.CheckCommand}" CommandParameter="all"
+                    ToolTip.Tip="One request per App Store country; about a minute" />
+          </StackPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="hint" Margin="0,8" IsVisible="{Binding Reviews.IsEmpty}"
+                     Text="No written reviews stored yet. Reviews are read from Apple's public feed for the measured storefronts when you measure; press Check to read them now. Ratings without text are counted on the Overview page instead." />
+          <ListBox ItemsSource="{Binding Reviews.Visible}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReviewLine">
+                <StackPanel Spacing="3" Margin="0,4">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Stars}" Classes.good="{Binding IsGood}" Classes.bad="{Binding IsBad}" Classes.mixed="{Binding IsMixed}" />
+                    <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Review.Title}" />
+                    <Border Classes="pill" IsVisible="{Binding Review.IsNew}">
+                      <TextBlock FontSize="11" Text="new" />
+                    </Border>
+                  </StackPanel>
+                  <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Review.Body}" />
+                  <TextBlock Classes="hint" Text="{Binding Byline}" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
         </DockPanel>
       </TabItem>
 
