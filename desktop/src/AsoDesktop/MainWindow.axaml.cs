@@ -90,6 +90,16 @@ public sealed partial class MainWindow : Window
         if (await new AddAppDialog(vm.CreateAddApp()).ShowDialog<Core.AppRecord?>(this) is { } app) await vm.AppAddedAsync(app);
     }
 
+    private async void ShowDiscovery(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(null);
+
+    private async void ShowImport(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(ViewModel?.Competitors.Selected?.App);
+
+    private async Task ShowDiscoveryAsync(Core.Competitor? competitor)
+    {
+        if (ViewModel is not { } vm || vm.CreateDiscovery(competitor) is not { } discovery) return;
+        if (await new DiscoveryDialog(discovery).ShowDialog<bool>(this)) await vm.DiscoveryAddedAsync();
+    }
+
     // Links in the connection guides open in the default browser; only web links are opened.
     private async void OpenLink(object? sender, RoutedEventArgs e)
     {

@@ -99,6 +99,39 @@ public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, I
 public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed,
     IReadOnlyList<PopularityRefresh>? Popularity = null, string? PopularityError = null);
 
+/// <summary>Keyword candidates for a market (<c>aso discover</c>); nothing is stored until keywords are added.</summary>
+public sealed record DiscoveryReport(
+    string Market,
+    string? Competitor,
+    IReadOnlyList<string> Seeds,
+    bool AppleAds,
+    bool Jev,
+    int WithPopularity,
+    int Measured,
+    int Golden,
+    IReadOnlyList<DiscoveryCandidate> Candidates);
+
+/// <summary>One candidate; absent values were not looked up (no key, or not among the most promising).</summary>
+public sealed record DiscoveryCandidate(
+    string Keyword,
+    IReadOnlyList<string> Sources,
+    bool Tracked,
+    bool Golden,
+    bool GoldenLead,
+    int? Popularity = null,
+    string? PopularitySource = null,
+    string? PopularityGenre = null,
+    double? Brand = null,
+    double? Natural = null,
+    string? Intent = null,
+    double? Fit = null,
+    double? Difficulty = null,
+    string? DifficultyTier = null,
+    double? Opportunity = null);
+
+/// <summary>One line of <c>discover --json</c> progress on stderr.</summary>
+public sealed record DiscoveryStep(string Step, int Completed, int Total);
+
 /// <summary>What one popularity refresh found in one country (<c>aso popularity</c>).</summary>
 public sealed record PopularityRefresh(
     string Country,

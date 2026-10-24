@@ -196,9 +196,10 @@ public sealed class SettingsViewModelTests
             Assert.StartsWith("https://", guide.Link, StringComparison.Ordinal);
             Assert.DoesNotContain("Mac", guide.DataFlow, StringComparison.Ordinal);
         }
-        // Apple Ads powers popularity; the other keys are stored and tested only.
+        // Apple Ads powers popularity and OpenRouter the discovery checks; the other keys are stored and tested only.
         Assert.StartsWith("This version reads popularity", ConnectionGuides.AppleAds.Availability, StringComparison.Ordinal);
-        foreach (var guide in new[] { ConnectionGuides.AppStoreConnect, ConnectionGuides.OpenRouter, ConnectionGuides.RevenueCat })
+        Assert.StartsWith("This version uses the key for the brand", ConnectionGuides.OpenRouter.Availability, StringComparison.Ordinal);
+        foreach (var guide in new[] { ConnectionGuides.AppStoreConnect, ConnectionGuides.RevenueCat })
         {
             Assert.Equal(ConnectionGuide.NotYetUsed, guide.Availability);
         }

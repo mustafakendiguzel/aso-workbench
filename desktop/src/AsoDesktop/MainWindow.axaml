@@ -268,6 +268,7 @@
                     ToolTip.Tip="Apple Ads popularity for every keyword of this market (Ctrl+Shift+P); needs the Apple Ads connection" />
             <Button Content="Refresh" Command="{Binding Keywords.RefreshCommand}" />
             <Button Content="Export CSV…" Click="ExportCsv" HotKey="Ctrl+Shift+E" ToolTip.Tip="This market's keywords in the macOS app's CSV format" />
+            <Button Content="Find keywords…" Click="ShowDiscovery" ToolTip.Tip="Golden keyword candidates from autocomplete, Apple Ads and Jev; nothing is added until you choose" />
             <TextBlock Text="Δ against" VerticalAlignment="Center" Margin="8,0,0,0" />
             <ComboBox ItemsSource="{x:Static vm:KeywordsViewModel.DeltaReferences}" SelectedItem="{Binding Keywords.Delta}" />
             <ProgressBar Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0,0,0"
@@ -451,6 +452,8 @@
                   </ItemsControl>
                   <TextBlock Classes="hint" Margin="0,8,0,0"
                              Text="Only queries you track are shown. This is not the competitor's full keyword set." />
+                  <Button Margin="0,8,0,0" Content="Import keywords from this app…" Click="ShowImport"
+                          ToolTip.Tip="Candidates from its title and description, scored for this market" />
                 </StackPanel>
                 <TextBlock Classes="hint" Text="Select a competitor: its positions in your tracked keywords appear here."
                            IsVisible="{Binding Competitors.Selected, Converter={x:Static ObjectConverters.IsNull}}" />

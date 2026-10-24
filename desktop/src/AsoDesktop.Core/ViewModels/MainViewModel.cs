@@ -94,6 +94,17 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>A fresh Add App dialog; the view shows it and hands the result to <see cref="AppAddedAsync"/>.</summary>
     public AddAppViewModel CreateAddApp() => new(client, Status, Storefronts, SelectedMarket?.Country ?? "US");
 
+    /// <summary>A discovery dialog for the selected market, mining <paramref name="competitor"/>'s listing when given; null without a market.</summary>
+    public DiscoveryViewModel? CreateDiscovery(Competitor? competitor = null) =>
+        SelectedApp is { } app && SelectedMarket is { } market ? new DiscoveryViewModel(client, Status, app, market, competitor) : null;
+
+    /// <summary>After the dialog added keywords: the table and the market counts.</summary>
+    public async Task DiscoveryAddedAsync()
+    {
+        if (Keywords.Market is not null) await Keywords.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
+        await Status.QuietlyAsync(RefreshMarketsAsync).ConfigureAwait(true);
+    }
+
     public Task AppAddedAsync(AppRecord app) => Status.RunAsync("Loading tracked apps…", async () =>
     {
         await ReloadAppsAsync(keepSelection: app.TrackId).ConfigureAwait(true);

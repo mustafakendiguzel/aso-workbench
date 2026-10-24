@@ -69,6 +69,17 @@ public sealed class AsoClient(IAsoCli cli)
             ["popularity", Id(appId), "--country", country, "--device", device,
              .. Option("keywords", keywords is { Count: > 0 } ? string.Join(',', keywords) : null)], ct);
 
+    /// <summary>Keyword candidates for the market, from a competitor's listing when <paramref name="competitorId"/> is given.</summary>
+    public Task<DiscoveryReport> DiscoverAsync(long appId, string country, string device, long? competitorId = null,
+                                               IReadOnlyCollection<string>? seeds = null, int difficultyLimit = 25,
+                                               IProgress<DiscoveryStep>? progress = null, CancellationToken ct = default) =>
+        RunAsync<DiscoveryReport>(
+            ["discover", Id(appId), "--country", country, "--device", device,
+             .. Option("competitor", competitorId is { } id ? Id(id) : null),
+             .. Option("seeds", seeds is { Count: > 0 } ? string.Join(',', seeds) : null),
+             "--difficulty", difficultyLimit.ToString(CultureInfo.InvariantCulture)], ct,
+            line => { if (Parse<DiscoveryStep>(line) is { } step) progress?.Report(step); });
+
     /// <summary>The market's keywords in the macOS app's CSV format.</summary>
     public async Task<string> KeywordsCsvAsync(long appId, string country, string device, string delta, CancellationToken ct = default)
     {
@@ -207,10 +218,13 @@ public sealed class AsoClient(IAsoCli cli)
     public async Task RemoveConnectionAsync(string service, CancellationToken ct = default) =>
         await RunAsync<JsonElement>(["connections", "remove", service], ct).ConfigureAwait(false);
 
-    internal static MeasureStep? ParseStep(string line)
+    internal static MeasureStep? ParseStep(string line) => Parse<MeasureStep>(line);
+
+    /// <summary>One JSON Lines progress object, or null for any other stderr line.</summary>
+    private static T? Parse<T>(string line) where T : class
     {
         if (!line.StartsWith('{')) return null;
-        try { return JsonSerializer.Deserialize<MeasureStep>(line, Json.Options); }
+        try { return JsonSerializer.Deserialize<T>(line, Json.Options); }
         catch (JsonException) { return null; }
     }
 

@@ -74,7 +74,11 @@ public static class ConnectionGuides
             "Paste the key (starts with sk-or-v1-) here and press Save.",
         ],
         LinkTitle: "Open OpenRouter keys",
-        Link: "https://openrouter.ai/settings/keys");
+        Link: "https://openrouter.ai/settings/keys")
+    {
+        Availability = "This version uses the key for the brand, naturalness and fit checks in Find keywords. The writer and the other "
+                       + "checks come to Windows and Linux in later versions; until then they need the macOS app.",
+    };
 
     public static ConnectionGuide RevenueCat { get; } = new(
         Need: "Optional",
