@@ -28,6 +28,8 @@ public struct EngineSettings: Sendable, Equatable, Codable {
 
     public var golden: GoldenThresholds { GoldenThresholds(minPopularity: goldenMinPopularity, maxDifficulty: goldenMaxDifficulty) }
 
+    public var writerTiers: WriterTiers { WriterTiers(easyDifficulty: writerEasyDifficulty, maxDifficulty: writerMaxDifficulty) }
+
     /// One setting as `settings set` takes it: its name, the values it accepts and how to apply text to it.
     public struct Field: Sendable {
         public let name: String

@@ -152,4 +152,40 @@ struct MetadataTests {
         #expect(all.count == AppLocale.allCases.count)
         #expect(all.contains { $0.hasPrefix("de-DE  ") })
     }
+
+    @Test("Each locale's report has its market's keyword plan and what the draft covers of it")
+    func coverage() async throws {
+        let search = FakeSearch(results: ["notes": [ownApp]], apps: [ownApp.trackID: ownApp])
+        let harness = try Harness(search: search)
+        let workbench = harness.engine
+        let id = ownApp.trackID
+        _ = try await workbench.addApp(reference: String(id))
+        #expect(try await workbench.metadata(appID: id, locale: .enUS).coverage == nil)
+
+        _ = try await workbench.addMarket(appID: id, countryCode: "US", device: .iPhone)
+        _ = try await workbench.addKeywords(["notes", "daily journal"], appID: id, countryCode: "US", device: .iPhone)
+        let unmeasured = try await workbench.metadata(appID: id, locale: .enUS)
+        #expect(unmeasured.coverage?.market == "US")
+        #expect(unmeasured.coverage?.priority.map(\.rank) == [nil, nil])
+
+        _ = try await workbench.measure(appID: id, keywords: ["notes"])
+        var draft = live
+        draft.subtitle = "Your daily journal"
+        let report = try await workbench.saveDraft(appID: id, locale: .enUS, fields: draft, now: now)
+        let coverage = try #require(report.coverage)
+        // Already top ten: winnable now, ahead of the unmeasured phrase (difficulty unknown, counted as 50).
+        #expect(coverage.priority.map(\.term) == ["notes", "daily journal"])
+        #expect(coverage.priority.map(\.tier) == ["A", "B"])
+        #expect(coverage.priority[0].rank == "#1")
+        #expect(coverage.covered == ["notes", "daily journal"])
+        // Stricter tiers move the unknown-difficulty phrase out of reach.
+        let strict = try await workbench.metadata(appID: id, locale: .enUS, tiers: WriterTiers(easyDifficulty: 20, maxDifficulty: 40))
+        #expect(strict.coverage?.priority.map(\.term) == ["notes"])
+        #expect(strict.coverage?.avoid == ["daily journal"])
+        #expect(strict.coverage?.tiers.maxDifficulty == 40)
+
+        let shown = await harness.run(["metadata", "show", String(id), "--locale", "en-US"])
+        #expect(shown.console.output.contains("Keyword coverage (US): 2 of 2 priority phrases in title, subtitle or keywords"))
+        #expect(shown.console.output.contains("✓ A  notes  (popularity 0 · difficulty "))
+    }
 }

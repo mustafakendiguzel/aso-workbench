@@ -22,65 +22,17 @@ final class ASOAssistant {
     }
 
     /// The evidence-ranked plan the writer must follow: which tracked phrases to cover, which to avoid.
-    struct KeywordPlan {
-        struct Item: Identifiable {
-            var id: String { term }
-            let term: String
-            let popularity: Int?
-            let popularitySource: String
-            let difficulty: Int?
-            let fit: Double?
-            let rank: String?
-            let score: Double
-            /// "A" winnable now · "B" reachable · "C" popular but hard · "X" avoided (brand, unrelated, too hard)
-            let tier: String
-        }
-        var priority: [Item] = []
-        var avoid: [Item] = []
-        var tierA: [Item] { priority.filter { $0.tier == "A" } }
-        var tierB: [Item] { priority.filter { $0.tier == "B" } }
-        var tierC: [Item] { priority.filter { $0.tier == "C" } }
+    typealias KeywordPlan = ASOCore.KeywordPlan
 
-        /// A phrase counts as covered when every one of its words (or its plural twin) appears across the indexed fields.
-        static func covers(_ fields: MetadataFields, phrase: String) -> Bool {
-            let words = Set(ASORules.words(fields.name) + ASORules.words(fields.subtitle) + ASORules.words(fields.keywords))
-            return ASORules.words(phrase).allSatisfy { w in words.contains(w) || words.contains(w + "s") || (w.hasSuffix("s") && words.contains(String(w.dropLast()))) }
-        }
-    }
-
-    /// Ranks the market's tracked keywords the way a small app wins: tier A = winnable now (difficulty ≤ easy, or already
-    /// top 10), tier B = reachable, tier C = popular but hard. Within a tier, popularity first, then lower difficulty.
-    /// Brands, navigational names, unrelated terms and hard low-demand terms go to `avoid`.
+    /// The market's tracked keywords ranked by `KeywordPlan.make`, with the model's estimate under Apple's published floor.
     static func plan(market: TrackedMarket?, easyDifficulty: Int = 35, maxDifficulty: Int = 55) -> KeywordPlan {
-        var plan = KeywordPlan()
-        for k in market?.sortedKeywords ?? [] {
+        let inputs = (market?.sortedKeywords ?? []).map { k in
             let p = k.latestPopularity
-            let apple = p?.popularity1to100
-            let value = ((apple ?? 0) < ModelTrainer.publishedThreshold ? (p?.subFloorEstimate ?? apple) : apple) ?? 0
-            let measured = k.difficultyScore?.score
-            let d = measured ?? 50
-            let fit = k.fitProbability
-            let rank = k.latestMeasured?.position
-            var tier: String
-            if k.isBrandLike || (fit ?? 1) < 0.5 { tier = "X" }
-            else if let r = rank, r <= 10 { tier = "A" }
-            else if d <= Double(easyDifficulty) { tier = "A" }
-            else if d <= Double(maxDifficulty) { tier = "B" }
-            else if value >= 50 { tier = "C" }
-            else { tier = "X" }
-            let score = Double(value) * (1 - pow(d / 100, 3))
-            let item = KeywordPlan.Item(term: k.text, popularity: value, popularitySource: p?.scope ?? "none", difficulty: k.difficultyScore?.rounded, fit: fit,
-                                        rank: k.latestMeasured.map { $0.position.map { "#\($0)" } ?? "not in top \($0.observedCount)" }, score: score, tier: tier)
-            if tier == "X" { plan.avoid.append(item) } else { plan.priority.append(item) }
+            return KeywordPlan.Input(term: k.text, popularity: p?.popularity1to100, estimate: p?.subFloorEstimate, popularitySource: p?.scope ?? "none",
+                                     difficulty: k.difficultyScore?.score, fit: k.fitProbability, brandLike: k.isBrandLike,
+                                     observedCount: k.latestMeasured?.observedCount, rank: k.latestMeasured?.position)
         }
-        let order = ["A": 0, "B": 1, "C": 2]
-        plan.priority.sort {
-            if order[$0.tier]! != order[$1.tier]! { return order[$0.tier]! < order[$1.tier]! }
-            if ($0.popularity ?? 0) != ($1.popularity ?? 0) { return ($0.popularity ?? 0) > ($1.popularity ?? 0) }
-            return ($0.difficulty ?? 50) < ($1.difficulty ?? 50)
-        }
-        plan.priority = Array(plan.priority.prefix(14))
-        return plan
+        return KeywordPlan.make(inputs, easyDifficulty: easyDifficulty, maxDifficulty: maxDifficulty, publishedFloor: ModelTrainer.publishedThreshold)
     }
 
     enum BrandStrategy: String, CaseIterable, Identifiable {

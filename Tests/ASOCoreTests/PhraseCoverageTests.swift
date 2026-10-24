@@ -3,10 +3,7 @@ import ASOCore
 
 @Suite("Phrase coverage (same rule the writer and the Metadata panel use)")
 struct PhraseCoverageTests {
-    func covers(_ f: MetadataFields, _ phrase: String) -> Bool {
-        let words = Set(ASORules.words(f.name) + ASORules.words(f.subtitle) + ASORules.words(f.keywords))
-        return ASORules.words(phrase).allSatisfy { w in words.contains(w) || words.contains(w + "s") || (w.hasSuffix("s") && words.contains(String(w.dropLast()))) }
-    }
+    func covers(_ f: MetadataFields, _ phrase: String) -> Bool { KeywordPlan.covers(f, phrase: phrase) }
 
     @Test func wordsAcrossFieldsCount() {
         let f = MetadataFields(name: "Inkwave: Manga Comic Maker", subtitle: "Selfie to Webtoon Hero", keywords: "avatar,manhwa,generator")

@@ -315,24 +315,25 @@ public struct CommandRunner: Sendable {
             let id = try args.integer(2, "app ID")
             let workbench = try await engine(args)
             let locale = try await metadataLocale(args, engine: workbench, appID: id)
-            write(args, try await workbench.metadata(appID: id, locale: locale)) { Self.metadataText($0) }
+            write(args, try await workbench.metadata(appID: id, locale: locale, tiers: try settings(args).writerTiers)) { Self.metadataText($0) }
         case ("metadata", "draft"), ("metadata", "baseline"):
             try args.allow(Set(["locale", "stdin"] + MetadataField.allCases.map(Self.optionName)))
             let id = try args.integer(2, "app ID")
             let workbench = try await engine(args)
             let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
-            let start = try await workbench.metadata(appID: id, locale: locale)
+            let tiers = try settings(args).writerTiers
+            let start = try await workbench.metadata(appID: id, locale: locale, tiers: tiers)
             let isDraft = args.positionals[1] == "draft"
             let fields = try metadataFields(args, startingFrom: isDraft ? start.draft : start.baseline?.fields ?? .empty)
-            let report = isDraft ? try await workbench.saveDraft(appID: id, locale: locale, fields: fields)
-                                               : try await workbench.setManualBaseline(appID: id, locale: locale, fields: fields)
+            let report = isDraft ? try await workbench.saveDraft(appID: id, locale: locale, fields: fields, tiers: tiers)
+                                               : try await workbench.setManualBaseline(appID: id, locale: locale, fields: fields, tiers: tiers)
             write(args, report) { Self.metadataText($0) }
         case ("metadata", "reset"):
             try args.allow(["locale"])
             let id = try args.integer(2, "app ID")
             let workbench = try await engine(args)
             let locale = try await metadataLocale(args, engine: workbench, appID: id, required: true)
-            write(args, try await workbench.resetDraft(appID: id, locale: locale)) { Self.metadataText($0) }
+            write(args, try await workbench.resetDraft(appID: id, locale: locale, tiers: try settings(args).writerTiers)) { Self.metadataText($0) }
         case ("metadata", "legal"):
             try args.allow(["on", "off", "eula", "privacy", "note"])
             guard !(args.flag("on") && args.flag("off")) else { throw UsageError("Give --on or --off, not both.") }
@@ -1025,6 +1026,20 @@ public struct CommandRunner: Sendable {
         for f in report.rules.findings { lines.append("  \(f.kind.rawValue)  \(f.message)") }
         for i in report.issues { lines.append("  \(i.severity)  \(i.field.title): \(i.message)") }
         lines.append("Legal footer: " + (!report.legal.settings.enabled ? "off" : report.legal.inDescription ? "in the description" : "not in the description yet"))
+        if let c = report.coverage {
+            lines.append("")
+            if c.priority.isEmpty {
+                lines.append("Keyword coverage (\(c.market)): no keyword evidence yet. Track keywords in \(c.market) and read their popularity and difficulty.")
+            } else {
+                lines.append("Keyword coverage (\(c.market)): \(c.covered.count) of \(c.priority.count) priority phrases in title, subtitle or keywords")
+                for item in c.priority {
+                    var evidence = "popularity \(item.popularity.map(String.init) ?? "?") · difficulty \(item.difficulty.map(String.init) ?? "?")"
+                    if let rank = item.rank { evidence += " · \(rank)" }
+                    lines.append("  \(c.covered.contains(item.term) ? "✓" : "·") \(item.tier)  \(item.term)  (\(evidence))")
+                }
+                if !c.avoid.isEmpty { lines.append("  Not for this listing (brand, unrelated or too hard): \(c.avoid.joined(separator: ", "))") }
+            }
+        }
         if report.baseline != nil {
             lines.append("")
             lines.append(report.changes.isEmpty ? "The draft equals the baseline." : "Changes against the baseline:")

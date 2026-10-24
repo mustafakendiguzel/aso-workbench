@@ -28,7 +28,8 @@ Sources/
 │   │                  store indexes), RankOutcome, SearchResultApp, MetadataFields, Popularity, DataOrigin…
 │   ├── Analysis/      DifficultyScore, CompetitionSignals, CompetitorAggregation, TitleMatch,
 │   │                  RankHistory (Δ and before/after), KeywordJudgement (brand, golden, lead), IdeaGap,
-│   │                  RatingTrend, KeywordImpact (value, visibility curve, gain), KeywordPhrases, RevenueMatch
+│   │                  RatingTrend, KeywordImpact (value, visibility curve, gain), KeywordPhrases, RevenueMatch,
+│   │                  KeywordPlan (the writer's tiers and phrase coverage)
 │   ├── Validation/    ASORules (review + repair), MetadataValidator, MetadataDiff, TextMeasure,
 │   │                  LegalFooter, ReleaseNotesDefaults, MetadataPublishing (apply checks and outcome)
 │   ├── Training/      PublicFeatures / JevFeatures → model columns, evaluation metrics

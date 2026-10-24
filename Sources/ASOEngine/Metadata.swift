@@ -41,6 +41,18 @@ extension Engine {
         public let inDescription: Bool
     }
 
+    /// The market's keyword plan against the draft, as the macOS editor's Keyword coverage panel shows it.
+    public struct KeywordCoverage: Sendable, Codable, Equatable {
+        public let market: String
+        public let device: String
+        public let tiers: WriterTiers
+        /// The phrases to cover, best first, and the ones the draft covers (every word in title, subtitle or keywords).
+        public let priority: [KeywordPlan.Item]
+        public let covered: [String]
+        /// Brands, unrelated terms and hard low-demand terms.
+        public let avoid: [String]
+    }
+
     public struct MetadataReport: Sendable, Codable, Equatable {
         public let locale: String
         public let name: String
@@ -57,6 +69,8 @@ extension Engine {
         /// Keywords kept, added and removed, when the keyword field changed.
         public let keywordChange: KeywordChange?
         public let legal: LegalState
+        /// Absent when no market is tracked.
+        public let coverage: KeywordCoverage?
     }
 
     public struct MetadataBatch: Sendable, Codable, Equatable {
@@ -79,38 +93,65 @@ extension Engine {
         }
     }
 
-    /// The draft of one locale with its checks and its difference from the baseline.
-    public func metadata(appID: Int, locale: AppLocale) async throws -> MetadataReport {
-        try await metadataState(appID).report(locale)
+    /// The draft of one locale with its checks, its difference from the baseline and its keyword coverage.
+    public func metadata(appID: Int, locale: AppLocale, tiers: WriterTiers = .standard) async throws -> MetadataReport {
+        try await report(metadataState(appID), locale, tiers: tiers)
     }
 
     /// Saves the draft of one locale. A draft is only created once it differs from what the editor starts from, so
     /// looking at a locale leaves no trace.
-    public func saveDraft(appID: Int, locale: AppLocale, fields: MetadataFields, now: Date = Date()) async throws -> MetadataReport {
+    public func saveDraft(appID: Int, locale: AppLocale, fields: MetadataFields, tiers: WriterTiers = .standard,
+                          now: Date = Date()) async throws -> MetadataReport {
         var state = try await metadataState(appID)
         if fields != state.draft(locale) {
             let draft = MetadataDraftRecord(locale: locale.rawValue, fields: fields, updatedAt: now)
             try await store.replaceDraft(draft, appID: appID)
             state.drafts[locale.rawValue] = draft
         }
-        return state.report(locale)
+        return try await report(state, locale, tiers: tiers)
     }
 
     /// Drops the draft so the editor shows the baseline again.
-    public func resetDraft(appID: Int, locale: AppLocale) async throws -> MetadataReport {
+    public func resetDraft(appID: Int, locale: AppLocale, tiers: WriterTiers = .standard) async throws -> MetadataReport {
         var state = try await metadataState(appID)
         try await store.removeDraft(appID: appID, locale: locale.rawValue)
         state.drafts[locale.rawValue] = nil
-        return state.report(locale)
+        return try await report(state, locale, tiers: tiers)
     }
 
     /// Records what is live on the App Store today, typed or pasted, to diff drafts against without App Store Connect.
-    public func setManualBaseline(appID: Int, locale: AppLocale, fields: MetadataFields, now: Date = Date()) async throws -> MetadataReport {
+    public func setManualBaseline(appID: Int, locale: AppLocale, fields: MetadataFields, tiers: WriterTiers = .standard,
+                                  now: Date = Date()) async throws -> MetadataReport {
         var state = try await metadataState(appID)
         let baseline = MetadataBaselineRecord(locale: locale.rawValue, fields: fields, source: "manual", fetchedAt: now)
         try await store.replaceBaseline(baseline, appID: appID)
         state.baselines[locale.rawValue] = baseline
-        return state.report(locale)
+        return try await report(state, locale, tiers: tiers)
+    }
+
+    /// The keyword plan of the tracked market whose store speaks the locale (its first device), from the tracked keywords'
+    /// popularity, difficulty, fit, brand verdict and latest rank. Nil when no market is tracked.
+    func keywordPlan(_ state: MetadataState, _ locale: AppLocale, tiers: WriterTiers) async throws -> (market: MarketRecord, plan: KeywordPlan)? {
+        guard let country = state.market(for: locale),
+              let tracked = try await store.markets(appID: state.appID).first(where: { $0.countryCode == country }) else { return nil }
+        let rows = try await keywordReport(appID: state.appID, countryCode: country, device: tracked.device)
+        let inputs = rows.map { row in
+            KeywordPlan.Input(term: row.keyword, popularity: row.popularity, popularitySource: row.popularitySource ?? "none",
+                              difficulty: row.difficulty, fit: row.fit, brandLike: row.brandLike, observedCount: row.observedCount, rank: row.rank)
+        }
+        return (tracked, KeywordPlan.make(inputs, easyDifficulty: tiers.easyDifficulty, maxDifficulty: tiers.maxDifficulty))
+    }
+
+    private func report(_ state: MetadataState, _ locale: AppLocale, tiers: WriterTiers) async throws -> MetadataReport {
+        let draft = state.draft(locale)
+        var coverage: KeywordCoverage?
+        if let found = try await keywordPlan(state, locale, tiers: tiers) {
+            coverage = KeywordCoverage(market: found.market.countryCode, device: found.market.device.rawValue, tiers: tiers,
+                                       priority: found.plan.priority,
+                                       covered: found.plan.priority.map(\.term).filter { KeywordPlan.covers(draft, phrase: $0) },
+                                       avoid: found.plan.avoid.map(\.term))
+        }
+        return state.report(locale, coverage: coverage)
     }
 
     /// Changes the legal footer settings; nil leaves a setting as it is.
@@ -180,6 +221,19 @@ extension Engine {
     }
 }
 
+/// The writer's difficulty tiers: up to `easyDifficulty` is winnable now (A), up to `maxDifficulty` reachable (B).
+public struct WriterTiers: Sendable, Codable, Equatable {
+    public var easyDifficulty: Int
+    public var maxDifficulty: Int
+
+    public init(easyDifficulty: Int, maxDifficulty: Int) {
+        self.easyDifficulty = easyDifficulty
+        self.maxDifficulty = maxDifficulty
+    }
+
+    public static let standard = WriterTiers(easyDifficulty: 35, maxDifficulty: 55)
+}
+
 /// An app's stored metadata, read once per request.
 struct MetadataState {
     let appID: Int
@@ -217,7 +271,7 @@ struct MetadataState {
         drafts[locale.rawValue]?.fields ?? baselines[locale.rawValue]?.fields ?? .empty
     }
 
-    func report(_ locale: AppLocale) -> Engine.MetadataReport {
+    func report(_ locale: AppLocale, coverage: Engine.KeywordCoverage?) -> Engine.MetadataReport {
         let fields = draft(locale)
         let baseline = baselines[locale.rawValue]
         let siblings: [(AppLocale, MetadataFields)] = drafts.values.compactMap { d in
@@ -238,6 +292,6 @@ struct MetadataState {
             rules: Engine.RulesSummary(score: review.score, charactersUsed: review.charactersUsed, indexedWords: review.indexedWords,
                                        findings: review.findings.filter { $0.kind != .good }),
             changes: changes, keywordChange: keywordChange,
-            legal: Engine.LegalState(settings: legal, effectiveEULA: legal.effectiveEULA, inDescription: present))
+            legal: Engine.LegalState(settings: legal, effectiveEULA: legal.effectiveEULA, inDescription: present), coverage: coverage)
     }
 }
