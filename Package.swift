@@ -68,7 +68,9 @@ let package = Package(
         .target(
             name: "ASOEngine",
             dependencies: ["ASOCore", "ASOProviders", "CSQLite"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            swiftSettings: [.swiftLanguageMode(.v6)],
+            // DPAPI (CryptProtectData) for the key file on Windows.
+            linkerSettings: [.linkedLibrary("crypt32", .when(platforms: [.windows]))]
         ),
         .target(
             name: "ASOCommands",

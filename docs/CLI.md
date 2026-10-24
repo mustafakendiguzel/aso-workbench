@@ -125,7 +125,7 @@ aso connections verify apple-ads
 aso connections remove openrouter
 ```
 
-Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700, file 0600 where the system has POSIX permissions), and each goes only to its own service. The Apple Ads keys power `aso popularity`, `aso ads` and the popularity in `aso discover`, the App Store Connect key `aso metadata pull`, `plan` and `apply`, the OpenRouter key the brand and fit checks in `aso discover` and the metadata writer, and the RevenueCat keys `aso revenue`.
+Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700 and file 0600 on macOS and Linux; on Windows the contents are encrypted with DPAPI for your Windows account, so the file is useless to other accounts and on other computers), and each goes only to its own service. The Apple Ads keys power `aso popularity`, `aso ads` and the popularity in `aso discover`, the App Store Connect key `aso metadata pull`, `plan` and `apply`, the OpenRouter key the brand and fit checks in `aso discover` and the metadata writer, and the RevenueCat keys `aso revenue`.
 
 ## Data
 

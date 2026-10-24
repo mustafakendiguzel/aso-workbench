@@ -1,12 +1,16 @@
 import Foundation
 import ASOProviders
+#if os(Windows)
+import WinSDK
+#endif
 
 /// API keys in `credentials.json` in the data folder, in the same shape the macOS app writes, so on a Mac the
 /// command line and the app share one file. Entries this type does not know (such as the app's website-session
 /// cookies) are kept as they are.
 ///
-/// The file is readable only by its owner: folder 0700 and file 0600 where POSIX permissions exist, written
-/// atomically so a crash never leaves half a key. Keys never appear in output, logs or the data file.
+/// The file is readable only by its owner: folder 0700 and file 0600 where POSIX permissions exist; on Windows the
+/// contents are encrypted with DPAPI for the current user account. Written atomically so a crash never leaves half a
+/// key. Keys never appear in output, logs or the data file.
 public struct CredentialStore: Sendable {
     public enum Service: String, CaseIterable, Sendable, Codable {
         case appleAds = "apple-ads"
@@ -87,15 +91,58 @@ public struct CredentialStore: Sendable {
 
 /// How the key file's bytes reach the disk. Owner-only permissions where POSIX permissions exist.
 enum CredentialFile {
-    static func read(_ url: URL) throws -> Data { try Data(contentsOf: url) }
+    /// Marks a Windows file whose rest is a DPAPI blob. Files without it are plain JSON (other platforms, or written
+    /// before encryption), read as they are and encrypted on the next write.
+    static let protectedPrefix = Data("ASO-DPAPI-1\n".utf8)
+
+    static func read(_ url: URL) throws -> Data {
+        let raw = try Data(contentsOf: url)
+        #if os(Windows)
+        if raw.starts(with: protectedPrefix) { return try DPAPI.unprotect(raw.dropFirst(protectedPrefix.count)) }
+        #endif
+        return raw
+    }
 
     static func write(_ data: Data, to url: URL) throws {
-        #if !os(Windows)
+        #if os(Windows)
+        try (protectedPrefix + DPAPI.protect(data)).write(to: url, options: .atomic)
+        #else
         try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.deletingLastPathComponent().path)
-        #endif
         try data.write(to: url, options: .atomic)
-        #if !os(Windows)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         #endif
     }
 }
+
+#if os(Windows)
+/// Windows Data Protection API: encryption bound to the current user's logon credentials, so the file is useless to
+/// other accounts and on other computers.
+enum DPAPI {
+    static func protect(_ data: Data) throws -> Data {
+        try transform(data, "encrypt the keys") { input, output in
+            CryptProtectData(input, nil, nil, nil, nil, DWORD(CRYPTPROTECT_UI_FORBIDDEN), output)
+        }
+    }
+
+    static func unprotect(_ data: Data) throws -> Data {
+        try transform(data, "decrypt the keys (they were saved by another Windows account or computer; save them again)") { input, output in
+            CryptUnprotectData(input, nil, nil, nil, nil, DWORD(CRYPTPROTECT_UI_FORBIDDEN), output)
+        }
+    }
+
+    private static func transform(_ data: Data, _ action: String,
+                                  _ call: (UnsafeMutablePointer<DATA_BLOB>, UnsafeMutablePointer<DATA_BLOB>) -> Bool) throws -> Data {
+        var bytes = [UInt8](data)
+        var output = DATA_BLOB()
+        let succeeded = bytes.withUnsafeMutableBufferPointer { buffer -> Bool in
+            var input = DATA_BLOB(cbData: DWORD(buffer.count), pbData: buffer.baseAddress)
+            return call(&input, &output)
+        }
+        guard succeeded, let result = output.pbData else {
+            throw EngineError.database("Windows could not \(action) (error \(GetLastError())).")
+        }
+        defer { LocalFree(result) }
+        return Data(bytes: result, count: Int(output.cbData))
+    }
+}
+#endif

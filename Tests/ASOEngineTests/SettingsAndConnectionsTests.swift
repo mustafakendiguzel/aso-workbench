@@ -76,7 +76,8 @@ struct ConnectionsTests {
         try Connections.saveOpenRouterKey("sk-or-v1-test\n", in: store)
         #expect(try Connections.saveRevenueCatKeys("sk_a\n\nsk_b, sk_a", in: store) == 2)
 
-        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: store.fileURL)) as? [String: Any]
+        // Through CredentialFile: on Windows the file on disk is encrypted.
+        let json = try JSONSerialization.jsonObject(with: CredentialFile.read(store.fileURL)) as? [String: Any]
         #expect(json?["ads-session-cookies"] != nil)
         #expect((json?["apple-ads"] as? [String: Any])?["clientID"] as? String == "SEARCHADS.abc")
         #expect((json?["openrouter"] as? [String: Any])?["apiKey"] as? String == "sk-or-v1-test")
@@ -98,6 +99,28 @@ struct ConnectionsTests {
         let dir = try FileManager.default.attributesOfItem(atPath: store.fileURL.deletingLastPathComponent().path)[.posixPermissions] as? Int
         #expect(file == 0o600)
         #expect(dir == 0o700)
+        #endif
+    }
+
+    @Test("On Windows the key file is encrypted for the user; older plain files still load and are encrypted on the next save")
+    func windowsEncryption() throws {
+        #if os(Windows)
+        let folder = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = CredentialStore(directory: folder)
+        try Data(#"{"openrouter": {"apiKey": "sk-or-v1-plain"}}"#.utf8).write(to: store.fileURL)
+        #expect(try store.openRouterKey() == "sk-or-v1-plain")
+
+        try Connections.saveOpenRouterKey("sk-or-v1-secret", in: store)
+        let onDisk = try Data(contentsOf: store.fileURL)
+        #expect(onDisk.starts(with: CredentialFile.protectedPrefix))
+        #expect(!String(decoding: onDisk, as: UTF8.self).contains("sk-or-v1"))
+        #expect(try store.openRouterKey() == "sk-or-v1-secret")
+
+        var tampered = onDisk
+        tampered[tampered.count - 1] ^= 0xFF
+        try tampered.write(to: store.fileURL)
+        #expect(throws: EngineError.self) { try store.openRouterKey() }
         #endif
     }
 
