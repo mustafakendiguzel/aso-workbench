@@ -140,6 +140,7 @@ public sealed partial class MainViewModel : ObservableObject
             var market = await client.AddMarketAsync(app.TrackId, country.Code, NewMarketDevice).ConfigureAwait(true);
             await ReloadMarketsAsync(app, keep: market).ConfigureAwait(true);
             Status.Info($"Market {market.Title} ({market.CountryName}) is ready for keywords.");
+            await Status.QuietlyAsync(Metadata.LoadLocalesAsync).ConfigureAwait(true);
         });
 
     [RelayCommand]
@@ -149,6 +150,7 @@ public sealed partial class MainViewModel : ObservableObject
             await client.RemoveMarketAsync(app.TrackId, market.Country, market.Device).ConfigureAwait(true);
             await ReloadMarketsAsync(app, keep: null).ConfigureAwait(true);
             Status.Info($"Removed the {market.Title} market with its keywords and measurements.");
+            await Status.QuietlyAsync(Metadata.LoadLocalesAsync).ConfigureAwait(true);
         });
 
     /// <summary>Measures every market not measured within the stale-hours setting, as the macOS app does when it opens.</summary>
@@ -175,6 +177,7 @@ public sealed partial class MainViewModel : ObservableObject
         Changes.App = newValue;
         Ads.App = newValue;
         Revenue.App = newValue;
+        Metadata.App = newValue;
         ShowGenre(newValue);
         if (oldValue?.TrackId == newValue?.TrackId) return;   // the same app with refreshed details: keep its markets
         Markets.Clear();

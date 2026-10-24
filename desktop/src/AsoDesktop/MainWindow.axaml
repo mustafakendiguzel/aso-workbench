@@ -816,40 +816,124 @@
         </DockPanel>
       </TabItem>
 
-      <!-- Metadata rules -->
+      <!-- The listing per locale: draft, counters, ASO rules, changes against the baseline, legal footer -->
       <TabItem Header="Metadata">
-        <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
-          <StackPanel Spacing="4" Margin="0,0,12,0">
-            <TextBlock Classes="label" Text="{Binding Metadata.TitleLength, StringFormat='Title · {0} characters'}" />
-            <TextBox Text="{Binding Metadata.Title}" />
-            <TextBlock Classes="label" Text="{Binding Metadata.SubtitleLength, StringFormat='Subtitle · {0} characters'}" />
-            <TextBox Text="{Binding Metadata.Subtitle}" />
-            <TextBlock Classes="label" Text="{Binding Metadata.KeywordsLength, StringFormat='Keyword field · {0} characters'}" />
-            <TextBox Text="{Binding Metadata.Keywords}" PlaceholderText="comma,separated,no,spaces" />
-            <Button Classes="accent" Margin="0,12,0,0" Content="Check" Command="{Binding Metadata.CheckCommand}" />
-            <TextBlock Classes="hint" Margin="0,8,0,0"
-                       Text="Checked by the engine against the App Store limits: length in characters and bytes, repeats, wasted room." />
-          </StackPanel>
-          <ScrollViewer Grid.Column="1">
-            <ItemsControl ItemsSource="{Binding Metadata.Issues}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="core:ValidationIssue">
-                  <Border Margin="0,0,0,8" Padding="10" CornerRadius="6"
-                          Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-                    <StackPanel>
-                      <TextBlock FontWeight="SemiBold">
-                        <Run Text="{Binding Severity}" />
-                        <Run Text=" · " />
-                        <Run Text="{Binding Field}" />
-                      </TextBlock>
-                      <TextBlock TextWrapping="Wrap" Text="{Binding Message}" />
-                    </StackPanel>
-                  </Border>
+        <DockPanel Margin="0,4,0,0">
+          <TextBlock DockPanel.Dock="Top" Classes="hint" Margin="0,0,0,8" IsVisible="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNull}}"
+                     Text="Add or select an app to write its listing." />
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ComboBox x:Name="MetadataLocale" MinWidth="320" ItemsSource="{Binding Metadata.Locales}" SelectedItem="{Binding Metadata.SelectedLocale}"
+                      ToolTip.Tip="Tracked markets' languages first, then locales with a baseline or a draft, then every other one">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MetadataLocaleLine">
+                  <TextBlock Text="{Binding Label}" />
                 </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
-        </Grid>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Margin="8,0,0,0" Content="Set baseline…" Click="SetBaseline" IsEnabled="{Binding Metadata.HasReport}"
+                    ToolTip.Tip="Type or paste what is live on the App Store today; the draft is compared against it" />
+            <Button Margin="8,0,0,0" Content="Reset draft to baseline" Command="{Binding Metadata.ResetToBaselineCommand}" />
+            <Button Margin="8,0,0,0" Content="Fill empty What's New" Command="{Binding Metadata.FillWhatsNewCommand}"
+                    ToolTip.Tip="Locales without release notes get the default note in their language; Apple refuses a version with an empty field" />
+            <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Classes="hint" Text="{Binding Metadata.DraftText}" />
+          </DockPanel>
+          <Grid ColumnDefinitions="*,380" IsVisible="{Binding Metadata.HasReport}">
+            <ScrollViewer Margin="0,0,12,0">
+              <ItemsControl ItemsSource="{Binding Metadata.Fields}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MetadataFieldViewModel">
+                    <StackPanel Margin="0,0,8,12" Spacing="2">
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Classes="hint" Text="{Binding Resource}" />
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                      </DockPanel>
+                      <TextBox Text="{Binding Text}" PlaceholderText="{Binding Placeholder}" AcceptsReturn="{Binding IsMultiline}"
+                               TextWrapping="Wrap" MinHeight="{Binding MinHeight}" />
+                      <TextBlock Classes="hint" Classes.bad="{Binding IsOver}" Classes.mixed="{Binding IsAmbiguous}" Text="{Binding Counter}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+            <ScrollViewer Grid.Column="1">
+              <StackPanel>
+                <Border Classes="card">
+                  <StackPanel Spacing="4">
+                    <TextBlock FontWeight="SemiBold" Text="Baseline" />
+                    <TextBlock TextWrapping="Wrap" Text="{Binding Metadata.BaselineText}" />
+                  </StackPanel>
+                </Border>
+                <Border Classes="card">
+                  <StackPanel Spacing="4">
+                    <TextBlock FontWeight="SemiBold" Text="ASO rules" />
+                    <TextBlock FontSize="20" FontWeight="SemiBold" Classes.good="{Binding Metadata.ScoreIsGood}"
+                               Classes.mixed="{Binding Metadata.ScoreIsFair}" Classes.bad="{Binding Metadata.ScoreIsPoor}"
+                               Text="{Binding Metadata.RulesHeadline}" />
+                    <ItemsControl ItemsSource="{Binding Metadata.Notes}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MetadataNote">
+                          <TextBlock Margin="0,2" TextWrapping="Wrap" Classes.bad="{Binding IsError}" Classes.mixed="{Binding IsWarning}"
+                                     Text="{Binding Text, StringFormat='• {0}'}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="good" IsVisible="{Binding Metadata.FollowsEveryRule}" Text="Follows every house rule." />
+                    <SelectableTextBlock Classes="hint" TextWrapping="Wrap" Opacity="0.65" FontSize="12" Text="{Binding Metadata.IndexedWords}" />
+                  </StackPanel>
+                </Border>
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <TextBlock FontWeight="SemiBold" Text="Changes against the baseline" />
+                    <TextBlock Classes="hint" Text="{Binding Metadata.ChangesText}" />
+                    <ItemsControl ItemsSource="{Binding Metadata.ChangeLines}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MetadataChangeLine">
+                          <StackPanel Margin="0,4" Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                            <StackPanel IsVisible="{Binding IsKeywords}" Spacing="2">
+                              <TextBlock Classes="good" TextWrapping="Wrap" Text="{Binding Added}" />
+                              <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Removed}" />
+                              <TextBlock Classes="hint" Text="{Binding Kept}" />
+                            </StackPanel>
+                            <StackPanel IsVisible="{Binding !IsKeywords}" Spacing="2">
+                              <TextBlock Classes="bad" TextWrapping="Wrap" MaxLines="3" TextDecorations="Strikethrough" Text="{Binding BeforeText}" />
+                              <TextBlock Classes="good" TextWrapping="Wrap" MaxLines="3" Text="{Binding AfterText}" />
+                            </StackPanel>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <DockPanel>
+                      <ToggleButton DockPanel.Dock="Right" Content="Edit" IsChecked="{Binding Metadata.ShowLegalDetails}" />
+                      <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Legal footer" />
+                    </DockPanel>
+                    <TextBlock TextWrapping="Wrap" Classes.good="{Binding Metadata.LegalPresent}" Text="{Binding Metadata.LegalStatus}" />
+                    <StackPanel Spacing="6" IsVisible="{Binding Metadata.ShowLegalDetails}">
+                      <CheckBox Content="Append Terms of Use and Privacy Policy links to every description" IsChecked="{Binding Metadata.LegalEnabled}" />
+                      <TextBox Text="{Binding Metadata.EulaUrl}" PlaceholderText="Custom Terms of Use URL (empty: Apple's standard EULA)" />
+                      <TextBox Text="{Binding Metadata.PrivacyUrl}" PlaceholderText="Privacy Policy URL" />
+                      <TextBox Text="{Binding Metadata.LegalNote}" PlaceholderText="Optional note above the links (e.g. subscription terms)" />
+                      <Button Content="Save footer settings" Command="{Binding Metadata.SaveLegalCommand}" />
+                      <TextBlock Classes="hint"
+                                 Text="Apple requires these links for apps with auto-renewable subscriptions. Labels follow each locale's language; the block is re-generated, never duplicated, and the description is trimmed at a line if 4000 characters would be exceeded." />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="Insert here" Command="{Binding Metadata.InsertFooterHereCommand}" />
+                      <Button Content="Insert into all locales" Command="{Binding Metadata.InsertFooterEverywhereCommand}"
+                              ToolTip.Tip="Appends the block to every locale's draft description, each in its own language" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <TextBlock Classes="hint" Margin="0,0,0,12"
+                           Text="Publishing to App Store Connect and the AI writer come to Windows and Linux in later versions; until then they need the macOS app." />
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
       </TabItem>
 
       <!-- Preferences and keys, as the macOS Settings window has them -->

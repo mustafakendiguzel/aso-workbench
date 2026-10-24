@@ -90,6 +90,13 @@ public sealed partial class MainWindow : Window
         if (await new AddAppDialog(vm.CreateAddApp()).ShowDialog<Core.AppRecord?>(this) is { } app) await vm.AppAddedAsync(app);
     }
 
+    private async void SetBaseline(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Metadata is not { SelectedLocale: { } locale } metadata) return;
+        var fields = metadata.CreateBaselineFields();
+        if (await new BaselineDialog(locale.Locale, fields).ShowDialog<bool>(this)) await metadata.SetBaselineCommand.ExecuteAsync(fields);
+    }
+
     private async void ShowDiscovery(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(null);
 
     private async void ShowImport(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(ViewModel?.Competitors.Selected?.App);

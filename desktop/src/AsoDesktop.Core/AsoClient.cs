@@ -74,6 +74,41 @@ public sealed class AsoClient(IAsoCli cli)
 
     public Task<RevenueReport> RevenueAsync(long appId, CancellationToken ct = default) => RunAsync<RevenueReport>(["revenue", "show", Id(appId)], ct);
 
+    // MARK: Metadata (drafts stay on this computer)
+
+    public Task<IReadOnlyList<LocaleInfo>> AllLocalesAsync(CancellationToken ct = default) => RunAsync<IReadOnlyList<LocaleInfo>>(["locales"], ct);
+
+    public Task<IReadOnlyList<MetadataLocale>> MetadataLocalesAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<MetadataLocale>>(["metadata", "locales", Id(appId)], ct);
+
+    public Task<MetadataReport> MetadataAsync(long appId, string locale, CancellationToken ct = default) =>
+        RunAsync<MetadataReport>(["metadata", "show", Id(appId), "--locale", locale], ct);
+
+    /// <summary>Saves every field of the draft; the text goes through stdin, so long descriptions and line breaks arrive whole.</summary>
+    public Task<MetadataReport> SaveDraftAsync(long appId, string locale, MetadataFields fields, CancellationToken ct = default) =>
+        RunAsync<MetadataReport>(["metadata", "draft", Id(appId), "--locale", locale, "--stdin"], ct,
+                                 standardInput: JsonSerializer.Serialize(fields, Json.Options));
+
+    /// <summary>Records what is live on the App Store today, typed in.</summary>
+    public Task<MetadataReport> SetBaselineAsync(long appId, string locale, MetadataFields fields, CancellationToken ct = default) =>
+        RunAsync<MetadataReport>(["metadata", "baseline", Id(appId), "--locale", locale, "--stdin"], ct,
+                                 standardInput: JsonSerializer.Serialize(fields, Json.Options));
+
+    public Task<MetadataReport> ResetDraftAsync(long appId, string locale, CancellationToken ct = default) =>
+        RunAsync<MetadataReport>(["metadata", "reset", Id(appId), "--locale", locale], ct);
+
+    /// <summary>Saves the legal footer settings; empty URLs are sent as they are (an empty Terms of Use URL means Apple's standard EULA).</summary>
+    public Task<LegalFooterSettings> SetLegalFooterAsync(long appId, LegalFooterSettings settings, CancellationToken ct = default) =>
+        RunAsync<LegalFooterSettings>(["metadata", "legal", Id(appId), settings.Enabled ? "--on" : "--off", "--eula", settings.EulaUrl,
+                                       "--privacy", settings.PrivacyUrl, "--note", settings.Note], ct);
+
+    /// <param name="locale">One locale, or null for every locale worth writing.</param>
+    public Task<MetadataBatch> InsertLegalFooterAsync(long appId, string? locale, CancellationToken ct = default) =>
+        RunAsync<MetadataBatch>(["metadata", "footer", Id(appId), .. Option("locale", locale)], ct);
+
+    public Task<MetadataBatch> FillEmptyWhatsNewAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<MetadataBatch>(["metadata", "fill-whats-new", Id(appId)], ct);
+
     /// <summary>Reads the last <paramref name="days"/> of every campaign that promotes a tracked app.</summary>
     public Task<AdsSync> SyncAdsAsync(int days = 30, CancellationToken ct = default) =>
         RunAsync<AdsSync>(["ads", "sync", "--days", days.ToString(CultureInfo.InvariantCulture)], ct);

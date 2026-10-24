@@ -302,6 +302,51 @@ public enum ValidationSeverity
 
 public sealed record ValidationIssue(string Field, ValidationSeverity Severity, string Message);
 
+/// <summary>The six text fields of one locale's listing; also what <c>aso metadata draft --stdin</c> reads.</summary>
+public sealed record MetadataFields(string Name, string Subtitle, string Keywords, string PromotionalText, string Description, string WhatsNew)
+{
+    public static readonly MetadataFields Empty = new("", "", "", "", "", "");
+}
+
+/// <summary>What Apple holds for a locale: pulled from App Store Connect ("asc") or typed in ("manual").</summary>
+public sealed record MetadataBaseline(string Locale, MetadataFields Fields, string Source, string? AppInfoLocalizationId, string? VersionLocalizationId,
+                                     string? VersionString, string? VersionState, DateTimeOffset FetchedAt);
+
+/// <summary>A locale worth writing (<c>aso metadata locales</c>).</summary>
+public sealed record MetadataLocale(string Locale, string Name, string? Market, string? Baseline, bool HasDraft, int Changes, int Errors);
+
+/// <summary>A listing language the App Store knows (<c>aso locales</c>).</summary>
+public sealed record LocaleInfo(string Id, string Name);
+
+public sealed record RulesFinding(string Kind, string Rule, string Message);
+
+public sealed record RulesSummary(int Score, int CharactersUsed, IReadOnlyList<string> IndexedWords, IReadOnlyList<RulesFinding> Findings);
+
+public sealed record FieldChange(string Field, string Before, string After);
+
+public sealed record KeywordChange(IReadOnlyList<string> Kept, IReadOnlyList<string> Added, IReadOnlyList<string> Removed);
+
+public sealed record LegalFooterSettings(bool Enabled, string EulaUrl, string PrivacyUrl, string Note);
+
+public sealed record LegalState(LegalFooterSettings Settings, string EffectiveEula, bool InDescription);
+
+/// <summary>One locale's draft with its checks and its difference from the baseline (<c>aso metadata show</c>).</summary>
+public sealed record MetadataReport(
+    string Locale,
+    string Name,
+    string? Market,
+    MetadataBaseline? Baseline,
+    MetadataFields Draft,
+    DateTimeOffset? DraftUpdatedAt,
+    IReadOnlyList<ValidationIssue> Issues,
+    RulesSummary Rules,
+    IReadOnlyList<FieldChange> Changes,
+    KeywordChange? KeywordChange,
+    LegalState Legal);
+
+/// <summary>Drafts changed by a footer insert or a What's New fill.</summary>
+public sealed record MetadataBatch(IReadOnlyList<string> Changed, int Locales);
+
 /// <summary>The engine's preferences (<c>aso settings --json</c>).</summary>
 public sealed record EngineSettings(
     int ResultDepth,

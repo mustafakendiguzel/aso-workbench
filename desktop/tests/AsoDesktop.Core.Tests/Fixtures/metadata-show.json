@@ -1,0 +1,116 @@
+{
+  "baseline" : {
+    "fetchedAt" : "2026-10-24T16:55:29Z",
+    "fields" : {
+      "description" : "Create presentations.",
+      "keywords" : "slides,presentation,deck,pitch",
+      "name" : "Keynote",
+      "promotionalText" : "",
+      "subtitle" : "Design Presentations",
+      "whatsNew" : ""
+    },
+    "locale" : "en-US",
+    "source" : "manual"
+  },
+  "changes" : [
+    {
+      "after" : "Design Presentations and Slides",
+      "before" : "Design Presentations",
+      "field" : "subtitle"
+    },
+    {
+      "after" : "slides,deck,speaker,charts",
+      "before" : "slides,presentation,deck,pitch",
+      "field" : "keywords"
+    }
+  ],
+  "draft" : {
+    "description" : "Create presentations.",
+    "keywords" : "slides,deck,speaker,charts",
+    "name" : "Keynote",
+    "promotionalText" : "",
+    "subtitle" : "Design Presentations and Slides",
+    "whatsNew" : ""
+  },
+  "draftUpdatedAt" : "2026-10-24T16:55:30Z",
+  "issues" : [
+    {
+      "field" : "subtitle",
+      "message" : "Subtitle is 31 characters / 31 bytes; the limit is 30.",
+      "severity" : 2
+    },
+    {
+      "field" : "keywords",
+      "message" : "\"slides\" already appears in Name or Subtitle; Apple indexes those fields, so this slot is likely redundant.",
+      "severity" : 0
+    }
+  ],
+  "keywordChange" : {
+    "added" : [
+      "speaker",
+      "charts"
+    ],
+    "kept" : [
+      "slides",
+      "deck"
+    ],
+    "removed" : [
+      "presentation",
+      "pitch"
+    ]
+  },
+  "legal" : {
+    "effectiveEULA" : "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+    "inDescription" : false,
+    "settings" : {
+      "enabled" : true,
+      "eulaURL" : "",
+      "note" : "",
+      "privacyURL" : "https://example.com/privacy"
+    }
+  },
+  "locale" : "en-US",
+  "market" : "US",
+  "name" : "English (U.S.)",
+  "rules" : {
+    "charactersUsed" : 64,
+    "findings" : [
+      {
+        "kind" : "error",
+        "message" : "Subtitle is 31/30 characters.",
+        "rule" : "Budget"
+      },
+      {
+        "kind" : "error",
+        "message" : "“slides” is in Subtitle and again in Keywords.",
+        "rule" : "Zero repetition"
+      },
+      {
+        "kind" : "warning",
+        "message" : "Only 64 of the 160 indexed characters are used; every unused character is a lost ranking chance.",
+        "rule" : "Budget"
+      },
+      {
+        "kind" : "warning",
+        "message" : "Keyword field has 74 unused characters.",
+        "rule" : "Keywords"
+      },
+      {
+        "kind" : "warning",
+        "message" : "“and” has no search value; use the characters for a real search word.",
+        "rule" : "No filler"
+      }
+    ],
+    "indexedWords" : [
+      "and",
+      "charts",
+      "deck",
+      "design",
+      "keynote",
+      "presentations",
+      "slides",
+      "speaker"
+    ],
+    "score" : 61
+  }
+}
