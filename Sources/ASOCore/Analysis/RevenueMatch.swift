@@ -19,10 +19,10 @@ public enum RevenueMatch {
     /// The bundle-ID matches when there are any, else the name matches; with how they matched.
     public static func select<T>(_ projects: [T], bundleID: String?, appName: String, bundleIDs: (T) -> [String], projectName: (T) -> String,
                                  appNames: (T) -> [String]) -> (matches: [T], kind: Kind?) {
-        let byBundle = projects.filter { byBundleID(bundleID, projectBundleIDs: bundleIDs($0)) }
-        if !byBundle.isEmpty { return (byBundle, .bundleID) }
-        let byName = projects.filter { byName(appName, projectName: projectName($0), appNames: appNames($0)) }
-        return (byName, byName.isEmpty ? nil : .name)
+        let bundleMatches = projects.filter { byBundleID(bundleID, projectBundleIDs: bundleIDs($0)) }
+        if !bundleMatches.isEmpty { return (bundleMatches, .bundleID) }
+        let nameMatches = projects.filter { byName(appName, projectName: projectName($0), appNames: appNames($0)) }
+        return (nameMatches, nameMatches.isEmpty ? nil : .name)
     }
 
     private static func squashed(_ text: String) -> String { text.lowercased().replacingOccurrences(of: " ", with: "") }
