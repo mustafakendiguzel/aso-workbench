@@ -148,6 +148,20 @@ public sealed class AsoClient(IAsoCli cli)
         RunAsync<CompetitorsReport>(["competitors", Id(appId), "--country", country, "--device", device, "--depth",
                                      depth.ToString(CultureInfo.InvariantCulture)], ct);
 
+    // MARK: Releases and changes
+
+    /// <summary>App Store releases (recorded when measuring or checking ratings) and notes, newest first.</summary>
+    public Task<IReadOnlyList<Marker>> MarkersAsync(long appId, CancellationToken ct = default) =>
+        RunAsync<IReadOnlyList<Marker>>(["markers", "list", Id(appId)], ct);
+
+    public Task<Marker> AddNoteAsync(long appId, string title, DateTimeOffset date, CancellationToken ct = default) =>
+        RunAsync<Marker>(["markers", "add", Id(appId), "--title", title, "--date", date.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)], ct);
+
+    public async Task RemoveMarkerAsync(long appId, long markerId, CancellationToken ct = default) =>
+        await RunAsync<JsonElement>(["markers", "remove", Id(appId), Id(markerId)], ct).ConfigureAwait(false);
+
+    public Task<ImpactReport> ImpactAsync(long appId, long markerId, CancellationToken ct = default) =>
+        RunAsync<ImpactReport>(["impact", Id(appId), Id(markerId)], ct);
     // MARK: Settings
 
     public Task<EngineSettings> SettingsAsync(CancellationToken ct = default) => RunAsync<EngineSettings>(["settings"], ct);

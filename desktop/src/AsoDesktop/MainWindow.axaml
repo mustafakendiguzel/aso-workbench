@@ -508,6 +508,153 @@
         </DockPanel>
       </TabItem>
 
+      <!-- Releases and notes, and the ranks around each one weighted by what every keyword is worth -->
+      <TabItem Header="Changes">
+        <DockPanel IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <Border DockPanel.Dock="Left" Width="320" Margin="0,4,10,0" Padding="12" CornerRadius="6"
+                  Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Spacing="6">
+                <TextBlock Classes="heading" Margin="0" Text="Timeline" />
+                <TextBox PlaceholderText="What changed (e.g. keywords updated)" Text="{Binding Changes.NoteTitle}" />
+                <DatePicker SelectedDate="{Binding Changes.NoteDate}" ToolTip.Tip="The day it happened (today when empty)" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TimePicker SelectedTime="{Binding Changes.NoteTime}" ToolTip.Tip="The time it happened (now when empty)" />
+                  <Button Content="Add note" Command="{Binding Changes.AddNoteCommand}"
+                          ToolTip.Tip="Pin a date (keywords changed, screenshots updated) to compare ranks around it" />
+                </StackPanel>
+                <Separator Margin="0,4" />
+              </StackPanel>
+              <TextBlock DockPanel.Dock="Top" Classes="hint" IsVisible="{Binding !Changes.HasMarkers}"
+                         Text="Nothing on the timeline yet. Releases are detected from the App Store when you measure or check ratings; notes you add count too." />
+              <ListBox ItemsSource="{Binding Changes.Markers}" SelectedItem="{Binding Changes.Selected}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MarkerLine">
+                    <StackPanel Spacing="2" Margin="0,2">
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Classes="hint" Text="{Binding Date}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" Classes.mixed="{Binding IsRelease}" />
+                          <TextBlock Classes="hint" Text="{Binding SeenIn}" IsVisible="{Binding SeenIn, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+                      </DockPanel>
+                      <TextBlock TextWrapping="Wrap" MaxLines="2" Text="{Binding Title}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Border>
+
+          <TextBlock Classes="hint" Margin="0,12" IsVisible="{Binding !Changes.HasSelection}"
+                     Text="Select a release or note. Ranks measured before it are compared with the latest ones after it." />
+          <DockPanel IsVisible="{Binding Changes.HasSelection}" Margin="0,4,0,0">
+            <DockPanel DockPanel.Dock="Top">
+              <Button DockPanel.Dock="Right" Content="Remove marker…">
+                <Button.Flyout>
+                  <Flyout>
+                    <StackPanel Width="260" Spacing="8">
+                      <TextBlock TextWrapping="Wrap" Text="Remove this marker from the timeline? Measurements are kept." />
+                      <Button Content="Remove" Command="{Binding Changes.RemoveSelectedCommand}" />
+                    </StackPanel>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+              <TextBlock Classes="heading" Margin="0" TextWrapping="Wrap" Text="{Binding Changes.Headline}" />
+            </DockPanel>
+            <TextBlock DockPanel.Dock="Top" Classes="hint" Margin="0,8" Text="{Binding Changes.EmptyImpact}"
+                       IsVisible="{Binding !Changes.HasRows}" />
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="0,8" IsVisible="{Binding Changes.HasRows}">
+              <Border Classes="card" Margin="0" MinWidth="130">
+                <StackPanel>
+                  <TextBlock Classes="hint" Text="Net value change" />
+                  <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Changes.Net}" Classes.good="{Binding Changes.NetIsUp}"
+                             Classes.bad="{Binding Changes.NetIsDown}" />
+                </StackPanel>
+              </Border>
+              <Border Classes="card" Margin="0" MinWidth="130">
+                <StackPanel>
+                  <TextBlock Classes="hint" Text="Value gained" />
+                  <TextBlock FontSize="20" FontWeight="SemiBold" Classes="good" Text="{Binding Changes.Gained}" />
+                </StackPanel>
+              </Border>
+              <Border Classes="card" Margin="0" MinWidth="130">
+                <StackPanel>
+                  <TextBlock Classes="hint" Text="Value lost" />
+                  <TextBlock FontSize="20" FontWeight="SemiBold" Classes="bad" Text="{Binding Changes.Lost}" />
+                </StackPanel>
+              </Border>
+              <Border Classes="card" Margin="0" MinWidth="170">
+                <StackPanel>
+                  <TextBlock Classes="hint" Text="Improved · worsened · same" />
+                  <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Changes.Counts}" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6" IsVisible="{Binding Changes.HasRows}">
+              <ComboBox ItemsSource="{x:Static vm:ChangesViewModel.Modes}" SelectedItem="{Binding Changes.Mode}" Width="120" />
+              <ComboBox ItemsSource="{Binding Changes.MarketFilters}" SelectedItem="{Binding Changes.MarketFilter}" Width="140" />
+              <ComboBox ItemsSource="{x:Static vm:ChangesViewModel.ValueFilters}" SelectedItem="{Binding Changes.ValueFilter}" Width="170" />
+              <TextBox Width="180" PlaceholderText="Filter keywords" Text="{Binding Changes.Search}" />
+              <TextBlock Classes="hint" VerticalAlignment="Center" Text="{Binding Changes.Shown}" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,6,0,0" IsVisible="{Binding Changes.HasRows}">
+              <TextBlock Classes="hint" IsVisible="{Binding Changes.NoValues}"
+                         Text="Every keyword is worth 0 here because popularity (Apple Ads) is not in this version yet, so the totals stay at 0; the rank moves are still listed." />
+              <TextBlock Classes="hint"
+                         Text="Value = popularity × (1 − (difficulty/100)²) × fit, 0 for brands and unrelated terms. Visibility = share of searchers who see a position (#1 100 … #10 50 … #50 8). Gain = visibility change × value; keywords with no value move the totals by nothing." />
+            </StackPanel>
+            <DataGrid ItemsSource="{Binding Changes.Visible}" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal" IsVisible="{Binding Changes.HasRows}">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="vm:ImpactLine" Header="Keyword" Binding="{Binding Keyword}" Width="2*" />
+                <DataGridTextColumn x:DataType="vm:ImpactLine" Header="Market" Binding="{Binding Market}" Width="Auto" />
+                <DataGridTemplateColumn Header="Before" SortMemberPath="Row.Before" Width="Auto">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:ImpactLine">
+                      <TextBlock Margin="8,0" VerticalAlignment="Center" Text="{Binding Before}" ToolTip.Tip="{Binding BeforeAt}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="After" SortMemberPath="Row.After" Width="Auto">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:ImpactLine">
+                      <TextBlock Margin="8,0" VerticalAlignment="Center" Text="{Binding After}" ToolTip.Tip="{Binding AfterAt}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Δ" SortMemberPath="Delta" Width="Auto">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:ImpactLine">
+                      <TextBlock Margin="8,0" VerticalAlignment="Center" Text="{Binding DeltaText}" Classes.good="{Binding IsUp}" Classes.bad="{Binding IsDown}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Value" SortMemberPath="Value" Width="2*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:ImpactLine">
+                      <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center" ToolTip.Tip="{Binding ValueHint}">
+                        <Border Classes="pill">
+                          <TextBlock FontSize="11" FontWeight="SemiBold" Text="{Binding Tier}" />
+                        </Border>
+                        <TextBlock Classes="hint" VerticalAlignment="Center" Text="{Binding Components}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Gain" SortMemberPath="Gain" Width="Auto">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="vm:ImpactLine">
+                      <TextBlock Margin="8,0" VerticalAlignment="Center" Text="{Binding GainText}" Classes.good="{Binding Gained}" Classes.bad="{Binding Lost}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </DockPanel>
+      </TabItem>
+
       <!-- Look-ups that store nothing -->
       <TabItem Header="Research">
         <DockPanel>

@@ -7,6 +7,7 @@ The in-app updater shows the section of the new version as its release notes.
 ## [Unreleased]
 
 ### Added
+- Release markers and their effect outside the macOS app: the App Store release is recorded as a marker when `aso measure` or `aso ratings check` sees a new version (dated with Apple's release date), `aso markers list|add|remove` keeps notes on the same timeline, Δ `lastMarker` compares against the latest one, and `aso impact` shows the ranks before and after a marker, weighted by what each keyword is worth. The Windows and Linux window gains a Changes tab.
 - Ratings, written reviews and competitors outside the macOS app: `aso ratings check|list` (rating count and average per storefront, change since the last check, when a new rating last arrived), `aso reviews check|list` (Apple's public feed; reviews not seen before are marked new, with storefront, rating, new-only and text filters) and `aso competitors` (apps in the latest results of the tracked keywords). `aso measure` reads ratings and new reviews in the measured storefronts first, as the macOS app does. The Windows and Linux window gains a ratings card on the Overview and Competitors and Reviews tabs.
 - The keyword table and inspector outside the macOS app: `aso keywords show` (history, best rank, top ten, signals, difficulty), `keywords note`, `measure --keywords` and `keywords list --csv` (the macOS CSV). The Windows and Linux window gains filters, multi-select (measure, copy, remove), CSV export and an inspector with the rank chart, top results, note and measurement log.
 - Apps and markets outside the macOS app: `aso app search`, `app add --markets --device`, `app genre`, `market add|list|remove`, `storefronts` and `genres`. The Windows and Linux window gains an Add App dialog (search by name, device, several markets), an Overview with the Apple Ads genre and the markets, and a Keywords view per market.
@@ -23,6 +24,7 @@ The in-app updater shows the section of the new version as its release notes.
 - Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
 - `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
 - Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.
+- The impact weighting (keyword value, the visibility curve, gains and value tiers) moved from the app's Changes view into `ASOCore`, with tests. Nothing changes in the app.
 - The ratings trend (latest count, change, last new rating) and the rule for skipping a repeated reading moved from the app into `ASOCore`, with tests. Nothing changes in the app.
 - Rank history (Δ and before/after), keyword verdicts (brand, golden, lead) and idea gaps moved from the app's data model into `ASOCore`, with tests, so every platform computes them the same way. Nothing changes in the app.
 

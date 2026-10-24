@@ -123,7 +123,8 @@ public sealed record RatingRow(
 
 /// <summary><c>aso ratings check</c>: readings stored, ratings that arrived since the previous reading, and the storefronts that
 /// failed or have no ratings for the app.</summary>
-public sealed record RatingsCheck(int Storefronts, int Recorded, int NewRatings, IReadOnlyList<string> Failed, IReadOnlyList<string> Unavailable);
+public sealed record RatingsCheck(int Storefronts, int Recorded, int NewRatings, IReadOnlyList<string> Failed, IReadOnlyList<string> Unavailable,
+                                  Marker? NewRelease = null);
 
 /// <summary>A stored written review; <c>IsNew</c> marks one first seen in the most recent check.</summary>
 public sealed record StoredReview(
@@ -164,6 +165,33 @@ public sealed record Competitor(
 
 public sealed record CompetitorsReport(string Market, int Depth, int KeywordsMeasured, IReadOnlyList<Competitor> Competitors);
 
+/// <summary>A point on the app's timeline: an App Store release (<c>Kind</c> "release") or a note ("note").</summary>
+public sealed record Marker(long Id, DateTimeOffset Date, string Kind, string Title, string? Version, string? Country)
+{
+    public bool IsRelease => Kind == "release";
+}
+
+/// <summary>One keyword's rank before and after a marker, weighted by what it is worth (<c>aso impact</c>).</summary>
+public sealed record ImpactRow(
+    string Keyword,
+    string Country,
+    string Device,
+    int? Before,
+    DateTimeOffset BeforeAt,
+    int? After,
+    DateTimeOffset AfterAt,
+    int Depth,
+    int Delta,
+    int? Popularity,
+    double? Difficulty,
+    double? Fit,
+    bool BrandLike,
+    double Value,
+    double Gain,
+    string Tier);
+
+public sealed record ImpactReport(Marker Marker, int Improved, int Worsened, int Same, double Gained, double Lost, double Net,
+                                  IReadOnlyList<ImpactRow> Rows);
 public enum ValidationSeverity
 {
     Info = 0,

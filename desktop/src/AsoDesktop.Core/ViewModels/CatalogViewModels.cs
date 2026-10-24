@@ -54,6 +54,9 @@ public sealed partial class RatingsViewModel(AsoClient client, StatusViewModel s
     [ObservableProperty] public partial string? LatestReview { get; set; }
     [ObservableProperty] public partial bool HasRows { get; set; }
 
+    /// <summary>Runs after a check: the same lookups record a new App Store release.</summary>
+    public Func<Task>? Checked { get; set; }
+
     partial void OnAppChanged(AppRecord? oldValue, AppRecord? newValue)
     {
         if (oldValue?.TrackId == newValue?.TrackId) return;
@@ -96,7 +99,9 @@ public sealed partial class RatingsViewModel(AsoClient client, StatusViewModel s
         var check = await client.CheckRatingsAsync(app.TrackId, everyStorefront == "all").ConfigureAwait(true);
         await ReloadAsync().ConfigureAwait(true);
         status.Info($"Checked {check.Storefronts} storefront(s): {check.NewRatings} new rating(s) since the previous check."
-                    + (check.Failed.Count == 0 ? "" : $" Failed: {string.Join(", ", check.Failed)}."));
+                    + (check.Failed.Count == 0 ? "" : $" Failed: {string.Join(", ", check.Failed)}.")
+                    + (check.NewRelease is { } release ? $" New release: {release.Title}." : ""));
+        if (Checked is { } after) await after().ConfigureAwait(true);
     });
 
     private bool HasApp() => App is not null;

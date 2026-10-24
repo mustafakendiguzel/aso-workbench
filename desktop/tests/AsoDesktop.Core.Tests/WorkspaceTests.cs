@@ -32,6 +32,7 @@ public sealed class MainViewModelTests
             "ratings list" => FakeCli.Fixture("ratings-list"),
             "reviews list" => FakeCli.Fixture("reviews-list"),
             "competitors" => FakeCli.Fixture("competitors"),
+            "markers list" => FakeCli.Fixture("markers-list"),
             _ => throw new InvalidOperationException(command),
         });
         await vm.LoadCommand.ExecuteAsync(null);
@@ -52,6 +53,7 @@ public sealed class MainViewModelTests
         Assert.Equal(3, vm.Reviews.Visible.Count);
         Assert.Same(vm.SelectedMarket, vm.Competitors.Market);
         Assert.Contains(cli.Calls, c => c.SequenceEqual(["--json", "competitors", "361285480", "--country", "TR", "--device", "iphone", "--depth", "10"]));
+        Assert.Equal(2, vm.Changes.Markers.Count);   // and its timeline
         Assert.False(vm.Status.IsError);
     }
 
