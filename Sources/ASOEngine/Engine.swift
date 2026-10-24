@@ -144,11 +144,59 @@ public struct Engine: Sendable {
 
     /// Measures every keyword of the app's markets (optionally one country or device) with fresh searches, one after
     /// another; the provider paces requests. Every outcome is stored, failures included.
-    public func measure(appID: Int, countryCode: String? = nil, device: DeviceContext? = nil, depth: Int = 200,
+    /// `keywords`, when given, limits the run to those keywords (compared normalized); unknown ones are an error, so a
+    /// typo never passes for "nothing to measure".
+    public func measure(appID: Int, countryCode: String? = nil, device: DeviceContext? = nil, depth: Int = 200, keywords: [String]? = nil,
                         progress: @Sendable (MeasureProgress) -> Void = { _ in }) async throws -> MeasureSummary {
         _ = try await app(appID)
         let markets = try await selectedMarkets(appID: appID, countryCode: countryCode, device: device)
-        return try await measure(markets: markets, depth: depth, progress: progress)
+        var only: Set<String>?
+        if let keywords {
+            let wanted = Set(keywords.map(KeywordText.normalize).filter { !$0.isEmpty })
+            var known = Set<String>()
+            for market in markets { known.formUnion(try await store.keywords(marketID: market.id).map(\.normalized)) }
+            if let missing = wanted.subtracting(known).sorted().first {
+                throw EngineError.notFound("\"\(missing)\" is not tracked in the chosen market(s).")
+            }
+            only = wanted
+        }
+        return try await measure(markets: markets, depth: depth, only: only, progress: progress)
+    }
+
+    // MARK: Keyword detail and notes
+
+    /// The market's keyword, or a not-found error naming it.
+    private func trackedKeyword(_ text: String, appID: Int, countryCode: String, device: DeviceContext) async throws -> (MarketRecord, KeywordRecord) {
+        let market = try await existingMarket(appID: appID, countryCode: countryCode, device: device)
+        guard let keyword = try await store.keyword(text, marketID: market.id) else {
+            throw EngineError.notFound("\"\(text)\" is not tracked in \(Self.title(market)).")
+        }
+        return (market, keyword)
+    }
+
+    /// Everything the inspector shows for one keyword.
+    public func keywordDetail(_ text: String, appID: Int, countryCode: String, device: DeviceContext,
+                              deltaReference: DeltaReference = .previous, golden: GoldenThresholds = .standard) async throws -> KeywordDetail {
+        let app = try await app(appID)
+        let (market, keyword) = try await trackedKeyword(text, appID: appID, countryCode: countryCode, device: device)
+        let observations = try await store.observations(keywordID: keyword.id)
+        let row = KeywordReportRow(keyword: keyword, market: market, app: app, observations: observations, deltaReference: deltaReference, golden: golden)
+        return KeywordDetail(row: row, app: app, observations: observations)
+    }
+
+    /// Replaces the keyword's note; an empty note clears it.
+    public func setNote(_ note: String, keyword text: String, appID: Int, countryCode: String, device: DeviceContext) async throws {
+        _ = try await app(appID)
+        let (_, keyword) = try await trackedKeyword(text, appID: appID, countryCode: countryCode, device: device)
+        try await store.setNote(note.trimmingCharacters(in: .whitespacesAndNewlines), keywordID: keyword.id)
+    }
+
+    private func existingMarket(appID: Int, countryCode: String, device: DeviceContext) async throws -> MarketRecord {
+        let country = try Self.storefront(countryCode).countryCode
+        guard let market = try await store.markets(appID: appID).first(where: { $0.countryCode == country && $0.device == device }) else {
+            throw EngineError.notFound("App \(appID) has no \(country) · \(device.rawValue) market.")
+        }
+        return market
     }
 
     /// Measures every market, across all apps, whose newest measurement is older than `staleHours` or that was never
@@ -160,11 +208,14 @@ public struct Engine: Sendable {
         return try await measure(markets: stale, depth: depth, progress: progress)
     }
 
-    private func measure(markets: [MarketRecord], depth: Int, progress: @Sendable (MeasureProgress) -> Void) async throws -> MeasureSummary {
+    private func measure(markets: [MarketRecord], depth: Int, only: Set<String>? = nil,
+                         progress: @Sendable (MeasureProgress) -> Void) async throws -> MeasureSummary {
         var work: [(MarketRecord, Storefront, Int, KeywordRecord)] = []
         for market in markets {
             let storefront = try Self.storefront(market.countryCode)
-            for keyword in try await store.keywords(marketID: market.id) { work.append((market, storefront, market.appID, keyword)) }
+            for keyword in try await store.keywords(marketID: market.id) where only?.contains(keyword.normalized) ?? true {
+                work.append((market, storefront, market.appID, keyword))
+            }
         }
         var summary = MeasureSummary()
         for (market, storefront, ownTrackID, keyword) in work {

@@ -127,7 +127,7 @@ public struct CommandRunner: Sendable {
                 var table = TextTable([.init("Market"), .init("Country"), .init("Keywords", .right), .init("Measured")])
                 for m in markets {
                     table.add(["\(m.country) \(m.device)", m.countryName, String(m.keywords),
-                               m.lastMeasuredAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"])
+                               m.lastMeasuredAt.map(Self.shortDate) ?? "never"])
                 }
                 return table.render()
             }
@@ -180,13 +180,33 @@ public struct CommandRunner: Sendable {
                 write(args, ["removed": removed]) { _ in "Removed \(removed) keyword(s)." }
             }
         case ("keywords", "list"):
-            try args.allow(["country", "device", "delta"])
+            try args.allow(["country", "device", "delta", "csv"])
             let settings = try settings(args)
             let reference = try deltaOption(args) ?? settings.deltaReference
             let rows = try await engine(args).keywordReport(appID: try args.integer(2, "app ID"), countryCode: args.option("country"),
                                                             device: try deviceOption(args), deltaReference: reference,
                                                             golden: settings.golden)
-            write(args, rows) { Self.keywordTable($0, reference: reference) }
+            if args.flag("csv") {
+                guard !args.flag("json") else { throw UsageError("Choose --csv or --json, not both.") }
+                output(KeywordCSV.render(rows))
+            } else {
+                write(args, rows) { Self.keywordTable($0, reference: reference) }
+            }
+        case ("keywords", "show"):
+            try args.allow(["country", "device", "delta"])
+            let settings = try settings(args)
+            let detail = try await engine(args).keywordDetail(try args.positional(3, "keyword"), appID: try args.integer(2, "app ID"),
+                                                              countryCode: try required(args, "country"), device: try deviceOption(args) ?? .iPhone,
+                                                              deltaReference: try deltaOption(args) ?? settings.deltaReference,
+                                                              golden: settings.golden)
+            write(args, detail) { Self.detailText($0) }
+        case ("keywords", "note"):
+            try args.allow(["country", "device", "text"])
+            let keyword = try args.positional(3, "keyword")
+            guard let text = args.option("text") else { throw UsageError("Missing --text (an empty text clears the note).") }
+            try await engine(args).setNote(text, keyword: keyword, appID: try args.integer(2, "app ID"), countryCode: try required(args, "country"),
+                                           device: try deviceOption(args) ?? .iPhone)
+            write(args, ["keyword": keyword, "note": text]) { _ in text.isEmpty ? "Cleared the note." : "Saved the note." }
         case ("measure", _):
             let settings = try settings(args)
             let depth = try args.integerOption("depth", default: settings.resultDepth, range: 1...200)
@@ -206,10 +226,12 @@ public struct CommandRunner: Sendable {
                 summary = try await engine(args).measureStale(staleHours: hours, depth: depth, progress: report)
                 nothing = "Every market with keywords was measured in the last \(hours) hours."
             } else {
-                try args.allow(["country", "device", "depth"])
+                try args.allow(["country", "device", "depth", "keywords"])
                 let id = try args.integer(1, "app ID")
+                let only = args.option("keywords").map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+                if only?.isEmpty == true { throw UsageError("--keywords needs at least one keyword.") }
                 summary = try await engine(args).measure(appID: id, countryCode: args.option("country"), device: try deviceOption(args),
-                                                         depth: depth, progress: report)
+                                                         depth: depth, keywords: only, progress: report)
                 nothing = "Nothing to measure. Add keywords with: aso keywords add \(id) <keyword>... --country US"
             }
             write(args, summary) {
@@ -372,28 +394,6 @@ public struct CommandRunner: Sendable {
         }
     }
 
-    /// Difficulty with its components as the engine names and weighs them, so front ends show the same breakdown.
-    struct DifficultyReport: Encodable {
-        struct Component: Encodable {
-            let name: String
-            let weight: String
-            let value: Double
-            let explanation: String
-        }
-
-        let score: Double
-        let tier: String
-        let sampleSize: Int
-        let components: [Component]
-
-        init(_ score: DifficultyScore) {
-            self.score = score.score
-            tier = score.tier
-            sampleSize = score.sampleSize
-            components = score.components.map { .init(name: $0.name, weight: $0.weight, value: $0.value, explanation: $0.explanation) }
-        }
-    }
-
     // MARK: Helpers
 
     private func engine(_ args: Arguments) async throws -> Engine {
@@ -455,6 +455,41 @@ public struct CommandRunner: Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Date and time for tables.
+    static func shortDate(_ date: Date) -> String {
+        date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    /// The inspector in text: summary, difficulty, the latest top ten and the last attempts.
+    static func detailText(_ detail: KeywordDetail) -> String {
+        let row = detail.row
+        let s = detail.summary
+        var text = "\(row.keyword) · \(row.country) \(row.device)\n"
+        text += "Latest \(row.rankLabel)  ·  best \(s.best.map { "#\($0)" } ?? "—")  ·  \(s.measurements) measurement(s), \(s.outside) outside the results"
+        if let d = row.delta { text += "  ·  Δ \(d > 0 ? "+\(d)" : String(d)) (\(row.deltaAgainst))" }
+        if !row.note.isEmpty { text += "\nNote: \(row.note)" }
+        if let difficulty = detail.difficulty {
+            text += "\n\nDifficulty \(Int(difficulty.score.rounded())) of 100 (\(difficulty.tier))"
+            if let mass = row.ratingMass { text += "  ·  rating mass \(mass)" }
+            if let titles = row.titleMatchesTop10 { text += "  ·  \(titles) of the top 10 name the term" }
+        }
+        if !detail.topResults.isEmpty {
+            var table = TextTable([.init("#", .right), .init("App"), .init("Seller"), .init("Ratings", .right)])
+            for r in detail.topResults {
+                table.add([String(r.position), (r.isOwnApp ? "★ " : "") + r.name, r.sellerName, r.ratingCount.map(String.init) ?? ""])
+            }
+            text += "\n\nTop results\n" + table.render()
+        }
+        if !detail.observations.isEmpty {
+            var table = TextTable([.init("Measured"), .init("Rank", .right), .init("Provider")])
+            for o in detail.observations.suffix(10).reversed() {
+                table.add([Self.shortDate(o.fetchedAt), o.label, o.provider])
+            }
+            text += "\n\nLast measurements\n" + table.render()
+        }
+        return text
+    }
+
     static func settingsTable(_ settings: EngineSettings) -> String {
         let values = Mirror(reflecting: settings).children.reduce(into: [String: String]()) { all, child in
             guard let name = child.label else { return }
@@ -484,7 +519,7 @@ public struct CommandRunner: Sendable {
         for row in rows {
             table.add([row.keyword, "\(row.country) \(row.device)", row.rankLabel, row.delta.map { $0 > 0 ? "+\($0)" : String($0) } ?? "",
                        row.difficulty.map { String(Int($0.rounded())) } ?? "", row.brandLike ? "yes" : "",
-                       row.measuredAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "never"])
+                       row.measuredAt.map(Self.shortDate) ?? "never"])
         }
         return table.render() + "\n\nΔ: \(reference.title); positive = moved up."
     }
@@ -510,8 +545,11 @@ public struct CommandRunner: Sendable {
         Keywords
           keywords add <app ID> <keyword>... --country CC [--device iphone|ipad|mac]
           keywords remove <app ID> <keyword>... --country CC [--device ...]
-          keywords list <app ID> [--country CC] [--device ...] [--delta previous|first|week]
-          measure <app ID> [--country CC] [--device ...] [--depth 1-200]
+          keywords list <app ID> [--country CC] [--device ...] [--delta lastMarker|previous|first|week] [--csv]
+          keywords show <app ID> <keyword> --country CC [--device ...]
+                                                          History, top ten, difficulty and the measurement log
+          keywords note <app ID> <keyword> --country CC [--device ...] --text TEXT    (empty TEXT clears it)
+          measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b,…]
                                                           Fresh rank check for each keyword (about 3 s each)
           measure --stale [--stale-hours N]               Every market not measured in the last N hours (setting staleHours)
 

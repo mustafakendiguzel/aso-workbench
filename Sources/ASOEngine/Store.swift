@@ -209,6 +209,19 @@ public actor Store {
         try db.rows("SELECT \(Self.keywordColumns) FROM keywords WHERE market_id = ? ORDER BY normalized", [.int(marketID)], map: Self.keyword)
     }
 
+    /// The keyword with this text (compared normalized) in the market, if tracked.
+    public func keyword(_ text: String, marketID: Int) throws -> KeywordRecord? {
+        try db.rows("SELECT \(Self.keywordColumns) FROM keywords WHERE market_id = ? AND normalized = ?",
+                    [.int(marketID), .text(KeywordText.normalize(text))], map: Self.keyword).first
+    }
+
+    /// Replaces the keyword's note (empty clears it). False when the keyword does not exist.
+    @discardableResult
+    public func setNote(_ note: String, keywordID: Int) throws -> Bool {
+        try db.query("UPDATE keywords SET note = ? WHERE id = ?", [.text(note), .int(keywordID)])
+        return db.changes > 0
+    }
+
     /// Removes keywords (matched normalized) with their observations; returns how many were removed.
     @discardableResult
     public func removeKeywords(_ texts: [String], marketID: Int) throws -> Int {
