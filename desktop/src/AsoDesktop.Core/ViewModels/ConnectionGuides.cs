@@ -91,5 +91,8 @@ public static class ConnectionGuides
             "Paste it here, one key per line (one per project), and press Save.",
         ],
         LinkTitle: "Open RevenueCat",
-        Link: "https://app.revenuecat.com");
+        Link: "https://app.revenuecat.com")
+    {
+        Availability = "This version reads revenue with the keys: the Revenue card on the Overview, at start-up and on Refresh.",
+    };
 }

@@ -268,6 +268,66 @@
                            Text="Per keyword and storefront the same numbers are in the Keywords table (Ads column) and the inspector." />
               </StackPanel>
             </Border>
+
+            <!-- MRR and subscriptions of the app's RevenueCat project, with the stored daily history -->
+            <TextBlock Classes="heading" Text="Revenue · RevenueCat" Margin="0,20,0,4" />
+            <Border Classes="card">
+              <StackPanel Spacing="8">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Margin="10,0,0,0" Content="Refresh" Command="{Binding Revenue.RefreshCommand}"
+                          ToolTip.Tip="Reads every RevenueCat project the stored keys reach (read-only)" />
+                  <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Revenue.Headline}" />
+                </DockPanel>
+                <WrapPanel IsVisible="{Binding Revenue.HasLatest}">
+                  <Border Classes="card" Margin="0,0,8,8" MinWidth="130">
+                    <StackPanel>
+                      <TextBlock Classes="hint" Text="MRR" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Revenue.Mrr}" />
+                        <TextBlock Classes="hint" VerticalAlignment="Bottom" Text="{Binding Revenue.MrrChange}" ToolTip.Tip="Since the previous day's reading" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="card" Margin="0,0,8,8" MinWidth="130">
+                    <StackPanel>
+                      <TextBlock Classes="hint" Text="Active subscriptions" />
+                      <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Revenue.Subscriptions}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="card" Margin="0,0,8,8" MinWidth="130">
+                    <StackPanel>
+                      <TextBlock Classes="hint" Text="Revenue · 28 days" />
+                      <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Revenue.Revenue}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="card" Margin="0,0,8,8" MinWidth="130">
+                    <StackPanel>
+                      <TextBlock Classes="hint" Text="New customers · 28 days" />
+                      <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Revenue.NewCustomers}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="card" Margin="0,0,8,8" MinWidth="130">
+                    <StackPanel>
+                      <TextBlock Classes="hint" Text="Active trials" />
+                      <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Revenue.Trials}" />
+                    </StackPanel>
+                  </Border>
+                </WrapPanel>
+                <DataGrid ItemsSource="{Binding Revenue.History}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
+                          MaxHeight="220" IsVisible="{Binding Revenue.HasHistory}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="Read" Binding="{Binding Read}" Width="*" />
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="MRR" Binding="{Binding Mrr}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="Active subs" Binding="{Binding Subscriptions}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="Revenue 28d" Binding="{Binding Revenue}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="New customers" Binding="{Binding NewCustomers}" Width="Auto" />
+                    <DataGridTextColumn x:DataType="vm:RevenueLine" Header="Trials" Binding="{Binding Trials}" Width="Auto" />
+                  </DataGrid.Columns>
+                </DataGrid>
+                <TextBlock Classes="hint" TextWrapping="Wrap" IsVisible="{Binding Revenue.HasLatest}"
+                           Text="RevenueCat overview metrics: MRR is the normalized monthly revenue of active subscriptions; revenue and new customers cover the last 28 days. Read on Refresh and once per start; one snapshot per day is kept." />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

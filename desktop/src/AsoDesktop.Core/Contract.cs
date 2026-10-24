@@ -100,6 +100,25 @@ public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, I
 public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed,
     IReadOnlyList<PopularityRefresh>? Popularity = null, string? PopularityError = null);
 
+/// <summary>What <c>aso revenue refresh</c> read; a failure is one key's message.</summary>
+public sealed record RevenueRefresh(int Projects, IReadOnlyList<string> Failures);
+
+/// <summary>The app's RevenueCat project (<c>aso revenue show</c>); everything is absent when no project matches.</summary>
+public sealed record RevenueReport(string? Match, RevenueSnapshot? Latest, double? MrrChange, IReadOnlyList<RevenueSnapshot> History);
+
+public sealed record RevenueSnapshot(
+    [property: JsonPropertyName("projectID")] string ProjectId,
+    string ProjectName,
+    [property: JsonPropertyName("bundleIDs")] IReadOnlyList<string> BundleIds,
+    IReadOnlyList<string> AppNames,
+    double Mrr,
+    int ActiveSubscriptions,
+    double Revenue28d,
+    int NewCustomers28d,
+    int ActiveTrials,
+    int ActiveUsers28d,
+    DateTimeOffset FetchedAt);
+
 /// <summary>Your own Apple Ads results for one keyword in one storefront over the synced window.</summary>
 public sealed record AdsTotals(int Impressions, int Taps, int Installs, double Spend, string Currency);
 

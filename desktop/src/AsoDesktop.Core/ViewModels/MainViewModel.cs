@@ -27,6 +27,7 @@ public sealed partial class MainViewModel : ObservableObject
         Reviews = new ReviewsViewModel(client, Status);
         Competitors = new CompetitorsViewModel(client, Status);
         Changes = new ChangesViewModel(client, Status);
+        Revenue = new RevenueViewModel(client, Status);
         Ads = new AdsViewModel(client, Status) { Synced = () => Keywords.Market is null ? Task.CompletedTask : Keywords.RefreshCommand.ExecuteAsync(null) };
         Keywords.MarketsChanged = KeywordsChangedAsync;
         Ratings.Checked = () => Status.QuietlyAsync(Changes.ReloadAsync);
@@ -36,6 +37,10 @@ public sealed partial class MainViewModel : ObservableObject
             if (e.PropertyName != nameof(ConnectionViewModel.IsConfigured)) return;
             Keywords.AdsConnected = Settings.AppleAds.IsConfigured;
             Ads.AdsConnected = Settings.AppleAds.IsConfigured;
+        };
+        Settings.RevenueCat.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.IsConfigured)) Revenue.RevenueConnected = Settings.RevenueCat.IsConfigured;
         };
     }
 
@@ -49,6 +54,7 @@ public sealed partial class MainViewModel : ObservableObject
     public CompetitorsViewModel Competitors { get; }
     public ChangesViewModel Changes { get; }
     public AdsViewModel Ads { get; }
+    public RevenueViewModel Revenue { get; }
 
     public ObservableCollection<AppRecord> Apps { get; } = [];
     public ObservableCollection<MarketSummary> Markets { get; } = [];
@@ -92,6 +98,8 @@ public sealed partial class MainViewModel : ObservableObject
             await ReloadAppsAsync(keepSelection: null).ConfigureAwait(true);
             Status.Info(Apps.Count == 0 ? "No apps yet. Press Add app to start." : $"{Apps.Count} tracked app(s).");
         }).ConfigureAwait(true);
+        // Revenue is read once per launch, as the macOS app does.
+        if (Revenue.RevenueConnected) await Revenue.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
         if (Settings.Current?.AutoMeasureOnLaunch == true) await MeasureStaleCommand.ExecuteAsync(null).ConfigureAwait(true);
     }
 
@@ -166,6 +174,7 @@ public sealed partial class MainViewModel : ObservableObject
         Competitors.App = newValue;
         Changes.App = newValue;
         Ads.App = newValue;
+        Revenue.App = newValue;
         ShowGenre(newValue);
         if (oldValue?.TrackId == newValue?.TrackId) return;   // the same app with refreshed details: keep its markets
         Markets.Clear();
