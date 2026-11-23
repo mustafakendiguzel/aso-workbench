@@ -290,6 +290,24 @@ public struct CommandRunner: Sendable {
                                     : (step.total > 0 ? "[\(step.completed + 1)/\(step.total)] " : "") + step.step)
             }
             write(args, report) { Self.discoveryText($0, appID: id) }
+        case ("expand", _):
+            try args.allow(["from", "countries", "keywords", "device", "depth", "track", "no-local-forms"])
+            let id = try args.integer(1, "app ID")
+            func list(_ name: String) throws -> [String]? {
+                guard let raw = args.option(name) else { return nil }
+                let items = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                guard !items.isEmpty else { throw UsageError("--\(name) needs at least one value.") }
+                return items
+            }
+            let errors = self.errors
+            let jsonProgress = args.flag("json")
+            let depth = try args.integerOption("depth", default: try settings(args).resultDepth, range: 1...200)
+            let report = try await engine(args).tryInOtherCountries(appID: id, terms: try list("keywords"), sourceCountry: args.option("from"),
+                                                                    countries: try list("countries"), device: try deviceOption(args) ?? .iPhone,
+                                                                    localize: !args.flag("no-local-forms"), track: args.flag("track"), depth: depth) { step in
+                errors(jsonProgress ? Self.json(step, pretty: false) : "[\(min(step.completed + 1, step.total))/\(step.total)] \(step.country) · \(step.step)")
+            }
+            write(args, report) { Self.expansionText($0) }
         case ("ads", "sync"):
             try args.allow(["days"])
             let sync = try await engine(args).syncAds(days: try args.integerOption("days", default: 30, range: 1...90))
@@ -1148,6 +1166,27 @@ public struct CommandRunner: Sendable {
         return lines.joined(separator: "\n")
     }
 
+    static func expansionText(_ report: Engine.ExpansionReport) -> String {
+        var table = TextTable([.init(""), .init("Country"), .init("Keyword"), .init("Rank", .right), .init("Popularity", .right),
+                               .init("Difficulty", .right), .init("Language", .right), .init("Leader")])
+        for row in report.rows {
+            let popularity = row.popularity.map(String.init) ?? (row.popularitySource == "belowRange" ? "< \(row.popularityBelow.map(String.init) ?? "range")" : "")
+            let rank = row.failed ? "Error" : row.rank.map { "#\($0)" } ?? "> \(row.observed)"
+            let language = row.languageFit.map { String(format: "%.0f%%", $0 * 100) } ?? ""
+            let term = row.source.map { "\(row.term) (for \($0))" } ?? row.term
+            table.add([row.candidate ? "★" : "", row.country, term, rank, popularity, row.difficulty.map { String(Int($0.rounded())) } ?? "", language,
+                       row.leader ?? ""])
+        }
+        var text = table.render()
+        text += "\n\n\(report.keywords) keyword(s) × \(report.countries.count) storefront(s): \(report.candidates) candidate(s) (★: popularity 30 or more, "
+            + "a top-30 rank or difficulty 45 or less, in a language people search there)."
+        if report.tracked > 0 { text += " \(report.tracked) cell(s) tracked with their measurement." }
+        if !report.appleAds { text += "\nApple Ads is not connected: no popularity, so no cell can be a candidate." }
+        if !report.languageChecked { text += "\nOpenRouter is not connected: no language check and no local forms." }
+        if !report.localizationCost.isEmpty { text += "\nLocal forms cost: \(report.localizationCost.joined(separator: ", "))." }
+        return text
+    }
+
     static func updateText(_ check: Engine.UpdateCheck) -> String {
         guard let release = check.release else {
             return check.latest == nil ? "No release is published yet; aso \(check.current) is current." : "aso \(check.current) is up to date."
@@ -1379,6 +1418,8 @@ public struct CommandRunner: Sendable {
         Research (nothing is stored)
           discover <app ID> --country CC [--device ...] [--competitor LINK|ID] [--seeds a,b,…] [--difficulty 0-60]
                                                           Golden keyword candidates: autocomplete, Apple Ads and Jev
+          expand <app ID> [--from CC] [--countries GB,DE,…] [--keywords a,b,…] [--device ...] [--depth 1-200] [--track] [--no-local-forms]
+                                                          Try the keywords (and local search forms) in other countries
           search <term> --country CC [--device ...] [--limit 1-200]
           hints <seed> --country CC                       App Store autocomplete
           difficulty <term> --country CC [--device ...]   0-100 from the top ten results, with every component

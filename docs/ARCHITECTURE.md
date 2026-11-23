@@ -29,7 +29,7 @@ Sources/
 │   ├── Analysis/      DifficultyScore, CompetitionSignals, CompetitorAggregation, TitleMatch,
 │   │                  RankHistory (Δ and before/after), KeywordJudgement (brand, golden, lead), IdeaGap,
 │   │                  RatingTrend, KeywordImpact (value, visibility curve, gain), KeywordPhrases, RevenueMatch,
-│   │                  KeywordPlan (the writer's tiers and phrase coverage)
+│   │                  KeywordPlan (the writer's tiers and phrase coverage), KeywordExpansion (local forms, candidates)
 │   ├── Validation/    ASORules (review + repair), MetadataValidator, MetadataDiff, TextMeasure,
 │   │                  LegalFooter, ReleaseNotesDefaults, MetadataPublishing (apply checks and outcome)
 │   ├── Writing/       MetadataWriter (the AI writer: prompts, repair, ranking; the model behind TextModel)
@@ -47,7 +47,7 @@ Sources/
 ├── CSQLite/           the platform's own SQLite as a Swift module (no package dependency)
 ├── ASOEngine/         platform-neutral workbench: Store (SQLite, versioned schema), Engine (add app, keywords,
 │                      measure, reports), Catalog (ratings, reviews, competitors), Changes (release markers,
-│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), Discovery (candidates, Jev, golden), Ads (campaign results), Revenue (RevenueCat snapshots), Metadata (drafts, baselines, legal footer), Publish (App Store Connect pull, plan, apply, change log), Writer (AI proposals, Make better, What's New), KeywordReportRow and
+│                      notes, impact), Popularity (Apple Ads lists, "< N" bound), Discovery (candidates, Jev, golden), Expansion (keywords in other countries), Ads (campaign results), Revenue (RevenueCat snapshots), Metadata (drafts, baselines, legal footer), Publish (App Store Connect pull, plan, apply, change log), Writer (AI proposals, Make better, What's New), KeywordReportRow and
 │                      KeywordDetail, EngineSettings (settings.json), CredentialStore and
 │                      Connections (credentials.json, verify), Updates (release check), data folder, version and backups
 ├── ASOCommands/       the `aso` command line: arguments, commands, text tables and JSON (see docs/CLI.md)
