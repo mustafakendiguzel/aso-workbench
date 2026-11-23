@@ -71,7 +71,8 @@ public struct CommandRunner: Sendable {
         }
         if arguments.flag("version") || arguments.positionals.first == "version" {
             output(arguments.flag("json")
-                ? Self.json(["version": EngineEnvironment.version, "dataDirectory": dataDirectory(arguments).path])
+                ? Self.json(["version": EngineEnvironment.version, "dataDirectory": dataDirectory(arguments).path,
+                             "models": EngineEnvironment.modelDirectory(environment: environment, dataDirectory: dataDirectory(arguments))?.path])
                 : "aso \(EngineEnvironment.version)")
             return ExitCode.success
         }

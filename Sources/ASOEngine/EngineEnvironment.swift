@@ -21,7 +21,9 @@ public enum EngineEnvironment {
     /// trained in its Lab); else `models/` next to the executable, or `share/aso-workbench/models` beside its folder (how
     /// packages ship them); else `Resources/models` under the current folder (a checkout). Nil when none has both files.
     public static func modelDirectory(environment: [String: String] = ProcessInfo.processInfo.environment, dataDirectory: URL,
-                                      executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> URL? {
+                                      executable: URL? = Bundle.main.executableURL) -> URL? {
+        // The real path of the running binary, also when it was started by name from PATH.
+        let executable = (executable ?? URL(fileURLWithPath: CommandLine.arguments.first ?? "")).resolvingSymlinksInPath()
         let folder = executable.deletingLastPathComponent()
         var candidates: [URL] = []
         if let custom = environment["ASO_MODELS_DIR"], !custom.isEmpty { candidates.append(URL(fileURLWithPath: custom, isDirectory: true)) }

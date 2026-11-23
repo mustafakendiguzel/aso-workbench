@@ -100,5 +100,14 @@ struct EstimateTests {
             try FileManager.default.copyItem(at: bundledModels.appendingPathComponent(file), to: own.appendingPathComponent(file))
         }
         #expect(EngineEnvironment.modelDirectory(environment: [:], dataDirectory: folder)?.standardizedFileURL.path == own.standardizedFileURL.path)
+
+        // Next to the executable, as the packages ship them, wherever aso is started from.
+        let package = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: package) }
+        try FileManager.default.copyItem(at: own, to: package.appendingPathComponent("models"))
+        let empty = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: empty) }
+        let found = EngineEnvironment.modelDirectory(environment: [:], dataDirectory: empty, executable: package.appendingPathComponent("aso.exe"))
+        #expect(found?.standardizedFileURL.path == package.appendingPathComponent("models").standardizedFileURL.path)
     }
 }
