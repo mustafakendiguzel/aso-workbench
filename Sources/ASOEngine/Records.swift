@@ -106,11 +106,16 @@ public struct PopularityReading: Sendable, Codable, Equatable {
     public let popularity1to5: Int?
     public let popularityInGenre: Int?
     public let rankInGenre: Int?
-    /// "list" · "belowRange"
+    /// "list" · "belowRange" · "estimate" (the popularity model: `popularity` when it says published, else below the range)
     public let source: String
     public let upperBound: Int?
     /// Every genre was searched, so "belowRange" means the term is on none of the lists.
     public let anyGenre: Bool
+    /// For "estimate": the model's probability for what it says (published, or below the range).
+    public var probability: Double? = nil
+    /// For an estimate below the range: the model's 6–29 demand rank among floor terms (ordering only; Apple publishes
+    /// nothing there).
+    public var subFloor: Int? = nil
 }
 
 /// One keyword × storefront row of the advertiser's own Apple Ads report, for one campaign and the synced window

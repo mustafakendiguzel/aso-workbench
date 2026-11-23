@@ -139,6 +139,8 @@ final class FakeJudge: KeywordJudge, @unchecked Sendable {
         features.brand = brands.contains(term) ? 0.9 : 0.05
         features.naturalQuery = unnatural.contains(term) ? 0.1 : 0.9
         features.intent = brands.contains(term) ? "brand" : "feature"
+        // A genre the popularity model knows, so estimates can be made.
+        features.genre = "PRODUCTIVITY_UTILITIES"
         return features
     }
 
@@ -164,10 +166,15 @@ let ownApp = makeApp(1_000_001, "Acme Notes", seller: "Acme Inc")
 
 func makeEngine(search: FakeSearch = FakeSearch(apps: [ownApp.trackID: ownApp]), hints: FakeSuggestions = FakeSuggestions(),
                 reviews: FakeReviews = FakeReviews(), popularity: FakePopularity? = nil, judge: FakeJudge? = nil,
-                ads: FakeAds? = nil, revenue: FakeRevenue? = nil, publisher: FakePublisher? = nil, writer: FakeWriter? = nil) throws -> Engine {
+                ads: FakeAds? = nil, revenue: FakeRevenue? = nil, publisher: FakePublisher? = nil, writer: FakeWriter? = nil,
+                models: URL? = nil) throws -> Engine {
     Engine(store: try Store.inMemory(), search: search, suggestions: hints, reviews: reviews, popularity: popularity, judge: judge, ads: ads,
-           revenue: revenue, publisher: publisher, writer: writer)
+           revenue: revenue, publisher: publisher, writer: writer, models: models)
 }
+
+/// The popularity models bundled in the repository.
+let bundledModels = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    .appendingPathComponent("Resources").appendingPathComponent("models")
 
 /// The writer's model without the network: answers by system and user prompt (nil fails the call) and records every call.
 final class FakeWriter: TextModel, @unchecked Sendable {

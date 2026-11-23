@@ -47,7 +47,7 @@ struct PopularityTests {
         let refreshes = try await engine.refreshPopularity(appID: ownApp.trackID, now: now)
         #expect(refreshes == [Engine.PopularityRefresh(country: "US", genre: "PRODUCTIVITY_UTILITIES", periodStart: december,
                                                        periodEnd: december.addingTimeInterval(30 * 86_400), keywords: 3, onList: 2,
-                                                       belowRange: 1, floor: 31, genresFound: [])])
+                                                       belowRange: 1, floor: 31, genresFound: [], estimated: 0)])
 
         let rows = Dictionary(uniqueKeysWithValues: try await engine.keywordReport(appID: ownApp.trackID).map { ($0.keyword, $0) })
         let notes = try #require(rows["Notes"])

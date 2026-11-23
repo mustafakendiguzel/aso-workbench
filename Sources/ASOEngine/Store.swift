@@ -219,6 +219,11 @@ public actor Store {
         );
         CREATE INDEX change_log_app ON change_log (app_id, created_at);
         """,
+        // 10: the popularity model's estimates for terms Apple publishes nothing for.
+        """
+        ALTER TABLE popularity_readings ADD COLUMN probability REAL;
+        ALTER TABLE popularity_readings ADD COLUMN sub_floor INTEGER;
+        """,
     ]
 
     /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date. Before a data file
@@ -454,23 +459,25 @@ public actor Store {
     public func addPopularity(_ reading: PopularityReading, keywordID: Int) throws {
         try db.query("""
             INSERT INTO popularity_readings (keyword_id, fetched_at, country_code, genre, period_start, period_end, popularity, popularity_1to5,
-                popularity_in_genre, rank_in_genre, source, upper_bound, any_genre)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                popularity_in_genre, rank_in_genre, source, upper_bound, any_genre, probability, sub_floor)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [.int(keywordID), SQLValue(reading.fetchedAt), .text(reading.country), SQLValue(reading.genre), SQLValue(reading.periodStart),
                   SQLValue(reading.periodEnd), SQLValue(reading.popularity), SQLValue(reading.popularity1to5), SQLValue(reading.popularityInGenre),
-                  SQLValue(reading.rankInGenre), .text(reading.source), SQLValue(reading.upperBound), .int(reading.anyGenre ? 1 : 0)])
+                  SQLValue(reading.rankInGenre), .text(reading.source), SQLValue(reading.upperBound), .int(reading.anyGenre ? 1 : 0),
+                  SQLValue(reading.probability), SQLValue(reading.subFloor)])
     }
 
     /// The keyword's newest popularity reading.
     public func latestPopularity(keywordID: Int) throws -> PopularityReading? {
         try db.rows("""
             SELECT fetched_at, country_code, genre, period_start, period_end, popularity, popularity_1to5, popularity_in_genre, rank_in_genre,
-                source, upper_bound, any_genre
+                source, upper_bound, any_genre, probability, sub_floor
             FROM popularity_readings WHERE keyword_id = ? ORDER BY fetched_at DESC, id DESC LIMIT 1
             """, [.int(keywordID)]) { row in
             PopularityReading(fetchedAt: row.date(0), country: row.text(1), genre: row.optionalText(2), periodStart: row.date(3), periodEnd: row.date(4),
                               popularity: row.optionalInt(5), popularity1to5: row.optionalInt(6), popularityInGenre: row.optionalInt(7),
-                              rankInGenre: row.optionalInt(8), source: row.text(9), upperBound: row.optionalInt(10), anyGenre: row.int(11) == 1)
+                              rankInGenre: row.optionalInt(8), source: row.text(9), upperBound: row.optionalInt(10), anyGenre: row.int(11) == 1,
+                              probability: row.optionalDouble(12), subFloor: row.optionalInt(13))
         }.first
     }
 

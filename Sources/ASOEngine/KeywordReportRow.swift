@@ -23,14 +23,19 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
     public let difficultyTier: String?
     /// Apple's 1–100 score from the country list, relative within the country.
     public let popularity: Int?
-    /// "list" (on Apple's country list) · "belowRange" (not on it) · absent before the first refresh.
+    /// "list" (on Apple's country list) · "belowRange" (not on it) · "estimate" (not on it; the popularity model's estimate) ·
+    /// absent before the first refresh.
     public let popularitySource: String?
-    /// For "belowRange": the lowest score on the list that month, which the term is under (when it could be read).
+    /// Off the list: the lowest score on it that month, which the term is under (when it could be read).
     public let popularityBelow: Int?
     /// Raw Apple Ads genre of the list the score comes from.
     public let popularityGenre: String?
     /// First day of the month the popularity describes.
     public let popularityMonth: Date?
+    /// For "estimate": the model's probability for what it says (a published value, or below the range).
+    public let popularityProbability: Double?
+    /// For an estimate below the range: the model's 6–29 demand rank among floor terms (ordering only).
+    public let popularitySubFloor: Int?
     public let opportunity: Double?
     public let brandLike: Bool
     public let golden: Bool
@@ -80,6 +85,8 @@ public struct KeywordReportRow: Sendable, Codable, Equatable {
         popularityBelow = reading?.upperBound
         popularityGenre = reading?.genre
         popularityMonth = reading?.periodStart
+        popularityProbability = reading?.probability
+        popularitySubFloor = reading?.subFloor
         opportunity = judgement.opportunity
         brandLike = judgement.isBrandLike
         golden = judgement.isGolden(minPopularity: thresholds.minPopularity, maxDifficulty: thresholds.maxDifficulty)
@@ -130,6 +137,9 @@ public enum KeywordCSV {
         switch r.popularitySource {
         case "list": "apple_ads_country_list"
         case "belowRange": "below_published_range" + (r.popularityBelow.map { "_lt_\($0)" } ?? "")
+        case "estimate" where r.popularity != nil: "model_estimate"
+        case "estimate" where r.popularitySubFloor != nil: "model_6_29_rank"
+        case "estimate": "below_published_range" + (r.popularityBelow.map { "_lt_\($0)" } ?? "")
         default: "unavailable"
         }
     }

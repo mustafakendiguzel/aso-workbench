@@ -20,6 +20,8 @@ extension Engine {
         public let floor: Int?
         /// The genres whose lists had the terms, when every genre was searched.
         public let genresFound: [String]
+        /// Terms below the range the popularity model estimated (with the OpenRouter key and the models).
+        public let estimated: Int
     }
 
     static let adsNotConnected = "Apple Ads is not connected. Add its keys with: aso connections set apple-ads (or in the window: Settings → Connections)."
@@ -63,10 +65,24 @@ extension Engine {
                 // Without the floor the terms are still below the range, only without a number to be under.
                 floor = (try? await popularity.genreDataset(country: country, genre: floorGenre, monthsBack: 1))?.compactMap(\.popularity1to100).min()
             }
+            // The model's estimate for the terms Apple publishes nothing for, from public signals and Jev.
+            var estimated: [String: PopularityEstimate] = [:]
+            let unlisted = keywords.filter { byTerm[$0.normalized] == nil }
+            if !unlisted.isEmpty, await canEstimate {
+                var requests: [EstimateRequest] = []
+                for keyword in unlisted {
+                    let history = RankHistory(try await store.observations(keywordID: keyword.id)) { $0.point }
+                    requests.append(EstimateRequest(term: keyword.text, results: history.latestMeasured?.results))
+                }
+                estimated = try await estimates(requests, storefront: try Self.storefront(country), progress: progress)
+            }
             var onList = 0
             for keyword in keywords {
                 let reading: PopularityReading
-                if let record = byTerm[keyword.normalized] {
+                if byTerm[keyword.normalized] == nil, let estimate = estimated[keyword.normalized] {
+                    reading = estimateReading(estimate, country: country, genre: genre?.rawValue, start: start, end: end, floor: floor,
+                                              anyGenre: genre == nil, now: now)
+                } else if let record = byTerm[keyword.normalized] {
                     reading = PopularityReading(fetchedAt: now, country: country, genre: record.genre.rawValue, periodStart: record.periodStart,
                                                 periodEnd: record.periodEnd, popularity: record.popularity1to100, popularity1to5: record.popularity1to5,
                                                 popularityInGenre: record.popularityInGenre, rankInGenre: record.rankInGenre, source: "list",
@@ -82,7 +98,7 @@ extension Engine {
             let found = Set(byTerm.values.map(\.genre.displayName)).sorted()
             refreshes.append(PopularityRefresh(country: country, genre: genre?.rawValue, periodStart: start, periodEnd: end, keywords: keywords.count,
                                                onList: onList, belowRange: keywords.count - onList, floor: floor,
-                                               genresFound: genre == nil ? found : []))
+                                               genresFound: genre == nil ? found : [], estimated: estimated.count))
         }
         return refreshes
     }

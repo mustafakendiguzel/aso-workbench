@@ -136,7 +136,7 @@ extension Engine {
               let tracked = try await store.markets(appID: state.appID).first(where: { $0.countryCode == country }) else { return nil }
         let rows = try await keywordReport(appID: state.appID, countryCode: country, device: tracked.device)
         let inputs = rows.map { row in
-            KeywordPlan.Input(term: row.keyword, popularity: row.popularity, popularitySource: row.popularitySource ?? "none",
+            KeywordPlan.Input(term: row.keyword, popularity: row.popularity, estimate: row.popularitySubFloor, popularitySource: row.popularitySource ?? "none",
                               difficulty: row.difficulty, fit: row.fit, brandLike: row.brandLike, observedCount: row.observedCount, rank: row.rank)
         }
         return (tracked, KeywordPlan.make(inputs, easyDifficulty: tiers.easyDifficulty, maxDifficulty: tiers.maxDifficulty))

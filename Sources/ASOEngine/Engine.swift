@@ -20,13 +20,17 @@ public struct Engine: Sendable {
     public let publisher: (any MetadataPublisher)?
     /// The metadata writer's model through OpenRouter; nil when no key is stored.
     public let writer: (any TextModel)?
+    /// The popularity models, read the first time an estimate is needed; nil when the folder is unknown.
+    let models: ModelShelf?
 
     public init(store: Store, search: any SearchRankProvider, suggestions: any SuggestionProvider, reviews: any CustomerReviewProvider,
                 popularity: (any PopularityProvider)? = nil, judge: (any KeywordJudge)? = nil, ads: (any AdsCampaignSource)? = nil,
-                revenue: (any RevenueSource)? = nil, publisher: (any MetadataPublisher)? = nil, writer: (any TextModel)? = nil) {
+                revenue: (any RevenueSource)? = nil, publisher: (any MetadataPublisher)? = nil, writer: (any TextModel)? = nil,
+                models: URL? = nil) {
         self.revenue = revenue
         self.publisher = publisher
         self.writer = writer
+        self.models = models.map(ModelShelf.init)
         self.store = store
         self.search = search
         self.suggestions = suggestions

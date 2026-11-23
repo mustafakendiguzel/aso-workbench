@@ -16,9 +16,13 @@ extension Engine {
         public let rank: Int?
         public let observed: Int
         public let popularity: Int?
-        /// "list" (Apple's country list) · "belowRange" (not on it, under `popularityBelow`); absent without Apple Ads.
+        /// "list" (Apple's country list) · "belowRange" (not on it, under `popularityBelow`) · "estimate" (the popularity model);
+        /// absent without Apple Ads.
         public let popularitySource: String?
         public let popularityBelow: Int?
+        /// For an estimate below the range: the model's 6–29 rank among floor terms; and its probability.
+        public let popularitySubFloor: Int?
+        public let popularityProbability: Double?
         public let difficulty: Double?
         public let titleMatches: Int?
         public let leader: String?
@@ -79,6 +83,8 @@ extension Engine {
         let sourceLanguage = source.flatMap(StorefrontRegistry.lookup).map { KeywordExpansion.language(of: $0.defaultLocale) } ?? "en"
         let adsOK = await popularity?.isConfigured ?? false
         let judgeOK = await judge?.isConfigured ?? false
+        var estimateOK = false
+        if adsOK { estimateOK = await canEstimate }
         var description = ""
         if localize, writer != nil {
             description = (try? await search.lookup(trackID: appID, storefront: try Self.storefront(source ?? "US")))?.storeDescription ?? ""
@@ -134,7 +140,24 @@ extension Engine {
                 let failed: Bool
                 if case .requestFailed = sample.outcome { failed = true } else { failed = false }
                 let signals = failed ? nil : CompetitionSignals(results: Array(sample.results.prefix(50)), term: cell.term)
-                let popularitySource: String? = adsOK ? (record != nil ? "list" : "belowRange") : nil
+                // Popularity: Apple's list, else the model's estimate (with these results), else below the range.
+                var reading: PopularityReading?
+                if adsOK {
+                    if let r = record {
+                        reading = PopularityReading(fetchedAt: now, country: country, genre: r.genre.rawValue, periodStart: r.periodStart, periodEnd: r.periodEnd,
+                                                    popularity: r.popularity1to100, popularity1to5: r.popularity1to5, popularityInGenre: r.popularityInGenre,
+                                                    rankInGenre: r.rankInGenre, source: "list", upperBound: nil, anyGenre: genre == nil)
+                    } else if estimateOK,
+                              let estimate = try await estimates([EstimateRequest(term: cell.term, results: failed ? nil : sample.results)],
+                                                                 storefront: storefront)[KeywordText.normalize(cell.term)] {
+                        reading = estimateReading(estimate, country: country, genre: genre?.rawValue, start: start, end: end, floor: floor,
+                                                  anyGenre: genre == nil, now: now)
+                    } else {
+                        reading = PopularityReading(fetchedAt: now, country: country, genre: genre?.rawValue, periodStart: start, periodEnd: end, popularity: nil,
+                                                    popularity1to5: nil, popularityInGenre: nil, rankInGenre: nil, source: "belowRange", upperBound: floor,
+                                                    anyGenre: genre == nil)
+                    }
+                }
                 var tracked = false
                 if track, !failed {
                     let market = try await store.market(appID: appID, countryCode: country, device: device)
@@ -144,24 +167,16 @@ extension Engine {
                         if let form = cell.form, keyword.note.isEmpty {
                             _ = try await store.setNote("local form of “\(form.source)”" + (form.meaning.isEmpty ? "" : " · \(form.meaning)"), keywordID: keyword.id)
                         }
-                        if adsOK {
-                            let reading = record.map { r in
-                                PopularityReading(fetchedAt: now, country: country, genre: r.genre.rawValue, periodStart: r.periodStart, periodEnd: r.periodEnd,
-                                                  popularity: r.popularity1to100, popularity1to5: r.popularity1to5, popularityInGenre: r.popularityInGenre,
-                                                  rankInGenre: r.rankInGenre, source: "list", upperBound: nil, anyGenre: genre == nil)
-                            } ?? PopularityReading(fetchedAt: now, country: country, genre: genre?.rawValue, periodStart: start, periodEnd: end, popularity: nil,
-                                                   popularity1to5: nil, popularityInGenre: nil, rankInGenre: nil, source: "belowRange", upperBound: floor,
-                                                   anyGenre: genre == nil)
-                            try await store.addPopularity(reading, keywordID: keyword.id)
-                        }
+                        if let reading { try await store.addPopularity(reading, keywordID: keyword.id) }
                         tracked = true
                     }
                 }
                 let difficulty = signals?.difficulty?.score
-                let value = record?.popularity1to100
+                let value = reading?.popularity
                 rows.append(ExpansionRow(country: country, term: cell.term, source: cell.form?.source, meaning: cell.form?.meaning, rank: sample.outcome.position,
-                                         observed: sample.results.count, popularity: value, popularitySource: popularitySource,
-                                         popularityBelow: record == nil ? floor : nil, difficulty: difficulty, titleMatches: signals?.titleMatchesTop10,
+                                         observed: sample.results.count, popularity: value, popularitySource: reading?.source,
+                                         popularityBelow: reading?.upperBound, popularitySubFloor: reading?.subFloor,
+                                         popularityProbability: reading?.probability, difficulty: difficulty, titleMatches: signals?.titleMatchesTop10,
                                          leader: sample.results.first?.name, leaderRatings: sample.results.first?.ratingCount, languageFit: fit, failed: failed,
                                          opportunity: KeywordExpansion.opportunity(popularity: value, difficulty: difficulty),
                                          candidate: KeywordExpansion.isCandidate(popularity: value, rank: sample.outcome.position, difficulty: difficulty,

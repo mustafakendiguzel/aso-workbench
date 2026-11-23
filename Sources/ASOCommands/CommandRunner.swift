@@ -56,7 +56,8 @@ public struct CommandRunner: Sendable {
                                         ads: ads.map { AppleAdsCampaignProvider(credentials: $0) },
                                         revenue: revenueKeys.isEmpty ? nil : RevenueCatAccounts(keys: revenueKeys),
                                         publisher: asc.map { AppStoreConnectPublisher(credentials: $0) },
-                                        writer: openRouter.map { OpenRouterTextModel(client: LLMClient(apiKey: $0), model: settings.writerModel) })
+                                        writer: openRouter.map { OpenRouterTextModel(client: LLMClient(apiKey: $0), model: settings.writerModel) },
+                                        models: EngineEnvironment.modelDirectory(environment: environment, dataDirectory: directory))
                       })
     }
 
@@ -1000,16 +1001,21 @@ public struct CommandRunner: Sendable {
                        row.brandLike ? "yes" : "", row.measuredAt.map(Self.shortDate) ?? "never"])
         }
         var text = table.render() + "\n\nΔ: \(reference.title); positive = moved up."
-        if rows.contains(where: { $0.popularitySource == "belowRange" }) {
+        if rows.contains(where: { $0.popularitySource == "belowRange" || $0.popularitySource == "estimate" }) {
             text += "\nPopularity \"< N\": not on Apple's list that month, so below its lowest published score N."
+        }
+        if rows.contains(where: { $0.popularitySource == "estimate" }) {
+            text += "\nPopularity \"~N\": the model's estimate from public signals; 6–29 is its demand rank among terms below Apple's range."
         }
         return text
     }
 
-    /// "62", "< 31" below the published range, "< list" when the list's lowest score was not read, "" before the first refresh.
+    /// "62"; "~42" the model's estimate (or "~12" its rank among floor terms); "< 31" below the published range, "< list" when
+    /// the list's lowest score was not read; "" before the first refresh.
     static func popularityLabel(_ row: KeywordReportRow) -> String {
+        if row.popularitySource == "estimate", let value = row.popularity ?? row.popularitySubFloor { return "~\(value)" }
         if let value = row.popularity { return String(value) }
-        guard row.popularitySource == "belowRange" else { return "" }
+        guard row.popularitySource == "belowRange" || row.popularitySource == "estimate" else { return "" }
         return row.popularityBelow.map { "< \($0)" } ?? "< list"
     }
 
@@ -1170,7 +1176,12 @@ public struct CommandRunner: Sendable {
         var table = TextTable([.init(""), .init("Country"), .init("Keyword"), .init("Rank", .right), .init("Popularity", .right),
                                .init("Difficulty", .right), .init("Language", .right), .init("Leader")])
         for row in report.rows {
-            let popularity = row.popularity.map(String.init) ?? (row.popularitySource == "belowRange" ? "< \(row.popularityBelow.map(String.init) ?? "range")" : "")
+            var popularity = row.popularity.map(String.init) ?? ""
+            if row.popularitySource == "estimate", let estimate = row.popularity ?? row.popularitySubFloor {
+                popularity = "~\(estimate)"
+            } else if row.popularity == nil, row.popularitySource != nil {
+                popularity = "< \(row.popularityBelow.map(String.init) ?? "range")"
+            }
             let rank = row.failed ? "Error" : row.rank.map { "#\($0)" } ?? "> \(row.observed)"
             let language = row.languageFit.map { String(format: "%.0f%%", $0 * 100) } ?? ""
             let term = row.source.map { "\(row.term) (for \($0))" } ?? row.term
@@ -1272,6 +1283,7 @@ public struct CommandRunner: Sendable {
             var text = "\(r.country): \(r.onList) of \(r.keywords) keyword(s) on Apple's list (\(list), \(Self.month(r.periodStart)))"
             if !r.genresFound.isEmpty { text += ", found in \(r.genresFound.joined(separator: ", "))" }
             if r.belowRange > 0 { text += "; \(r.belowRange) below the published range" + (r.floor.map { " (under \($0))" } ?? "") }
+            if r.estimated > 0 { text += ", \(r.estimated) of them estimated by the model" }
             return text + "."
         }.joined(separator: "\n")
     }
