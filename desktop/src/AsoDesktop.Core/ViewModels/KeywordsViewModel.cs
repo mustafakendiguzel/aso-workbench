@@ -19,9 +19,13 @@ public sealed record KeywordRow(KeywordReportRow Report)
     public string DeltaAgainst => Report.DeltaAgainst;
     public string Popularity => Report.PopularityLabel;
 
-    /// <summary>For sorting only: every score, then "below N" (a higher N first; it may be under any score), then never read.</summary>
+    /// <summary>
+    /// For sorting only: every score (an estimate as its value), then terms below the range (the model's 6–29 rank when there is one, else a
+    /// higher N first), then never read.
+    /// </summary>
     public double PopularityOrder => Report.Popularity
-        ?? (Report.PopularitySource == "belowRange" ? -1 + (Report.PopularityBelow ?? 0) / 1000.0 : -2);
+        ?? (Report.PopularitySubFloor is { } rank ? rank / 100.0 - 1
+            : Report.PopularitySource is "belowRange" or "estimate" ? -1 + (Report.PopularityBelow ?? 0) / 1000.0 : -2);
 
     public string Golden => Report.Golden ? "golden" : "";
 

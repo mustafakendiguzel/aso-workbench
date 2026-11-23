@@ -81,7 +81,7 @@ public static class ConnectionGuides
         Link: "https://openrouter.ai/settings/keys")
     {
         Availability = "This version uses the key for the brand, naturalness and fit checks in Find keywords and for the metadata writer "
-                       + "(Metadata tab), and for the local search forms in Try in other countries.",
+                       + "(Metadata tab), the local search forms in Try in other countries and the popularity model's estimates for terms off Apple's list.",
     };
 
     public static ConnectionGuide RevenueCat { get; } = new(

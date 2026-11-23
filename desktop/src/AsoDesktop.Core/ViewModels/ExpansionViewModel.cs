@@ -23,9 +23,11 @@ public sealed record ExpansionLine(ExpansionRow Row)
     public string From => Row.Source is { } s ? $"for “{s}”" + (string.IsNullOrEmpty(Row.Meaning) ? "" : $" · {Row.Meaning}") : "";
     public string Rank => Row.Failed ? "Error" : Row.Rank is { } r ? $"#{r}" : $"> {Row.Observed}";
     public int RankOrder => Row.Rank ?? int.MaxValue;
-    public string Popularity => Row.Popularity is { } p ? p.ToString(CultureInfo.CurrentCulture)
-        : Row.PopularitySource == "belowRange" ? (Row.PopularityBelow is { } b ? $"< {b}" : "< list") : "";
-    public int PopularityOrder => Row.Popularity ?? (Row.PopularitySource == "belowRange" ? 0 : -1);
+    public string Popularity => Row.PopularitySource == "estimate" && (Row.Popularity ?? Row.PopularitySubFloor) is { } estimate
+            ? "~" + estimate.ToString(CultureInfo.CurrentCulture)
+        : Row.Popularity is { } p ? p.ToString(CultureInfo.CurrentCulture)
+        : Row.PopularitySource is "belowRange" or "estimate" ? (Row.PopularityBelow is { } b ? $"< {b}" : "< list") : "";
+    public int PopularityOrder => Row.Popularity ?? (Row.PopularitySource is "belowRange" or "estimate" ? 0 : -1);
     public string Difficulty => Row.Difficulty is { } d ? Math.Round(d).ToString(CultureInfo.CurrentCulture) : "";
     public double DifficultyOrder => Row.Difficulty ?? double.MaxValue;
     public string Opportunity => Row.Opportunity is { } o ? Math.Round(o).ToString(CultureInfo.CurrentCulture) : "";

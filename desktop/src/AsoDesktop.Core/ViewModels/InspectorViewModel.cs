@@ -47,7 +47,18 @@ public sealed partial class InspectorViewModel(AsoClient client, StatusViewModel
     public static string Popularity(KeywordReportRow row)
     {
         if (row.PopularityMonth is not { } month) return "Not read yet: needs the Apple Ads connection (Settings, Connections).";
-        var text = row.Popularity is { } value ? $"{value} of 100" : $"{row.PopularityLabel}: not on Apple's list";
+        var confidence = row.PopularityProbability is { } p ? $" ({p.ToString("P0", CultureInfo.CurrentCulture)} sure)" : "";
+        var below = row.PopularityBelow is { } floor ? $" under {floor}" : "";
+        var text = row switch
+        {
+            { IsEstimate: true, Popularity: { } estimate } =>
+                $"~{estimate} of 100, the model's estimate from public signals{confidence}: not on Apple's list, so capped{below}",
+            { IsEstimate: true, PopularitySubFloor: { } rank } =>
+                $"~{rank}: below Apple's published range{below}; the model ranks its demand {rank} on the 6–29 band among such terms{confidence}",
+            { IsEstimate: true } => $"{row.PopularityLabel}: below Apple's published range by the model{confidence}",
+            { Popularity: { } value } => $"{value} of 100",
+            _ => $"{row.PopularityLabel}: not on Apple's list",
+        };
         text += $" · {KeywordsViewModel.Month(month)}";
         if (row.Opportunity is { } opportunity) text += $" · opportunity {opportunity.ToString("0", CultureInfo.CurrentCulture)}";
         if (row.Golden) text += " · golden";

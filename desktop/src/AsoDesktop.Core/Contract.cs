@@ -63,11 +63,20 @@ public sealed record KeywordReportRow(
     int? PopularityBelow = null,
     string? PopularityGenre = null,
     DateTimeOffset? PopularityMonth = null,
-    AdsTotals? Ads = null)
+    AdsTotals? Ads = null,
+    double? PopularityProbability = null,
+    int? PopularitySubFloor = null)
 {
-    /// <summary>On Apple's list the score; not on it "&lt; N" (below its lowest score N); empty before the first refresh.</summary>
-    public string PopularityLabel => Popularity is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
-        : PopularitySource == "belowRange" ? (PopularityBelow is { } below ? $"< {below}" : "< list") : "";
+    public bool IsEstimate => PopularitySource == "estimate";
+
+    /// <summary>
+    /// On Apple's list the score; the model's estimate "~N" (or "~N" for its 6–29 rank among terms below the range); not on the list
+    /// "&lt; N" (below its lowest score N); empty before the first refresh.
+    /// </summary>
+    public string PopularityLabel =>
+        IsEstimate && (Popularity ?? PopularitySubFloor) is { } estimate ? "~" + estimate.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        : Popularity is { } value ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        : PopularitySource is "belowRange" or "estimate" ? (PopularityBelow is { } below ? $"< {below}" : "< list") : "";
 }
 
 /// <summary>Everything the inspector shows for one keyword (<c>aso keywords show</c>).</summary>
@@ -373,7 +382,9 @@ public sealed record ExpansionRow(
     bool Failed,
     double? Opportunity,
     bool Candidate,
-    bool Tracked);
+    bool Tracked,
+    int? PopularitySubFloor = null,
+    double? PopularityProbability = null);
 
 public sealed record ExpansionReport(IReadOnlyList<ExpansionRow> Rows, IReadOnlyList<string> Countries, int Keywords, int Candidates, int Tracked,
                                      IReadOnlyList<string> LocalizationCost, bool AppleAds, bool LanguageChecked);
