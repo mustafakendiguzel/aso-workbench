@@ -122,6 +122,10 @@ public sealed partial class MainViewModel : ObservableObject
     public DiscoveryViewModel? CreateDiscovery(Competitor? competitor = null) =>
         SelectedApp is { } app && SelectedMarket is { } market ? new DiscoveryViewModel(client, Status, app, market, competitor) : null;
 
+    /// <summary>The dialog that tries the selected market's keywords in other countries; null without a market.</summary>
+    public ExpansionViewModel? CreateExpansion() =>
+        SelectedApp is { } app && SelectedMarket is { } market ? new ExpansionViewModel(client, app, market, Storefronts, DiscoveryAddedAsync) : null;
+
     /// <summary>After the dialog added keywords: the table and the market counts.</summary>
     public async Task DiscoveryAddedAsync()
     {

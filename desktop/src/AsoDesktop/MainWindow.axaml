@@ -367,6 +367,8 @@
             <Button Content="Refresh" Command="{Binding Keywords.RefreshCommand}" />
             <Button Content="Export CSV…" Click="ExportCsv" HotKey="Ctrl+Shift+E" ToolTip.Tip="This market's keywords in the macOS app's CSV format" />
             <Button Content="Find keywords…" Click="ShowDiscovery" ToolTip.Tip="Golden keyword candidates from autocomplete, Apple Ads and Jev; nothing is added until you choose" />
+            <Button Content="Try in other countries…" Click="ShowExpansion"
+                    ToolTip.Tip="This market's keywords, and how locals search for the same need, measured in other storefronts in one pass" />
             <TextBlock Text="Δ against" VerticalAlignment="Center" Margin="8,0,0,0" />
             <ComboBox ItemsSource="{x:Static vm:KeywordsViewModel.DeltaReferences}" SelectedItem="{Binding Keywords.Delta}" />
             <ProgressBar Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0,0,0"

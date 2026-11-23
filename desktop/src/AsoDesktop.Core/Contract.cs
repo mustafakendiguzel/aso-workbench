@@ -354,6 +354,33 @@ public sealed record MetadataReport(
     LegalState Legal,
     KeywordCoverage? Coverage = null);
 
+/// <summary>One keyword (or local search form) tried in another storefront (<c>aso expand</c>).</summary>
+public sealed record ExpansionRow(
+    string Country,
+    string Term,
+    string? Source,
+    string? Meaning,
+    int? Rank,
+    int Observed,
+    int? Popularity,
+    string? PopularitySource,
+    int? PopularityBelow,
+    double? Difficulty,
+    int? TitleMatches,
+    string? Leader,
+    int? LeaderRatings,
+    double? LanguageFit,
+    bool Failed,
+    double? Opportunity,
+    bool Candidate,
+    bool Tracked);
+
+public sealed record ExpansionReport(IReadOnlyList<ExpansionRow> Rows, IReadOnlyList<string> Countries, int Keywords, int Candidates, int Tracked,
+                                     IReadOnlyList<string> LocalizationCost, bool AppleAds, bool LanguageChecked);
+
+/// <summary>Progress of <c>aso expand --json</c> on stderr.</summary>
+public sealed record ExpansionStep(string Country, string Step, int Completed, int Total);
+
 /// <summary>One listing the AI writer proposed, repaired and scored by the engine's rules.</summary>
 public sealed record WrittenProposal(
     string Label,

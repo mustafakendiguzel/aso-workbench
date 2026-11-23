@@ -35,8 +35,8 @@ public static class ConnectionGuides
         LinkTitle: "Open Apple Ads",
         Link: "https://app-ads.apple.com/cm/app")
     {
-        Availability = "This version reads popularity with the key (Keywords tab, and after every measurement) and your campaign results (Overview). Other "
-                       + "countries come to Windows and Linux in later versions; until then they need the macOS app.",
+        Availability = "This version reads popularity with the key (Keywords tab, and after every measurement) and your campaign results (Overview); Try in other countries uses it too. The Apple Ads "
+                       + "website's exact-term index comes to Windows and Linux in a later version; until then it needs the macOS app.",
     };
 
     public static ConnectionGuide AppStoreConnect { get; } = new(
@@ -81,7 +81,7 @@ public static class ConnectionGuides
         Link: "https://openrouter.ai/settings/keys")
     {
         Availability = "This version uses the key for the brand, naturalness and fit checks in Find keywords and for the metadata writer "
-                       + "(Metadata tab). Local-language ideas for other countries come to Windows and Linux in a later version.",
+                       + "(Metadata tab), and for the local search forms in Try in other countries.",
     };
 
     public static ConnectionGuide RevenueCat { get; } = new(

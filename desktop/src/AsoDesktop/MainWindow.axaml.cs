@@ -126,6 +126,11 @@ public sealed partial class MainWindow : Window
 
     private async void ShowDiscovery(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(null);
 
+    private async void ShowExpansion(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.CreateExpansion() is { } expansion) await new ExpansionDialog(expansion).ShowDialog(this);
+    }
+
     private async void ShowImport(object? sender, RoutedEventArgs e) => await ShowDiscoveryAsync(ViewModel?.Competitors.Selected?.App);
 
     private async Task ShowDiscoveryAsync(Core.Competitor? competitor)

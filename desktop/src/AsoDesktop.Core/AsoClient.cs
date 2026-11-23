@@ -109,6 +109,18 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<MetadataBatch> FillEmptyWhatsNewAsync(long appId, CancellationToken ct = default) =>
         RunAsync<MetadataBatch>(["metadata", "fill-whats-new", Id(appId)], ct);
 
+    /// <summary>
+    /// Tries keywords (the source market's first 20 when <paramref name="keywords"/> is empty) in other storefronts, with local search forms
+    /// unless turned off; <paramref name="track"/> stores every measured cell as a tracked keyword.
+    /// </summary>
+    public Task<ExpansionReport> ExpandAsync(long appId, string sourceCountry, string device, IReadOnlyCollection<string> countries,
+                                             IReadOnlyCollection<string> keywords, bool localForms, bool track, IProgress<ExpansionStep>? progress = null,
+                                             CancellationToken ct = default) =>
+        RunAsync<ExpansionReport>(
+            ["expand", Id(appId), "--from", sourceCountry, "--device", device, "--countries", string.Join(',', countries),
+             .. Option("keywords", keywords.Count > 0 ? string.Join(',', keywords) : null), .. Flag("no-local-forms", !localForms), .. Flag("track", track)], ct,
+            line => { if (Parse<ExpansionStep>(line) is { } step) progress?.Report(step); });
+
     // MARK: Updates
 
     /// <summary>The latest release on GitHub; <paramref name="automatic"/> as at start-up (honours the setting and the skipped version).</summary>
