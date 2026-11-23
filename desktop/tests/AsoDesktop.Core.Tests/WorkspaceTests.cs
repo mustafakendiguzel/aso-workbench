@@ -16,6 +16,7 @@ public sealed class MainViewModelTests
             "connections" => FakeCli.Fixture("connections"),
             "storefronts" => FakeCli.Fixture("storefronts"),
             "genres" => FakeCli.Fixture("genres"),
+            "update" => FakeCli.Fixture("update-current"),
             var command => byCommand(command),
         };
         return (new MainViewModel(new AsoClient(cli)), cli);
@@ -38,6 +39,9 @@ public sealed class MainViewModelTests
         await vm.LoadCommand.ExecuteAsync(null);
 
         Assert.Equal("1.0.0", vm.EngineVersion);
+        // The start-up update check runs (aso honours the setting and the skipped version).
+        Assert.Contains(cli.Calls, c => c.SequenceEqual(["--json", "update", "check", "--automatic"]));
+        Assert.False(vm.Updates.HasUpdate);
         Assert.Equal(51, vm.Storefronts.Count);   // every country the engine knows, from the fixture
         Assert.Equal(MainViewModel.AnyGenre, vm.Genres[0]);
         Assert.Equal(361285480, Assert.Single(vm.Apps).TrackId);

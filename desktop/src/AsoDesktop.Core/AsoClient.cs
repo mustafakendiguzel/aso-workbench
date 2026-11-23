@@ -109,6 +109,16 @@ public sealed class AsoClient(IAsoCli cli)
     public Task<MetadataBatch> FillEmptyWhatsNewAsync(long appId, CancellationToken ct = default) =>
         RunAsync<MetadataBatch>(["metadata", "fill-whats-new", Id(appId)], ct);
 
+    // MARK: Updates
+
+    /// <summary>The latest release on GitHub; <paramref name="automatic"/> as at start-up (honours the setting and the skipped version).</summary>
+    public Task<UpdateCheck> CheckForUpdateAsync(bool automatic, CancellationToken ct = default) =>
+        RunAsync<UpdateCheck>(["update", "check", .. Flag("automatic", automatic)], ct);
+
+    /// <summary>Automatic checks stop offering this release.</summary>
+    public async Task SkipVersionAsync(string version, CancellationToken ct = default) =>
+        await RunAsync<JsonElement>(["update", "skip", version], ct).ConfigureAwait(false);
+
     // MARK: Writer (OpenRouter; every call costs a little on the user's account)
 
     /// Three proposals for the locale; nothing is saved (the chosen one is saved as the draft with <see cref="SaveDraftAsync"/>).

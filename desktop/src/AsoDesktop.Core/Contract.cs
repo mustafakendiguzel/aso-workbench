@@ -429,7 +429,16 @@ public sealed record EngineSettings(
     bool AutoMeasureOnLaunch,
     int StaleHours,
     string WriterModel,
-    [property: JsonPropertyName("adsReferenceAppID")] string AdsReferenceAppId);
+    [property: JsonPropertyName("adsReferenceAppID")] string AdsReferenceAppId,
+    bool CheckForUpdates = true,
+    string SkippedVersion = "");
+
+/// <summary>A release on GitHub: its notes are the version's CHANGELOG section, the download is this platform's package.</summary>
+public sealed record ReleaseInfo(string Version, string Title, string Notes, [property: JsonPropertyName("pageURL")] string PageUrl,
+                                 [property: JsonPropertyName("downloadURL")] string? DownloadUrl, DateTimeOffset? PublishedAt);
+
+/// <summary><c>aso update check</c>: the running version and the latest release, when it is one to offer.</summary>
+public sealed record UpdateCheck(string Current, string? Latest, bool Available, bool Skipped, ReleaseInfo? Release);
 
 /// <summary>A service's stored keys without the secrets (<c>aso connections --json</c>).</summary>
 public sealed record ConnectionStatus(string Service, string Title, bool Configured, IReadOnlyDictionary<string, string> Details);

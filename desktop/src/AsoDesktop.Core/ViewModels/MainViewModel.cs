@@ -28,6 +28,7 @@ public sealed partial class MainViewModel : ObservableObject
         Competitors = new CompetitorsViewModel(client, Status);
         Changes = new ChangesViewModel(client, Status);
         Revenue = new RevenueViewModel(client, Status);
+        Updates = new UpdatesViewModel(client, Status);
         Ads = new AdsViewModel(client, Status) { Synced = () => Keywords.Market is null ? Task.CompletedTask : Keywords.RefreshCommand.ExecuteAsync(null) };
         Keywords.MarketsChanged = KeywordsChangedAsync;
         Ratings.Checked = () => Status.QuietlyAsync(Changes.ReloadAsync);
@@ -64,6 +65,7 @@ public sealed partial class MainViewModel : ObservableObject
     public ChangesViewModel Changes { get; }
     public AdsViewModel Ads { get; }
     public RevenueViewModel Revenue { get; }
+    public UpdatesViewModel Updates { get; }
 
     public ObservableCollection<AppRecord> Apps { get; } = [];
     public ObservableCollection<MarketSummary> Markets { get; } = [];
@@ -110,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
         // Revenue is read once per launch, as the macOS app does.
         if (Revenue.RevenueConnected) await Revenue.RefreshCommand.ExecuteAsync(null).ConfigureAwait(true);
         if (Settings.Current?.AutoMeasureOnLaunch == true) await MeasureStaleCommand.ExecuteAsync(null).ConfigureAwait(true);
+        if (Settings.Current?.CheckForUpdates != false) await Updates.CheckAutomaticallyAsync().ConfigureAwait(true);
     }
 
     /// <summary>A fresh Add App dialog; the view shows it and hands the result to <see cref="AppAddedAsync"/>.</summary>

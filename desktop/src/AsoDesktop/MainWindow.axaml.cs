@@ -141,6 +141,11 @@ public sealed partial class MainWindow : Window
             await Launcher.LaunchUriAsync(uri);
     }
 
+    private async void ShowUpdate(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Updates is { HasUpdate: true } updates) await new UpdateDialog(updates).ShowDialog(this);
+    }
+
     private async void OpenDataFolder(object? sender, RoutedEventArgs e)
     {
         if (ViewModel?.DataDirectory is { } folder && Directory.Exists(folder))

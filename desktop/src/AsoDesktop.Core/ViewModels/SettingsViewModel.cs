@@ -42,6 +42,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] public partial int StaleHours { get; set; } = 20;
     [ObservableProperty] public partial string WriterModel { get; set; } = "deepseek/deepseek-v4-pro";
     [ObservableProperty] public partial string AdsReferenceAppId { get; set; } = "";
+    [ObservableProperty] public partial bool CheckForUpdates { get; set; } = true;
 
     /// <summary>The settings as last loaded or saved, for the window's start-up refresh.</summary>
     public EngineSettings? Current => saved;
@@ -103,6 +104,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (StaleHours != saved.StaleHours) yield return ("staleHours", StaleHours.ToString(invariant));
         if (WriterModel != saved.WriterModel) yield return ("writerModel", WriterModel.Trim());
         if (AdsReferenceAppId != saved.AdsReferenceAppId) yield return ("adsReferenceAppID", AdsReferenceAppId.Trim());
+        if (CheckForUpdates != saved.CheckForUpdates) yield return ("checkForUpdates", CheckForUpdates ? "true" : "false");
     }
 
     private void Show(EngineSettings settings)
@@ -119,6 +121,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         StaleHours = settings.StaleHours;
         WriterModel = settings.WriterModel;
         AdsReferenceAppId = settings.AdsReferenceAppId;
+        CheckForUpdates = settings.CheckForUpdates;
         OnPropertyChanged(nameof(Current));
     }
 }

@@ -123,6 +123,8 @@
       <DockPanel>
         <TextBlock DockPanel.Dock="Top" Classes="heading" Text="Apps" />
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,12,0,0">
+          <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Classes="accent" IsVisible="{Binding Updates.HasUpdate}"
+                  Content="{Binding Updates.Banner}" Click="ShowUpdate" ToolTip.Tip="What's new, the release page and the download" />
           <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4" ToolTip.Tip="Keys stored for these services (Settings → Connections)">
             <StackPanel Orientation="Horizontal" Spacing="5">
               <Ellipse Classes="dot" Classes.on="{Binding Settings.AppleAds.IsConfigured}" />
@@ -999,6 +1001,8 @@
                 <TextBlock Classes="hint" Text="App Store Optimization with honest numbers. This window drives the aso engine; the numbers come from it." />
                 <TextBlock Classes="label" Text="Engine" />
                 <TextBlock Text="{Binding EngineVersion, StringFormat='aso {0}', FallbackValue='—'}" />
+                <Button Margin="0,6,0,0" Content="Check for updates" Command="{Binding Updates.CheckNowCommand}"
+                        ToolTip.Tip="Asks GitHub for the latest release; nothing about you or your data is sent" />
                 <TextBlock Classes="label" Text="Data" />
                 <SelectableTextBlock TextWrapping="Wrap" Text="{Binding DataDirectory, FallbackValue='—'}" />
                 <TextBlock Classes="hint"
@@ -1061,6 +1065,7 @@
                                  FormatString="0" Value="{Binding Settings.StaleHours}" />
                 </DockPanel>
                 <TextBlock Classes="hint" Text="There is no background service: while the computer sleeps or the app is closed, days stay unmeasured and show as gaps." />
+                <CheckBox Margin="0,8,0,0" Content="Look for a newer release on GitHub when the app opens" IsChecked="{Binding Settings.CheckForUpdates}" />
 
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
                   <Button Classes="accent" Content="Save" Command="{Binding Settings.SaveCommand}" />
