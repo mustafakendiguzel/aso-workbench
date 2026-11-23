@@ -21,7 +21,7 @@ final class UpdateChecker {
     private(set) var available: Release?
     private(set) var lastResult: Result?
     private(set) var isChecking = false
-    private let http = HTTPClient(serviceName: "GitHub releases", allowedHosts: ["api.github.com"])
+    private let releases = GitHubReleases()
     private let defaults = UserDefaults.standard
 
     var automatic: Bool {
@@ -51,29 +51,14 @@ final class UpdateChecker {
         defer { isChecking = false }
         let result: Result
         do {
-            let url = URL(string: "https://api.github.com/repos/\(AppInfo.repository)/releases/latest")!
-            let response = try await http.send(HTTPClient.request(url, headers: ["Accept": "application/vnd.github+json", "User-Agent": "ASO-Workbench/\(AppInfo.version)"], timeout: 20))
-            if response.status == 404 {
-                result = .upToDate(AppInfo.version)   // no release published yet
+            // No release published yet counts as up to date.
+            if let latest = try await releases.latest(repository: AppInfo.repository, currentVersion: AppInfo.version, platform: .macOS),
+               ReleaseCheck.shouldOffer(latest, current: AppInfo.version, skipped: nil, userInitiated: true) {
+                result = .available(Release(version: latest.version, title: latest.title, notes: latest.notes,
+                                            pageURL: URL(string: latest.pageURL) ?? AppInfo.repositoryURL.appendingPathComponent("releases"),
+                                            downloadURL: latest.downloadURL.flatMap(URL.init(string:)), publishedAt: latest.publishedAt))
             } else {
-                try http.check(response)
-                guard let json = try JSONSerialization.jsonObject(with: response.data) as? [String: Any], let tag = json["tag_name"] as? String,
-                      let latest = SemanticVersion(tag), let current = SemanticVersion(AppInfo.version) else {
-                    throw ASOError.decoding(service: "GitHub", detail: "Unexpected release format.")
-                }
-                if latest > current {
-                    let assets = json["assets"] as? [[String: Any]] ?? []
-                    // The disk image is the normal download; the zip is the fallback.
-                    let asset = assets.first { ($0["name"] as? String ?? "").hasSuffix(".dmg") } ?? assets.first { ($0["name"] as? String ?? "").hasSuffix(".zip") }
-                    let zip = asset?["browser_download_url"] as? String
-                    let iso = ISO8601DateFormatter()
-                    let release = Release(version: latest.description, title: json["name"] as? String ?? tag, notes: json["body"] as? String ?? "",
-                                          pageURL: URL(string: json["html_url"] as? String ?? "") ?? AppInfo.repositoryURL.appendingPathComponent("releases"),
-                                          downloadURL: zip.flatMap(URL.init(string:)), publishedAt: (json["published_at"] as? String).flatMap(iso.date(from:)))
-                    result = .available(release)
-                } else {
-                    result = .upToDate(AppInfo.version)
-                }
+                result = .upToDate(AppInfo.version)
             }
             defaults.set(Date.now, forKey: "updates.lastChecked")
         } catch {
@@ -92,7 +77,7 @@ final class UpdateChecker {
 
     /// Opens GitHub in the browser; only github.com URLs are ever opened.
     func open(_ url: URL) {
-        guard url.scheme == "https", let host = url.host, host == "github.com" || host.hasSuffix(".github.com") || host.hasSuffix("githubusercontent.com") else { return }
+        guard ReleaseCheck.isGitHub(url.absoluteString) else { return }
         NSWorkspace.shared.open(url)
     }
 }

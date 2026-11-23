@@ -105,6 +105,7 @@ Keywords that start with `-` go after `--`: `aso keywords add 361285480 --countr
 | `autoMeasureOnLaunch`, `staleHours` | false, 20 (6–72) | front ends at start-up; `measure --stale` |
 | `writerModel` | `deepseek/deepseek-v4-pro` | the metadata writer |
 | `adsReferenceAppID` | empty | the Apple Ads website session |
+| `checkForUpdates`, `skippedVersion` | true, empty | front ends at start-up (`update check --automatic`) |
 
 `aso measure --stale [--stale-hours N]` measures every market, across all apps, whose newest measurement is older than `staleHours` (or that was never measured).
 
@@ -121,7 +122,7 @@ aso connections verify apple-ads
 aso connections remove openrouter
 ```
 
-Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700, file 0600 where the system has POSIX permissions), and each goes only to its own service. The Apple Ads keys power `aso popularity`, `aso ads` and the popularity in `aso discover`, the OpenRouter key its brand and fit checks, and the RevenueCat keys `aso revenue`; publishing and the writer come to the command line in later versions.
+Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700, file 0600 where the system has POSIX permissions), and each goes only to its own service. The Apple Ads keys power `aso popularity`, `aso ads` and the popularity in `aso discover`, the App Store Connect key `aso metadata pull`, `plan` and `apply`, the OpenRouter key the brand and fit checks in `aso discover` and the metadata writer, and the RevenueCat keys `aso revenue`.
 
 ## Data
 
@@ -135,8 +136,12 @@ The data file is `engine.sqlite` in the data folder:
 
 `ASO_DATA_DIR` or `--data-dir PATH` choose another folder. The file is plain SQLite: back it up by copying it while `aso` is not running, start over by deleting it. On macOS it sits next to the app's `store.sqlite` but never shares its format; the app does not read it.
 
-The schema is versioned (`PRAGMA user_version`) and migrated forward automatically. A data file written by a newer version is refused rather than rewritten.
+The schema is versioned (`PRAGMA user_version`) and migrated forward automatically; before a data file written by an older version is migrated, a copy goes to `Backups/` in the data folder (the newest five are kept). A data file written by a newer version is refused rather than rewritten.
+
+## Updates
+
+`aso update check` asks GitHub for the latest release of ASO Workbench (one unauthenticated request; nothing about you or your data is sent) and shows it when it is newer than the running version, with its notes (the version's CHANGELOG section), the release page and the package for this platform. `--automatic` is the check a front end makes at start-up: nothing when `checkForUpdates` is false, and a release skipped with `aso update skip <version>` is not offered again (a check you run yourself still shows it). Nothing is downloaded or installed.
 
 ## Not yet in the command line
 
-Publishing (App Store Connect) and the AI writer (OpenRouter) need keys and arrive in later steps. Of the macOS app's popularity layers, the command line has Apple's lists and the "< N" bound; the Apple Ads website's exact-term index and the model estimate for terms below the range come later. Without the Apple Ads keys `popularity` is left out, no keyword is marked golden, because golden needs a popularity value, and every keyword in `aso impact` is worth 0, so its totals stay at 0 while the rank moves are still listed. Metadata applied from the macOS app is not on the command line's timeline.
+Of the macOS app's popularity layers, the command line has Apple's lists and the "< N" bound; the Apple Ads website's exact-term index and the model estimate for terms below the range come later. Without the Apple Ads keys `popularity` is left out, no keyword is marked golden, because golden needs a popularity value, and every keyword in `aso impact` is worth 0, so its totals stay at 0 while the rank moves are still listed. Metadata applied from the macOS app is not on the command line's timeline.

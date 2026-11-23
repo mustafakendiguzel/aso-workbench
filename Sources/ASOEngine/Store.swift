@@ -221,10 +221,30 @@ public actor Store {
         """,
     ]
 
-    /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date.
+    /// Opens or creates the data file at `url`, creating its folder, and brings the schema up to date. Before a data file
+    /// written by an older version is migrated, a copy goes to `Backups/` beside it (the newest five are kept).
     public init(url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try self.init(path: url.path)
+        let db = try Database(path: url.path)
+        let current = try db.userVersion
+        if current > 0, current < Self.migrations.count {
+            try Self.backUp(db, schema: current, next: url.deletingLastPathComponent().appendingPathComponent("Backups", isDirectory: true))
+        }
+        try Self.migrate(db)
+        self.db = db
+    }
+
+    /// Writes a consistent copy of the open data file into `folder` and keeps the newest `keep` copies.
+    static func backUp(_ db: Database, schema: Int, next folder: URL, now: Date = Date(), keep: Int = 5) throws {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let stamp = ISO8601DateFormatter().string(from: now).replacingOccurrences(of: ":", with: "-")
+        // The time first, so the names sort oldest to newest.
+        let copy = folder.appendingPathComponent("engine \(stamp) schema-\(schema).sqlite")
+        try db.execute("VACUUM INTO '\(copy.path.replacingOccurrences(of: "'", with: "''"))'")
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        let backups = files.filter { $0.lastPathComponent.hasPrefix("engine ") && $0.pathExtension == "sqlite" }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        for old in backups.dropFirst(keep) { try? FileManager.default.removeItem(at: old) }
     }
 
     /// A private database that lives as long as the store (tests, dry runs).

@@ -21,13 +21,16 @@ public struct CommandRunner: Sendable {
     let errors: @Sendable (String) -> Void
     /// Standard input, read whole; keys arrive here (`--key-stdin`), never as arguments, which other users can see.
     let input: @Sendable () -> String
+    /// Where `update check` looks for releases.
+    let releases: any ReleaseSource
 
     public init(environment: [String: String], output: @escaping @Sendable (String) -> Void, errors: @escaping @Sendable (String) -> Void,
-                input: @escaping @Sendable () -> String = { "" }, makeEngine: @escaping EngineFactory) {
+                input: @escaping @Sendable () -> String = { "" }, releases: any ReleaseSource = GitHubReleases(), makeEngine: @escaping EngineFactory) {
         self.environment = environment
         self.output = output
         self.errors = errors
         self.input = input
+        self.releases = releases
         self.makeEngine = makeEngine
     }
 
@@ -598,6 +601,31 @@ public struct CommandRunner: Sendable {
             let directory = dataDirectory(args)
             try EngineSettings().save(to: directory)
             write(args, EngineSettings()) { _ in "Settings are back to their defaults." }
+        case ("update", "check"):
+            try args.allow(["automatic"])
+            let settings = try settings(args)
+            let automatic = args.flag("automatic")
+            guard !automatic || settings.checkForUpdates else {
+                write(args, Engine.UpdateCheck(current: EngineEnvironment.version, latest: nil, available: false, skipped: false, release: nil)) { _ in
+                    "Automatic update checks are off (settings set checkForUpdates true turns them on)."
+                }
+                return
+            }
+            let check = try await Engine.checkForUpdate(source: releases, repository: environment["ASO_REPOSITORY"].flatMap { $0.isEmpty ? nil : $0 } ?? AppInfo.repository,
+                                                        skipped: settings.skippedVersion, userInitiated: !automatic)
+            write(args, check) { Self.updateText($0) }
+        case ("update", "skip"):
+            try args.allow([])
+            let directory = dataDirectory(args)
+            var settings = try EngineSettings.load(from: directory)
+            let version = try args.positional(2, "version")
+            do {
+                try settings.set("skippedVersion", to: version)
+            } catch let error as EngineError {
+                throw UsageError(error.localizedDescription)
+            }
+            try settings.save(to: directory)
+            write(args, settings) { s in "Version \(s.skippedVersion) will not be offered by automatic checks." }
         case ("connections", nil), ("connections", "status"):
             try args.allow([])
             write(args, try Connections.status(credentials(args))) { Self.connectionsTable($0) }
@@ -1120,6 +1148,17 @@ public struct CommandRunner: Sendable {
         return lines.joined(separator: "\n")
     }
 
+    static func updateText(_ check: Engine.UpdateCheck) -> String {
+        guard let release = check.release else {
+            return check.latest == nil ? "No release is published yet; aso \(check.current) is current." : "aso \(check.current) is up to date."
+        }
+        if check.skipped { return "Version \(release.version) is available, but you chose to skip it. Run aso update check to see it." }
+        var lines = ["Version \(release.version) is available (you have \(check.current)): \(release.title)", "Release page: \(release.pageURL)"]
+        if let download = release.downloadURL { lines.append("Download: \(download)") }
+        if !release.notes.isEmpty { lines += ["", release.notes] }
+        return lines.joined(separator: "\n")
+    }
+
     static func proposalText(_ p: Engine.WrittenProposal) -> String {
         var lines = ["\(p.label) · rules \(p.score)/100 · \(p.charactersUsed)/160 indexed characters · covers \(p.covered.count) of \(p.covered.count + p.missed.count)"]
         lines.append("  Title:    \(p.fields.name)")
@@ -1355,6 +1394,10 @@ public struct CommandRunner: Sendable {
           connections set openrouter (--key-file PATH | --key-stdin)
           connections set revenuecat (--keys-file PATH | --keys-stdin)    one key per line
           connections verify <service>  ·  connections remove <service>
+
+        Updates
+          update check [--automatic]                      The latest release on GitHub (--automatic: as at start-up)
+          update skip <version>                           Do not offer this release in automatic checks
 
         Options
           --json            Machine-readable output on stdout

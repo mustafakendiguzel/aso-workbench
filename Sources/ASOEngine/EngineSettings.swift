@@ -23,6 +23,10 @@ public struct EngineSettings: Sendable, Equatable, Codable {
     public var writerModel = "deepseek/deepseek-v4-pro"
     /// App ID of any app in the user's Apple Ads account, used by the website session.
     public var adsReferenceAppID = ""
+    /// Look for a newer release on GitHub when a front end starts.
+    public var checkForUpdates = true
+    /// A release the user chose to skip; automatic checks do not offer it again.
+    public var skippedVersion = ""
 
     public init() {}
 
@@ -58,6 +62,11 @@ public struct EngineSettings: Sendable, Equatable, Codable {
             let id = v.trimmingCharacters(in: .whitespaces)
             return assign(&s.adsReferenceAppID, id, where: { $0.isEmpty || Int($0) != nil })
         },
+        .init(name: "checkForUpdates", accepted: "true or false") { s, v in assign(&s.checkForUpdates, Bool(v.lowercased()), where: { _ in true }) },
+        .init(name: "skippedVersion", accepted: "a version such as 1.2.0, or empty") { s, v in
+            let version = v.trimmingCharacters(in: .whitespaces)
+            return assign(&s.skippedVersion, version, where: { $0.isEmpty || SemanticVersion($0) != nil })
+        },
     ]
 
     /// Applies text to the named setting. Throws when the name is unknown or the value is outside its range.
@@ -79,7 +88,7 @@ public struct EngineSettings: Sendable, Equatable, Codable {
     // Tolerant decoding: a missing or unreadable value keeps its default, so older and newer files both load.
     private enum CodingKeys: String, CodingKey {
         case resultDepth, pacingSeconds, goldenMinPopularity, goldenMaxDifficulty, writerEasyDifficulty, writerMaxDifficulty,
-             deltaReference, autoMeasureOnLaunch, staleHours, writerModel, adsReferenceAppID
+             deltaReference, autoMeasureOnLaunch, staleHours, writerModel, adsReferenceAppID, checkForUpdates, skippedVersion
     }
 
     public init(from decoder: Decoder) throws {
@@ -97,6 +106,8 @@ public struct EngineSettings: Sendable, Equatable, Codable {
         staleHours = value(.staleHours, d.staleHours)
         writerModel = value(.writerModel, d.writerModel)
         adsReferenceAppID = value(.adsReferenceAppID, d.adsReferenceAppID)
+        checkForUpdates = value(.checkForUpdates, d.checkForUpdates)
+        skippedVersion = value(.skippedVersion, d.skippedVersion)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -112,6 +123,8 @@ public struct EngineSettings: Sendable, Equatable, Codable {
         try c.encode(staleHours, forKey: .staleHours)
         try c.encode(writerModel, forKey: .writerModel)
         try c.encode(adsReferenceAppID, forKey: .adsReferenceAppID)
+        try c.encode(checkForUpdates, forKey: .checkForUpdates)
+        try c.encode(skippedVersion, forKey: .skippedVersion)
     }
 
     // MARK: File
