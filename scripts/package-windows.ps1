@@ -49,6 +49,10 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 Copy-Item $exe $stage
 foreach ($name in $shipped) { Copy-Item (Join-Path $runtime $name) $stage }
 Copy-Item LICENSE $stage
+# The popularity models, which aso reads from models\ next to it (no CoreML needed).
+$models = New-Item -ItemType Directory -Force (Join-Path $stage 'models')
+foreach ($name in 'popularity-regressor.mlmodel', 'popularity-published.mlmodel') { Copy-Item (Join-Path 'Resources\models' $name) $models }
+Copy-Item 'Resources\models\report.json' (Join-Path $models 'popularity-report.json')
 
 # Prove the folder is self-contained: run it with nothing but Windows on PATH.
 $savedPath = $env:Path
@@ -56,6 +60,9 @@ try {
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
     $reported = & (Join-Path $stage 'aso.exe') --version
     if ($LASTEXITCODE -ne 0 -or $reported -ne "aso $version") { throw "Packaged aso.exe failed to run (exit $LASTEXITCODE): $reported" }
+    # It finds the popularity models next to itself.
+    $info = (& (Join-Path $stage 'aso.exe') --version --json) -join "`n" | ConvertFrom-Json
+    if (-not $info.models -or (Split-Path -Leaf $info.models) -ne 'models') { throw "Packaged aso.exe does not find its models: $($info.models)" }
 } finally {
     $env:Path = $savedPath
 }
@@ -86,6 +93,8 @@ if ($Window) {
         if (Test-Path (Join-Path $app $file.Name)) { throw "$($file.Name) is shipped by both the window and aso" }
         Copy-Item $file.FullName $app
     }
+    if (Test-Path (Join-Path $app 'models')) { throw 'models is shipped by both the window and aso' }
+    Copy-Item (Join-Path $stage 'models') $app -Recurse
     if (-not (Test-Path (Join-Path $app 'ASOWorkbench.exe'))) { throw 'The published window has no ASOWorkbench.exe' }
     Write-Zip $app 'aso-workbench-windows-x86_64'
 }
