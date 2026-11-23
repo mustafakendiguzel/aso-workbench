@@ -47,7 +47,11 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 install -m 755 "$ASO" "$STAGE/aso"
 cp LICENSE "$STAGE/"
-archive aso-linux-x86_64 "$STAGE" aso LICENSE
+# The popularity models, which aso reads from models/ next to it (no CoreML needed).
+mkdir -p "$STAGE/models"
+cp Resources/models/popularity-regressor.mlmodel Resources/models/popularity-published.mlmodel "$STAGE/models/"
+cp Resources/models/report.json "$STAGE/models/popularity-report.json"
+archive aso-linux-x86_64 "$STAGE" aso LICENSE models
 echo "  $REPORTED"
 
 if [ "$WINDOW" = true ]; then
@@ -57,11 +61,12 @@ if [ "$WINDOW" = true ]; then
     DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 dotnet publish desktop/src/AsoDesktop/AsoDesktop.csproj \
         --configuration Release --runtime linux-x64 --self-contained true -p:DebugType=none --output "$APP"
     # aso goes next to the window; a name both sides ship would make one overwrite the other.
-    for file in aso LICENSE; do
+    for file in aso LICENSE models; do
         [ ! -e "$APP/$file" ] || { echo "$file is shipped by both the window and aso" >&2; exit 1; }
     done
     install -m 755 "$STAGE/aso" "$APP/aso"
     cp LICENSE "$APP/"
+    cp -R "$STAGE/models" "$APP/models"
     [ -f "$APP/ASOWorkbench" ] || { echo "The published window has no ASOWorkbench executable" >&2; exit 1; }
     chmod 755 "$APP/ASOWorkbench"
     # One folder in the archive, so unpacking it does not spill files.

@@ -78,10 +78,13 @@ jobs:
       - name: Package the window
         run: |
           tar -xzf engine/aso-linux-x86_64.tar.gz -C engine
+          # The packaged aso finds the popularity models next to itself.
+          engine/aso --version --json | grep -q '"models" : ".*engine/models"' || { echo "aso does not find its models"; exit 1; }
           scripts/package-linux.sh --aso engine/aso --window
-          # Both executables keep their executable bit in the archive.
+          # Both executables keep their executable bit in the archive, and the models travel with them.
           listing="$(tar -tvzf dist/aso-workbench-linux-x86_64.tar.gz)"
           for file in ASOWorkbench aso; do grep -Eq "^-rwx.* aso-workbench-linux-x86_64/$file$" <<< "$listing" || { echo "$file is not executable"; exit 1; }; done
+          grep -q "aso-workbench-linux-x86_64/models/popularity-regressor.mlmodel$" <<< "$listing" || { echo "The models are missing"; exit 1; }
 
       - name: Upload the window
         uses: actions/upload-artifact@v4
