@@ -105,7 +105,7 @@ Keywords that start with `-` go after `--`: `aso keywords add 361285480 --countr
 | `deltaReference` | `lastMarker` (`previous`, `first`, `week`) | Δ in `keywords list`, unless `--delta` says otherwise |
 | `autoMeasureOnLaunch`, `staleHours` | false, 20 (6–72) | front ends at start-up; `measure --stale` |
 | `writerModel` | `deepseek/deepseek-v4-pro` | the metadata writer |
-| `adsReferenceAppID` | empty | the Apple Ads website session |
+| `adsReferenceAppID` | empty | the macOS app's Apple Ads website session (stored here so both share the setting) |
 | `checkForUpdates`, `skippedVersion` | true, empty | front ends at start-up (`update check --automatic`) |
 
 `aso measure --stale [--stale-hours N]` measures every market, across all apps, whose newest measurement is older than `staleHours` (or that was never measured).
@@ -145,4 +145,4 @@ The schema is versioned (`PRAGMA user_version`) and migrated forward automatical
 
 ## Not yet in the command line
 
-Of the macOS app's popularity layers, the command line has Apple's lists, the "< N" bound and the model estimate; the Apple Ads website's exact-term index comes later. The models are read from `ASO_MODELS_DIR`, else the data folder's `models/` (where the macOS app keeps models trained in its Lab), else `models/` next to `aso` or `share/aso-workbench/models` beside its folder, else `Resources/models` in a checkout; they are the macOS app's CoreML files, evaluated without CoreML. They know the storefronts DE, FR, GB, TR and US and Jev's genres, and give no estimate elsewhere, as in the app. Without the Apple Ads keys `popularity` is left out, no keyword is marked golden, because golden needs a popularity value, and every keyword in `aso impact` is worth 0, so its totals stay at 0 while the rank moves are still listed. Metadata applied from the macOS app is not on the command line's timeline.
+Of the macOS app's popularity layers, the command line has Apple's lists, the "< N" bound and the model estimate; the Apple Ads website's exact-term index stays in the macOS app, which signs in to the Apple Ads website in an embedded browser to read it (an undocumented endpoint behind Apple's session); here a term off the list gets the model estimate instead. The models are read from `ASO_MODELS_DIR`, else the data folder's `models/` (where the macOS app keeps models trained in its Lab), else `models/` next to `aso` or `share/aso-workbench/models` beside its folder, else `Resources/models` in a checkout; they are the macOS app's CoreML files, evaluated without CoreML. They know the storefronts DE, FR, GB, TR and US and Jev's genres, and give no estimate elsewhere, as in the app. Without the Apple Ads keys `popularity` is left out, no keyword is marked golden, because golden needs a popularity value, and every keyword in `aso impact` is worth 0, so its totals stay at 0 while the rank moves are still listed. Metadata applied from the macOS app is not on the command line's timeline.

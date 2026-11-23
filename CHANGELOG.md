@@ -51,6 +51,7 @@ The in-app updater shows the section of the new version as its release notes.
 - Rank history (Δ and before/after), keyword verdicts (brand, golden, lead) and idea gaps moved from the app's data model into `ASOCore`, with tests, so every platform computes them the same way. Nothing changes in the app.
 
 ### Docs
+- The Apple Ads website's exact-term index is documented as macOS-only: the app signs in to the Apple Ads website in an embedded browser to read it, which the command line and the Windows and Linux window do not have; there, terms off Apple's list get the model estimate.
 - README in English, Turkish, Simplified Chinese, Japanese, Korean, Spanish and German.
 - Demo video in the README.
 - The popularity section explains how the estimate model was trained, including the Jev clues.

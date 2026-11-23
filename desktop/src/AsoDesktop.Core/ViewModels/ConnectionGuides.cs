@@ -36,7 +36,7 @@ public static class ConnectionGuides
         Link: "https://app-ads.apple.com/cm/app")
     {
         Availability = "This version reads popularity with the key (Keywords tab, and after every measurement) and your campaign results (Overview); Try in other countries uses it too. The Apple Ads "
-                       + "website's exact-term index comes to Windows and Linux in a later version; until then it needs the macOS app.",
+                       + "website's exact-term index stays in the macOS app, which signs in to the website in an embedded browser.",
     };
 
     public static ConnectionGuide AppStoreConnect { get; } = new(
