@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AsoDesktop.Core/AsoDesktop.Core.csproj" />
+    <Project Path="src/AsoDesktop/AsoDesktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AsoDesktop.Core.Tests/AsoDesktop.Core.Tests.csproj" />
+  </Folder>
+</Solution>

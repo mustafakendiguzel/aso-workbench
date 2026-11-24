@@ -1,0 +1,16 @@
+[
+  {
+    "date" : "2026-10-24T09:23:19Z",
+    "id" : 2,
+    "kind" : "note",
+    "title" : "Keywords updated"
+  },
+  {
+    "country" : "US",
+    "date" : "2026-10-23T03:50:39Z",
+    "id" : 1,
+    "kind" : "release",
+    "title" : "v15.4.2",
+    "version" : "15.4.2"
+  }
+]

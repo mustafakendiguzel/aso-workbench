@@ -1,0 +1,14 @@
+[
+  {
+    "country" : "TR",
+    "countryName" : "Türkiye",
+    "device" : "iphone",
+    "keywords" : 0
+  },
+  {
+    "country" : "US",
+    "countryName" : "United States",
+    "device" : "iphone",
+    "keywords" : 1
+  }
+]

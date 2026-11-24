@@ -77,8 +77,22 @@ public actor LLMClient {
 
     /// Extracts the first JSON object from a completion (models sometimes wrap JSON in prose or code fences).
     public static func extractJSONObject(_ text: String) -> [String: Any]? {
-        guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}") , start < end else { return nil }
-        let slice = String(text[start...end])
-        return (try? JSONSerialization.jsonObject(with: Data(slice.utf8))) as? [String: Any]
+        TextCompletion.jsonObject(in: text)
+    }
+}
+
+/// The writer's model through OpenRouter: one client, one model.
+public struct OpenRouterTextModel: TextModel {
+    let client: LLMClient
+    let model: String
+
+    public init(client: LLMClient, model: String) {
+        self.client = client
+        self.model = model
+    }
+
+    public func complete(system: String, user: String, temperature: Double, maxTokens: Int) async throws -> TextCompletion {
+        let (text, usage) = try await client.complete(model: model, system: system, user: user, temperature: temperature, maxTokens: maxTokens)
+        return TextCompletion(text: text, cost: usage.map { u in u.cost.map { String(format: "$%.4f", $0) } ?? "\(u.inputTokens)+\(u.outputTokens) tokens" })
     }
 }
