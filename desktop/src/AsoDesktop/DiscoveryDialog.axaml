@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.DiscoveryDialog"
+        x:DataType="vm:DiscoveryViewModel"
+        Title="{Binding Title}"
+        Width="1080" Height="720" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Title}" />
+      <TextBlock Opacity="0.65" FontSize="12" TextWrapping="Wrap" Text="{Binding Explanation}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Width="360" PlaceholderText="Seeds, comma separated (empty: your best keywords)" Text="{Binding Seeds}"
+                 IsVisible="{Binding Competitor, Converter={x:Static ObjectConverters.IsNull}}" />
+        <TextBlock VerticalAlignment="Center" Text="Measure difficulty for the top" />
+        <NumericUpDown Width="120" Minimum="0" Maximum="60" Increment="5" FormatString="0" Value="{Binding DifficultyLimit}"
+                       ToolTip.Tip="A fresh App Store search each, about 3 seconds" />
+        <Button Classes="accent" Content="Find" Command="{Binding FindCommand}" IsDefault="True" />
+        <Button Content="Stop" Command="{Binding FindCancelCommand}" IsVisible="{Binding FindCommand.IsRunning}" />
+        <TextBlock VerticalAlignment="Center" Opacity="0.65" Text="{Binding StepText}" />
+      </StackPanel>
+      <TextBlock Opacity="0.65" FontSize="12" TextWrapping="Wrap" Text="{Binding Summary}" />
+      <TextBlock Opacity="0.65" FontSize="12" TextWrapping="Wrap" Text="{Binding Missing}" />
+    </StackPanel>
+
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Opacity="0.65" FontSize="12"
+                 Text="golden: popular, easy enough, no other brand and it fits this app · lead: the numbers pass but it does not fit this app" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="Select golden" Click="SelectGolden" />
+        <Button Content="Close" IsCancel="True" Click="Cancel" />
+        <Button Classes="accent" Content="{Binding Market.Title, StringFormat='Add selected to {0}'}" Command="{Binding AddSelectedCommand}" />
+      </StackPanel>
+    </DockPanel>
+
+    <DataGrid x:Name="CandidatesGrid" Margin="0,12,0,0" ItemsSource="{Binding Rows}" SelectionMode="Extended" SelectionChanged="CandidateSelectionChanged"
+              AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="" Binding="{Binding Mark}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Keyword" Binding="{Binding Keyword}" Width="2*" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Popularity" Binding="{Binding Popularity}" SortMemberPath="PopularityOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Difficulty" Binding="{Binding Difficulty}" SortMemberPath="DifficultyOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Opportunity" Binding="{Binding Opportunity}" SortMemberPath="OpportunityOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Fit" Binding="{Binding Fit}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Brand" Binding="{Binding Brand}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="Sources" Binding="{Binding Sources}" Width="*" />
+        <DataGridTextColumn x:DataType="vm:DiscoveryLine" Header="" Binding="{Binding Tracked}" Width="Auto" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>
