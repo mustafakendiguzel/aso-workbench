@@ -4,7 +4,7 @@ import ASOCore
 /// TypeSafe Jev through OpenRouter's Decisions API. Jev answers typed questions with calibrated
 /// probabilities; it never generates text. We ask narrow semantic questions about a keyword and
 /// keep every number in code (Jev's documented weakness is arithmetic).
-public actor JevClient {
+public actor JevClient: KeywordJudge {
     public static let model = "typesafe/jev-1.13"
     private let http = HTTPClient(serviceName: "OpenRouter", allowedHosts: ["openrouter.ai"])
     private var apiKey: String?
