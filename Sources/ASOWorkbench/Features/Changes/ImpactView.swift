@@ -30,24 +30,8 @@ struct ImpactView: View {
         let value: Double
         var delta: Int { (before ?? depth + 1) - (after ?? depth + 1) }
         /// Value gained (positive) or lost with this movement, on the visibility curve.
-        var gain: Double { (Row.visibility(after) - Row.visibility(before)) * value / 100 }
-        var tier: String { value >= 40 ? "High" : value >= 15 ? "Medium" : value > 0 ? "Low" : "None" }
-
-        /// Share of searchers who see a result at this position (rough App Store curve).
-        static func visibility(_ rank: Int?) -> Double {
-            guard let r = rank, r >= 1 else { return 0 }
-            switch r {
-            case 1: return 100
-            case 2: return 90
-            case 3: return 80
-            case 4...5: return 65
-            case 6...10: return 50
-            case 11...20: return 25
-            case 21...50: return 8
-            case 51...100: return 2
-            default: return 0.5
-            }
-        }
+        var gain: Double { KeywordImpact.gain(before: before, after: after, value: value) }
+        var tier: String { KeywordImpact.tier(value).rawValue }
     }
 
     private var rows: [Row] {
@@ -58,10 +42,8 @@ struct ImpactView: View {
                 let p = k.latestPopularity
                 let apple = p?.popularity1to100
                 let pop = ((apple ?? 0) < ModelTrainer.publishedThreshold ? (p?.subFloorEstimate ?? apple) : apple)
-                let d = k.difficultyScore?.score ?? 50
                 let fit = k.fitProbability
-                let fitFactor: Double = k.isBrandLike ? 0 : (fit.map { $0 >= 0.5 ? 1 : 0 } ?? 0.8)
-                let value = Double(pop ?? 0) * (1 - pow(d / 100, 2)) * fitFactor
+                let value = KeywordImpact.value(popularity: pop, difficulty: k.difficultyScore?.score, isBrandLike: k.isBrandLike, fit: fit)
                 out.append(Row(id: "\(market.countryCode)|\(k.normalized)", market: market.title, keyword: k.text, before: pair.before.position, beforeDate: pair.before.fetchedAt,
                                after: pair.after.position, afterDate: pair.after.fetchedAt, depth: max(pair.before.observedCount, pair.after.observedCount),
                                popularity: pop, difficulty: k.difficultyScore?.rounded, fit: fit, value: value))
@@ -87,7 +69,10 @@ struct ImpactView: View {
             case .all: list = all.sorted { abs($0.gain) > abs($1.gain) }
             }
             if !market.isEmpty { list = list.filter { $0.market == market } }
-            if minTier > 0 { list = list.filter { $0.value >= (minTier == 3 ? 40 : minTier == 2 ? 15 : 0.01) } }
+            if minTier > 0 {
+                let threshold = (minTier == 3 ? KeywordImpact.Tier.high : minTier == 2 ? .medium : .low).threshold
+                list = list.filter { $0.value >= threshold }
+            }
             if !search.isEmpty { list = list.filter { $0.keyword.localizedCaseInsensitiveContains(search) } }
             return list
         }()
