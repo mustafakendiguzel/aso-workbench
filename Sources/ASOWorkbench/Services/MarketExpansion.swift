@@ -33,10 +33,10 @@ final class MarketExpansion {
         var languageFit: Double?
         var failed = false
 
-        var opportunity: Double? { guard let p = popularity, let d = difficulty else { return nil }; return Double(p) * (1 - pow(d / 100, 2)) }
+        var opportunity: Double? { KeywordExpansion.opportunity(popularity: popularity, difficulty: difficulty) }
         var opportunitySort: Double { opportunity ?? -1 }
         /// Worth a market: Apple-level demand and either an existing foothold or beatable results.
-        var isCandidate: Bool { (popularity ?? 0) >= 30 && ((rank ?? 999) <= 30 || (difficulty ?? 100) <= 45) && (languageFit ?? 1) >= 0.4 }
+        var isCandidate: Bool { KeywordExpansion.isCandidate(popularity: popularity, rank: rank, difficulty: difficulty, languageFit: languageFit) }
     }
 
     struct Progress: Equatable { var step = ""; var completed = 0; var total = 0; var isRunning = false }
@@ -70,31 +70,11 @@ final class MarketExpansion {
     /// dictionary translation: with the app's description as context so the meaning survives. One call per storefront.
     func localForms(of terms: [String], app: TrackedApp, storefront sf: Storefront) async -> [LocalForm] {
         guard await llm.isConfigured else { return [] }
-        let language = sf.defaultLocale.displayName
-        let system = """
-        You are an App Store search localization specialist. For each source keyword, give how people in the target country actually type that need into App Store search, in the store language: 1 to 3 short phrases, lower-case, no punctuation, at most 4 words, real search phrasing (what a person types, not marketing copy). Preserve the meaning of the source keyword, same need, same intent. If locals commonly search this need with the English words, say so by returning the English phrase as one candidate. Never invent brand names.
-        Output strict JSON only: {"terms":[{"source":"…","candidates":[{"term":"…","meaning":"short gloss in English"}]}]}
-        """
-        let user = """
-        App: \(app.name). What it does: \(String((app.storeDescription ?? "").prefix(900)))
-        Target: \(sf.name) (\(sf.countryCode)) App Store, store language \(language).
-        Source keywords (English or the app's home market): \(terms.joined(separator: ", "))
-        """
         do {
-            let (text, usage) = try await llm.complete(system: system, user: user, temperature: 0.3, maxTokens: 2500)
-            if let u = usage { lastLocalizationCost = u.cost.map { String(format: "$%.4f", $0) } ?? "\(u.inputTokens)+\(u.outputTokens) tokens" }
-            guard let json = LLMClient.extractJSONObject(text), let items = json["terms"] as? [[String: Any]] else { return [] }
-            var out: [LocalForm] = []
-            var seen = Set(terms.map { TrackedKeyword.normalize($0) })
-            for item in items {
-                guard let source = item["source"] as? String, let cands = item["candidates"] as? [[String: Any]] else { continue }
-                for c in cands.prefix(3) {
-                    guard let t = c["term"] as? String else { continue }
-                    let clean = t.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard clean.count >= 2, seen.insert(TrackedKeyword.normalize(clean)).inserted else { continue }
-                    out.append(LocalForm(term: clean, source: source, meaning: c["meaning"] as? String ?? ""))
-                }
-            }
+            let (forms, cost) = try await KeywordExpansion.localForms(of: terms, appName: app.name, description: app.storeDescription ?? "", storefront: sf,
+                                                                      model: OpenRouterTextModel(client: llm, model: LLMClient.configuredModel))
+            if let cost { lastLocalizationCost = cost }
+            let out = forms.map { LocalForm(term: $0.term, source: $0.source, meaning: $0.meaning) }
             AppLog.write("[expand] local forms for \(sf.countryCode): \(out.count) from \(terms.count) terms (\(lastLocalizationCost ?? "?"))")
             return out
         } catch {

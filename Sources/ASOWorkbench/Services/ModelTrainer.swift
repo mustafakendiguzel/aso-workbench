@@ -280,16 +280,10 @@ final class PopularityEstimator {
     /// 6–29 for a term Apple leaves at the floor: which of 24 probability slots it falls in among floor terms.
     /// An ordering aid, not a popularity value, nil when the report carries no quantiles.
     func subFloorEstimate(publishedProbability p: Double) -> Int? {
-        guard floorQuantiles.count == 23 else { return nil }
-        return 6 + floorQuantiles.filter { $0 < p }.count
+        PopularityEstimate.subFloor(publishedProbability: p, quantiles: floorQuantiles)
     }
 
-    static func publishedProbability(of e: Estimate) -> Double {
-        switch e {
-        case .published(_, let p): return p
-        case .below(let p): return 1 - p
-        }
-    }
+    static func publishedProbability(of e: Estimate) -> Double { e.publishedProbability }
 
     init?() {
         if FileManager.default.fileExists(atPath: ModelTrainer.regressorURL.path), FileManager.default.fileExists(atPath: ModelTrainer.classifierURL.path),
@@ -314,15 +308,10 @@ final class PopularityEstimator {
     }
 
     /// Either a value in Apple's published range or "below it", each with the classifier's probability.
-    enum Estimate {
-        case published(value: Int, probability: Double)
-        case below(probability: Double)
-    }
+    typealias Estimate = PopularityEstimate
 
     func estimate(features: PublicFeatures, jev: JevFeatures?, storefront: String) -> Estimate? {
-        // Autocomplete answered (not failed) with nothing for the term, its first word and its prefix: Apple surfaces
-        // suggestions for any word people actually type, so this is below the published range without a model.
-        if features.ownHintCount == 0, features.firstWordHintCount == 0, features.prefixHintCount == 0 { return .below(probability: 0.95) }
+        if PopularityEstimate.hasNoHints(features) { return .below(probability: 0.95) }
         var dict: [String: Any] = [:]
         let numeric = FeatureColumns.numeric(features, jev: jev)
         for (i, name) in FeatureColumns.numericNames.enumerated() { dict[name] = numeric[i] }
@@ -332,9 +321,8 @@ final class PopularityEstimator {
               let c = try? classifier.prediction(from: provider) else { return nil }
         var pYes = 0.5
         if let probs = c.featureValue(for: "publishedProbability")?.dictionaryValue, let v = probs["yes"]?.doubleValue { pYes = v }
-        // Values are shown only when the classifier is fairly sure; floor terms were the main false positives in evaluation.
-        if pYes < 0.65 { return .below(probability: 1 - pYes) }
-        guard let r = try? regressor.prediction(from: provider), let value = r.featureValue(for: "label")?.doubleValue else { return nil }
-        return .published(value: Int(min(100, max(Double(ModelTrainer.publishedThreshold), value)).rounded()), probability: pYes)
+        return PopularityEstimate.decide(publishedProbability: pYes) {
+            (try? regressor.prediction(from: provider))?.featureValue(for: "label")?.doubleValue
+        }
     }
 }

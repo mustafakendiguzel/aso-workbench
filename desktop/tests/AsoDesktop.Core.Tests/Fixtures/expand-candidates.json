@@ -1,0 +1,97 @@
+{
+  "appleAds" : true,
+  "candidates" : 5,
+  "countries" : [
+    "GB",
+    "DE"
+  ],
+  "keywords" : 2,
+  "languageChecked" : false,
+  "localizationCost" : [
+    "DE $0.0020"
+  ],
+  "rows" : [
+    {
+      "candidate" : true,
+      "country" : "GB",
+      "difficulty" : 27.4,
+      "failed" : false,
+      "leader" : "Day One Journal",
+      "leaderRatings" : 900000,
+      "observed" : 2,
+      "opportunity" : 64.74468,
+      "popularity" : 70,
+      "popularitySource" : "list",
+      "rank" : 2,
+      "term" : "journal",
+      "titleMatches" : 1,
+      "tracked" : true
+    },
+    {
+      "candidate" : true,
+      "country" : "DE",
+      "difficulty" : 27.4,
+      "failed" : false,
+      "leader" : "Day One Journal",
+      "leaderRatings" : 900000,
+      "observed" : 2,
+      "opportunity" : 64.74468,
+      "popularity" : 70,
+      "popularitySource" : "list",
+      "rank" : 2,
+      "term" : "journal",
+      "titleMatches" : 1,
+      "tracked" : true
+    },
+    {
+      "candidate" : true,
+      "country" : "GB",
+      "difficulty" : 18.5,
+      "failed" : false,
+      "leader" : "Acme Notes",
+      "leaderRatings" : 100,
+      "observed" : 1,
+      "opportunity" : 57.9465,
+      "popularity" : 60,
+      "popularitySource" : "list",
+      "rank" : 1,
+      "term" : "notes",
+      "titleMatches" : 1,
+      "tracked" : true
+    },
+    {
+      "candidate" : true,
+      "country" : "DE",
+      "difficulty" : 18.5,
+      "failed" : false,
+      "leader" : "Acme Notes",
+      "leaderRatings" : 100,
+      "observed" : 1,
+      "opportunity" : 57.9465,
+      "popularity" : 60,
+      "popularitySource" : "list",
+      "rank" : 1,
+      "term" : "notes",
+      "titleMatches" : 1,
+      "tracked" : true
+    },
+    {
+      "candidate" : true,
+      "country" : "DE",
+      "difficulty" : 5.1,
+      "failed" : false,
+      "leader" : "Zettel",
+      "leaderRatings" : 12,
+      "meaning" : "notes",
+      "observed" : 1,
+      "opportunity" : 39.89596,
+      "popularity" : 40,
+      "popularitySource" : "list",
+      "source" : "notes",
+      "term" : "notizen",
+      "titleMatches" : 0,
+      "tracked" : true
+    }
+  ],
+  "tracked" : 5
+}

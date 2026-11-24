@@ -1,0 +1,86 @@
+{
+  "cost" : "$0.0020",
+  "locale" : "en-US",
+  "market" : "US",
+  "proposals" : [
+    {
+      "charactersUsed" : 104,
+      "covered" : [
+        "notes",
+        "daily journal"
+      ],
+      "fields" : {
+        "description" : "Acme Notes keeps your days.\n• Write notes",
+        "keywords" : "ideas,thoughts,writing,record,mood,gratitude,habit,tracker",
+        "name" : "Acme Notes: Daily Journal",
+        "promotionalText" : "Capture every thought.",
+        "subtitle" : "Diary, memos, planner",
+        "whatsNew" : ""
+      },
+      "findings" : [
+        {
+          "kind" : "warning",
+          "message" : "Only 104 of the 160 indexed characters are used; every unused character is a lost ranking chance.",
+          "rule" : "Budget"
+        },
+        {
+          "kind" : "warning",
+          "message" : "Keyword field has 42 unused characters.",
+          "rule" : "Keywords"
+        }
+      ],
+      "issues" : [
+
+      ],
+      "label" : "A",
+      "missed" : [
+
+      ],
+      "rationale" : "Volume first.",
+      "repairs" : [
+        "Dropped from keywords (already in title/subtitle or filler): daily, journal, notes."
+      ],
+      "score" : 90
+    },
+    {
+      "charactersUsed" : 22,
+      "covered" : [
+        "notes",
+        "daily journal"
+      ],
+      "fields" : {
+        "description" : "Acme Notes keeps your days.\n• Write notes",
+        "keywords" : "daily",
+        "name" : "Acme Notes",
+        "promotionalText" : "",
+        "subtitle" : "Journal",
+        "whatsNew" : ""
+      },
+      "findings" : [
+        {
+          "kind" : "warning",
+          "message" : "Only 22 of the 160 indexed characters are used; every unused character is a lost ranking chance.",
+          "rule" : "Budget"
+        },
+        {
+          "kind" : "warning",
+          "message" : "Keyword field has 95 unused characters.",
+          "rule" : "Keywords"
+        }
+      ],
+      "issues" : [
+
+      ],
+      "label" : "B",
+      "missed" : [
+
+      ],
+      "rationale" : "Short.",
+      "repairs" : [
+        "Dropped from keywords (already in title/subtitle or filler): journal, notes."
+      ],
+      "score" : 90
+    }
+  ],
+  "saved" : false
+}

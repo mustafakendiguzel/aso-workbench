@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.ExpansionDialog"
+        x:DataType="vm:ExpansionViewModel"
+        Title="{Binding Title}"
+        Width="1120" Height="760" MinWidth="780" MinHeight="500"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Title}" />
+      <TextBlock Classes="hint"
+                 Text="Each keyword is searched in every chosen storefront (rank and difficulty), looked up in Apple's country list (popularity) and checked for the store language. Where the store speaks another language, the model first proposes how locals search for the same need; the measurements decide." />
+      <TextBox Text="{Binding Keywords}" PlaceholderText="Keywords to try, comma separated (empty: the first 20 of this market)" />
+      <ItemsControl ItemsSource="{Binding Countries}" MaxHeight="120">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ExpansionCountry">
+            <CheckBox Margin="0,0,12,0" MinWidth="150" Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <CheckBox Content="Local search forms (AI)" IsChecked="{Binding LocalForms}"
+                  ToolTip.Tip="One OpenRouter request per storefront that speaks another language" />
+        <CheckBox Content="Track every measured keyword in its storefront" IsChecked="{Binding Track}"
+                  ToolTip.Tip="The market is created when missing; rank, results and popularity are stored, so nothing is measured twice" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Try" Command="{Binding RunCommand}" IsDefault="True" />
+        <Button Content="Stop" Command="{Binding RunCancelCommand}" IsVisible="{Binding RunCommand.IsRunning}" />
+        <TextBlock VerticalAlignment="Center" Classes="hint" Text="{Binding Estimate}" IsVisible="{Binding !RunCommand.IsRunning}" />
+        <TextBlock VerticalAlignment="Center" Classes="hint" Text="{Binding StepText}" />
+      </StackPanel>
+      <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding Summary}" />
+      <TextBlock Classes="hint" Text="{Binding Missing}" />
+    </StackPanel>
+
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <CheckBox DockPanel.Dock="Left" Content="Candidates only" IsChecked="{Binding CandidatesOnly}" />
+      <Button HorizontalAlignment="Right" Content="Close" IsCancel="True" Click="CloseDialog" />
+    </DockPanel>
+
+    <DataGrid Margin="0,12,0,0" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True"
+              GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="" Binding="{Binding Mark}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Country" Binding="{Binding Country}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Keyword" Binding="{Binding Keyword}" Width="2*" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Local form of" Binding="{Binding From}" Width="2*" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Rank" Binding="{Binding Rank}" SortMemberPath="RankOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Popularity" Binding="{Binding Popularity}" SortMemberPath="PopularityOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Difficulty" Binding="{Binding Difficulty}" SortMemberPath="DifficultyOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Opportunity" Binding="{Binding Opportunity}" SortMemberPath="OpportunityOrder" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Language" Binding="{Binding Language}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="Leader" Binding="{Binding Leader}" Width="2*" />
+        <DataGridTextColumn x:DataType="vm:ExpansionLine" Header="" Binding="{Binding Tracked}" Width="Auto" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>

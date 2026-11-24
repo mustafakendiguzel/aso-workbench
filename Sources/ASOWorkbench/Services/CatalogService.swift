@@ -117,7 +117,8 @@ final class CatalogService {
     private func record(ratingsOf info: SearchResultApp, app: TrackedApp, storefront sf: Storefront, context: ModelContext, newRatings: inout Int) {
         guard let count = info.ratingCount else { return }
         let previous = app.ratings.filter { $0.countryCode == sf.countryCode }.max { $0.fetchedAt < $1.fetchedAt }
-        if let previous, previous.count == count, abs((previous.average ?? 0) - (info.averageRating ?? 0)) < 0.005, previous.fetchedAt > Date.now.addingTimeInterval(-3600) { return }
+        let reading = previous.map { RatingReading(countryCode: $0.countryCode, count: $0.count, average: $0.average, fetchedAt: $0.fetchedAt) }
+        guard RatingTrend.shouldRecord(count: count, average: info.averageRating, previous: reading, now: .now) else { return }
         let o = RatingObservation(countryCode: sf.countryCode, count: count, average: info.averageRating)
         o.app = app
         context.insert(o)

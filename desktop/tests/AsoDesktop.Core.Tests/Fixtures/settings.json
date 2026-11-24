@@ -1,0 +1,13 @@
+{
+  "adsReferenceAppID" : "",
+  "autoMeasureOnLaunch" : false,
+  "deltaReference" : "lastMarker",
+  "goldenMaxDifficulty" : 45,
+  "goldenMinPopularity" : 30,
+  "pacingSeconds" : 2.5,
+  "resultDepth" : 200,
+  "staleHours" : 20,
+  "writerEasyDifficulty" : 35,
+  "writerMaxDifficulty" : 55,
+  "writerModel" : "deepseek/deepseek-v4-pro"
+}
