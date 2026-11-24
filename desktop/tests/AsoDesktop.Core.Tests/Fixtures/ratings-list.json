@@ -1,0 +1,19 @@
+[
+  {
+    "average" : 4.39708,
+    "checkedAt" : "2026-10-24T07:42:20Z",
+    "count" : 83879,
+    "country" : "US",
+    "countryName" : "United States",
+    "delta" : 12,
+    "lastNewAt" : "2026-10-24T07:42:20Z",
+    "previousAt" : "2026-10-23T07:40:02Z"
+  },
+  {
+    "average" : 4.44608,
+    "checkedAt" : "2026-10-24T07:42:28Z",
+    "count" : 17638,
+    "country" : "GB",
+    "countryName" : "United Kingdom"
+  }
+]

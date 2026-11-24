@@ -1,0 +1,17 @@
+[
+  {
+    "field" : "name",
+    "message" : "Name is 31 characters / 31 bytes; the limit is 30.",
+    "severity" : 2
+  },
+  {
+    "field" : "keywords",
+    "message" : "\"notes\" appears more than once in Keywords.",
+    "severity" : 1
+  },
+  {
+    "field" : "keywords",
+    "message" : "Spaces next to commas count against the 100-character budget. Use \"a,b\" instead of \"a, b\".",
+    "severity" : 0
+  }
+]

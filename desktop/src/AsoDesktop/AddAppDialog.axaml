@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        xmlns:core="using:AsoDesktop.Core"
+        x:Class="AsoDesktop.AddAppDialog"
+        x:DataType="vm:AddAppViewModel"
+        Title="Add app"
+        Width="760" Height="620" MinWidth="640" MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="Add app" />
+      <TextBlock Opacity="0.65" FontSize="12" TextWrapping="Wrap"
+                 Text="Search by app name, or paste an App Store link or app ID. A link's own country wins over the store chosen here." />
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Margin="8,0,0,0" Classes="accent" Content="Search" Command="{Binding SearchCommand}" IsDefault="True" />
+        <ComboBox DockPanel.Dock="Right" Width="220" Margin="8,0,0,0" ItemsSource="{Binding Storefronts}" SelectedItem="{Binding SearchCountry}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="core:StorefrontInfo">
+              <TextBlock Text="{Binding Title}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox PlaceholderText="App name, App Store link or ID" Text="{Binding Query}" />
+      </DockPanel>
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button Content="Cancel" IsCancel="True" Click="Cancel" />
+      <Button Classes="accent" Content="Add app" Command="{Binding AddCommand}" />
+    </StackPanel>
+
+    <Grid ColumnDefinitions="3*,2*" Margin="0,12,0,0">
+      <ListBox ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedResult}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="core:SearchResultApp">
+            <StackPanel>
+              <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Opacity="0.65" FontSize="12">
+                <Run Text="{Binding SellerName}" />
+                <Run Text=" · " />
+                <Run Text="{Binding PrimaryGenre}" />
+                <Run Text=" · " />
+                <Run Text="{Binding RatingCount, StringFormat='{}{0} ratings', TargetNullValue='no ratings'}" />
+                <Run Text=" · ID " />
+                <Run Text="{Binding TrackId}" />
+              </TextBlock>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <DockPanel Grid.Column="1" Margin="12,0,0,0">
+        <StackPanel DockPanel.Dock="Top" Spacing="4">
+          <TextBlock FontWeight="SemiBold" Text="Device" />
+          <ComboBox ItemsSource="{x:Static vm:AddAppViewModel.Devices}" SelectedItem="{Binding Device}" />
+          <TextBlock FontWeight="SemiBold" Text="Markets to track" Margin="0,8,0,0" />
+        </StackPanel>
+        <ScrollViewer>
+          <ItemsControl ItemsSource="{Binding Countries}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SelectableStorefront">
+                <CheckBox Content="{Binding Title}" IsChecked="{Binding IsSelected}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>
