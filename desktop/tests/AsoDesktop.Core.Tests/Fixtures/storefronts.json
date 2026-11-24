@@ -1,0 +1,257 @@
+[
+  {
+    "code" : "AR",
+    "language" : "es-MX",
+    "name" : "Argentina"
+  },
+  {
+    "code" : "AU",
+    "language" : "en-AU",
+    "name" : "Australia"
+  },
+  {
+    "code" : "AT",
+    "language" : "de-DE",
+    "name" : "Austria"
+  },
+  {
+    "code" : "BE",
+    "language" : "nl-NL",
+    "name" : "Belgium"
+  },
+  {
+    "code" : "BR",
+    "language" : "pt-BR",
+    "name" : "Brazil"
+  },
+  {
+    "code" : "CA",
+    "language" : "en-CA",
+    "name" : "Canada"
+  },
+  {
+    "code" : "CL",
+    "language" : "es-MX",
+    "name" : "Chile"
+  },
+  {
+    "code" : "CN",
+    "language" : "zh-Hans",
+    "name" : "China mainland"
+  },
+  {
+    "code" : "CO",
+    "language" : "es-MX",
+    "name" : "Colombia"
+  },
+  {
+    "code" : "CZ",
+    "language" : "cs",
+    "name" : "Czechia"
+  },
+  {
+    "code" : "DK",
+    "language" : "da",
+    "name" : "Denmark"
+  },
+  {
+    "code" : "EG",
+    "language" : "ar-SA",
+    "name" : "Egypt"
+  },
+  {
+    "code" : "FI",
+    "language" : "fi",
+    "name" : "Finland"
+  },
+  {
+    "code" : "FR",
+    "language" : "fr-FR",
+    "name" : "France"
+  },
+  {
+    "code" : "DE",
+    "language" : "de-DE",
+    "name" : "Germany"
+  },
+  {
+    "code" : "GR",
+    "language" : "el",
+    "name" : "Greece"
+  },
+  {
+    "code" : "HK",
+    "language" : "zh-Hant",
+    "name" : "Hong Kong"
+  },
+  {
+    "code" : "HU",
+    "language" : "hu",
+    "name" : "Hungary"
+  },
+  {
+    "code" : "IN",
+    "language" : "en-GB",
+    "name" : "India"
+  },
+  {
+    "code" : "ID",
+    "language" : "id",
+    "name" : "Indonesia"
+  },
+  {
+    "code" : "IE",
+    "language" : "en-GB",
+    "name" : "Ireland"
+  },
+  {
+    "code" : "IL",
+    "language" : "he",
+    "name" : "Israel"
+  },
+  {
+    "code" : "IT",
+    "language" : "it",
+    "name" : "Italy"
+  },
+  {
+    "code" : "JP",
+    "language" : "ja",
+    "name" : "Japan"
+  },
+  {
+    "code" : "MY",
+    "language" : "ms",
+    "name" : "Malaysia"
+  },
+  {
+    "code" : "MX",
+    "language" : "es-MX",
+    "name" : "Mexico"
+  },
+  {
+    "code" : "NL",
+    "language" : "nl-NL",
+    "name" : "Netherlands"
+  },
+  {
+    "code" : "NZ",
+    "language" : "en-AU",
+    "name" : "New Zealand"
+  },
+  {
+    "code" : "NO",
+    "language" : "no",
+    "name" : "Norway"
+  },
+  {
+    "code" : "PE",
+    "language" : "es-MX",
+    "name" : "Peru"
+  },
+  {
+    "code" : "PH",
+    "language" : "en-US",
+    "name" : "Philippines"
+  },
+  {
+    "code" : "PL",
+    "language" : "pl",
+    "name" : "Poland"
+  },
+  {
+    "code" : "PT",
+    "language" : "pt-PT",
+    "name" : "Portugal"
+  },
+  {
+    "code" : "RO",
+    "language" : "ro",
+    "name" : "Romania"
+  },
+  {
+    "code" : "RU",
+    "language" : "ru",
+    "name" : "Russia"
+  },
+  {
+    "code" : "SA",
+    "language" : "ar-SA",
+    "name" : "Saudi Arabia"
+  },
+  {
+    "code" : "SG",
+    "language" : "en-GB",
+    "name" : "Singapore"
+  },
+  {
+    "code" : "SK",
+    "language" : "sk",
+    "name" : "Slovakia"
+  },
+  {
+    "code" : "ZA",
+    "language" : "en-GB",
+    "name" : "South Africa"
+  },
+  {
+    "code" : "KR",
+    "language" : "ko",
+    "name" : "South Korea"
+  },
+  {
+    "code" : "ES",
+    "language" : "es-ES",
+    "name" : "Spain"
+  },
+  {
+    "code" : "SE",
+    "language" : "sv",
+    "name" : "Sweden"
+  },
+  {
+    "code" : "CH",
+    "language" : "de-DE",
+    "name" : "Switzerland"
+  },
+  {
+    "code" : "TW",
+    "language" : "zh-Hant",
+    "name" : "Taiwan"
+  },
+  {
+    "code" : "TH",
+    "language" : "th",
+    "name" : "Thailand"
+  },
+  {
+    "code" : "TR",
+    "language" : "tr",
+    "name" : "Türkiye"
+  },
+  {
+    "code" : "UA",
+    "language" : "uk",
+    "name" : "Ukraine"
+  },
+  {
+    "code" : "AE",
+    "language" : "ar-SA",
+    "name" : "United Arab Emirates"
+  },
+  {
+    "code" : "GB",
+    "language" : "en-GB",
+    "name" : "United Kingdom"
+  },
+  {
+    "code" : "US",
+    "language" : "en-US",
+    "name" : "United States"
+  },
+  {
+    "code" : "VN",
+    "language" : "vi",
+    "name" : "Vietnam"
+  }
+]

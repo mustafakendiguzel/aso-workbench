@@ -1,0 +1,84 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.WriteDialog"
+        x:DataType="vm:WriteViewModel"
+        Title="{Binding Title}"
+        Width="900" Height="720" MinWidth="640" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+    <Style Selector="TextBlock.mixed">
+      <Setter Property="Foreground" Value="#CA8A04" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Title}" />
+      <TextBlock Classes="hint"
+                 Text="Three proposals from this market's keyword plan and evidence, the store description and your other locales. The model only drafts: every proposal is repaired and scored by the rules. One request costs a little on your OpenRouter account." />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <RadioButton GroupName="Strategy" Content="Feature words first" IsChecked="{Binding !BrandFirst}" />
+        <RadioButton GroupName="Strategy" Content="Brand first (demand comes from the brand)" IsChecked="{Binding BrandFirst}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock VerticalAlignment="Center" Text="Brand" />
+        <TextBox Width="220" Text="{Binding Brand}" />
+        <CheckBox Content="Rewrite promotional text and description too" IsChecked="{Binding RewriteCopy}" />
+      </StackPanel>
+      <TextBox PlaceholderText="Notes for the writer (tone, features to stress, words to avoid)" Text="{Binding Notes}" AcceptsReturn="True"
+               TextWrapping="Wrap" MinHeight="50" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Generate 3 proposals" Command="{Binding GenerateCommand}" IsEnabled="{Binding !IsBusy}" />
+        <ProgressBar Width="160" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+        <TextBlock VerticalAlignment="Center" Classes="hint" Text="{Binding Outcome}" />
+      </StackPanel>
+      <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Close" IsCancel="True" Click="CloseDialog" />
+    </StackPanel>
+
+    <ScrollViewer Margin="0,12,0,0">
+      <ItemsControl ItemsSource="{Binding Proposals}" Margin="0,0,18,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ProposalCard">
+            <Border BorderThickness="1" BorderBrush="#33808080" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+              <StackPanel Spacing="4">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Use this" Command="{Binding $parent[ItemsControl].((vm:WriteViewModel)DataContext).UseCommand}"
+                          CommandParameter="{Binding}" ToolTip.Tip="Saves it as this locale's draft" />
+                  <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Header}" />
+                </DockPanel>
+                <TextBlock Classes="hint" Text="{Binding Coverage}" />
+                <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Title, StringFormat='Title: {0}'}" />
+                <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Subtitle, StringFormat='Subtitle: {0}'}" />
+                <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Keywords, StringFormat='Keywords: {0}'}" />
+                <SelectableTextBlock TextWrapping="Wrap" Text="{Binding PromotionalText, StringFormat='Promotional text: {0}'}"
+                                     IsVisible="{Binding HasPromotionalText}" />
+                <TextBlock Classes="hint" Text="{Binding Rationale}" />
+                <TextBlock Classes="hint" Text="{Binding Repairs}" />
+                <ItemsControl ItemsSource="{Binding Findings}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MetadataNote">
+                      <TextBlock FontSize="12" TextWrapping="Wrap" Classes.bad="{Binding IsError}" Classes.mixed="{Binding IsWarning}"
+                                 Text="{Binding Text, StringFormat='• {0}'}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

@@ -164,7 +164,7 @@ final class MetadataService {
         if !autoNotes.isEmpty { saveDraft(draft, for: app, locale: locale, context: context) }
         let issues = MetadataValidator.validate(draft)
         if MetadataValidator.hasErrors(issues) {
-            return .refused("The draft has validation errors. Fix them before applying.")
+            return .refused(MetadataPublishing.hasErrors)
         }
         var screenshotNote = ""
         do {
@@ -174,9 +174,9 @@ final class MetadataService {
             let live = try await provider.snapshots(ascAppID: ascID)
             var current: MetadataSnapshot
             if let c = live.first(where: { $0.locale == locale }) {
-                if let stored, c.contentHash != stored.contentHash {
+                if MetadataPublishing.changedSincePull(baseline: stored?.fields, live: c.fields) {
                     replaceSnapshot(app: app, with: c, context: context)
-                    return .refused("The listing changed on App Store Connect since the baseline was pulled. The baseline was refreshed; review the diff again.")
+                    return .refused(MetadataPublishing.changedRemotely)
                 }
                 current = c
             } else {
@@ -190,21 +190,19 @@ final class MetadataService {
                     let report = try await provider.copyScreenshots(fromLocalization: source, toLocalization: target) { [weak self] step in
                         Task { @MainActor in self?.batchProgress = "\(locale.rawValue) · screenshots \(step)" }
                     }
-                    screenshotNote = " Screenshots: \(report.copied) copied in \(report.sets) set(s)\(report.skipped > 0 ? ", \(report.skipped) already present" : "")\(report.errors.isEmpty ? "" : ", \(report.errors.count) failed (\(report.errors.first ?? ""))")."
+                    screenshotNote = MetadataPublishing.screenshotNote(sets: report.sets, copied: report.copied, skipped: report.skipped, errors: report.errors)
                 }
                 replaceSnapshot(app: app, with: current, context: context)
             }
             let baseline = current
             let changes = MetadataDiff.changes(baseline: baseline.fields, draft: draft)
-            guard !changes.isEmpty else { return .refused("Nothing to apply: the draft equals what App Store Connect holds.\(screenshotNote)") }
-            let payload = Dictionary(uniqueKeysWithValues: changes.map { ($0.field, $0.after) })
-            let updated = try await provider.apply(ascAppID: ascID, snapshot: current, changes: payload)
+            guard !changes.isEmpty else { return .refused(MetadataPublishing.nothingToApply(screenshotNote)) }
+            let updated = try await provider.apply(ascAppID: ascID, snapshot: current, changes: MetadataPublishing.payload(changes))
             replaceSnapshot(app: app, with: updated, context: context)
 
-            let unexpected = MetadataDiff.changes(baseline: draft, draft: updated.fields)
-            let status = unexpected.isEmpty ? "applied" : "partial"
-            let note = unexpected.isEmpty ? "Re-read matches the draft." : "Re-read differs from the draft for: \(unexpected.map(\.field.title).joined(separator: ", "))."
-            let entry = ChangeLogEntry(locale: locale, status: status, changes: changes, note: note, baselineHash: baseline.contentHash, resultHash: updated.contentHash)
+            let outcome = MetadataPublishing.outcome(draft: draft, reread: updated.fields)
+            let note = outcome.note
+            let entry = ChangeLogEntry(locale: locale, status: outcome.status, changes: changes, note: note, baselineHash: baseline.contentHash, resultHash: updated.contentHash)
             entry.app = app
             context.insert(entry)
             try? context.save()
