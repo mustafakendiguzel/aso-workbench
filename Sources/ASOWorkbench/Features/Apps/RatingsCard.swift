@@ -21,18 +21,11 @@ struct RatingsCard: View {
     }
 
     private var rows: [Row] {
-        let byCountry = Dictionary(grouping: app.ratings, by: \.countryCode)
-        return byCountry.compactMap { country, obs -> Row? in
-            let sorted = obs.sorted { $0.fetchedAt < $1.fetchedAt }
-            guard let latest = sorted.last else { return nil }
-            let previous = sorted.dropLast().last
-            // The most recent check whose count rose over the check before it: when a new rating was last seen.
-            var lastNew: Date?
-            for (a, b) in zip(sorted, sorted.dropFirst()) where b.count > a.count { lastNew = b.fetchedAt }
-            return Row(id: country, country: country, name: StorefrontRegistry.lookup(country)?.name ?? country, count: latest.count, average: latest.average,
-                       delta: previous.map { latest.count - $0.count }, since: previous?.fetchedAt, checkedAt: latest.fetchedAt, lastNewAt: lastNew)
+        let readings = app.ratings.map { RatingReading(countryCode: $0.countryCode, count: $0.count, average: $0.average, fetchedAt: $0.fetchedAt) }
+        return RatingTrend.trends(readings).map { t in
+            Row(id: t.countryCode, country: t.countryCode, name: StorefrontRegistry.lookup(t.countryCode)?.name ?? t.countryCode, count: t.count,
+                average: t.average, delta: t.delta, since: t.previousAt, checkedAt: t.checkedAt, lastNewAt: t.lastNewAt)
         }
-        .sorted { ($0.lastNewAt ?? .distantPast, $0.count) > ($1.lastNewAt ?? .distantPast, $1.count) }
     }
 
     var body: some View {
