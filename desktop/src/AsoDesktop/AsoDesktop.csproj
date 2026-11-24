@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The ASO Workbench window for Windows and Linux. It drives the `aso` engine and computes nothing itself. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ASOWorkbench</AssemblyName>
+    <RootNamespace>AsoDesktop</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AsoDesktop.Core\AsoDesktop.Core.csproj" />
+  </ItemGroup>
+</Project>
