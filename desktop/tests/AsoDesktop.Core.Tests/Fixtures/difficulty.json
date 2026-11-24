@@ -1,0 +1,49 @@
+{
+  "components" : [
+    {
+      "explanation" : "Rating counts of the top three results, position-weighted",
+      "name" : "Incumbent strength",
+      "value" : 92.6,
+      "weight" : "35%"
+    },
+    {
+      "explanation" : "Median rating count of the top ten",
+      "name" : "Field depth",
+      "value" : 100,
+      "weight" : "20%"
+    },
+    {
+      "explanation" : "How many of the top ten name the term in their title",
+      "name" : "Keyword targeting",
+      "value" : 40,
+      "weight" : "20%"
+    },
+    {
+      "explanation" : "Average age of the top ten (four years = 100)",
+      "name" : "Maturity",
+      "value" : 78,
+      "weight" : "10%"
+    },
+    {
+      "explanation" : "Share of the top ten updated in the last 60 days",
+      "name" : "Activity",
+      "value" : 80,
+      "weight" : "10%"
+    },
+    {
+      "explanation" : "Rating-weighted stars of the top ten",
+      "name" : "Satisfaction",
+      "value" : 79.8,
+      "weight" : "5%"
+    },
+    {
+      "explanation" : "Discount when the list is mostly unrelated apps",
+      "name" : "Result relevance",
+      "value" : 92,
+      "weight" : "×"
+    }
+  ],
+  "sampleSize" : 10,
+  "score" : 57,
+  "tier" : "Hard"
+}

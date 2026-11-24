@@ -1,0 +1,103 @@
+{
+  "appleAds" : false,
+  "candidates" : [
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : true
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation ai",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation clicker",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation clock",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation maker",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation notes",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation recorder",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation slides",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentation timer",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    },
+    {
+      "golden" : false,
+      "goldenLead" : false,
+      "keyword" : "presentations.ai",
+      "sources" : [
+        "autocomplete"
+      ],
+      "tracked" : false
+    }
+  ],
+  "golden" : 0,
+  "jev" : false,
+  "market" : "US · iphone",
+  "measured" : 0,
+  "seeds" : [
+    "presentation"
+  ],
+  "withPopularity" : 0
+}

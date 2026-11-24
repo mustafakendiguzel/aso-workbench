@@ -1,0 +1,46 @@
+{
+  "gained" : 0,
+  "improved" : 0,
+  "lost" : 0,
+  "marker" : {
+    "date" : "2026-10-24T09:23:19Z",
+    "id" : 2,
+    "kind" : "note",
+    "title" : "Keywords updated"
+  },
+  "net" : 0,
+  "rows" : [
+    {
+      "after" : 3,
+      "afterAt" : "2026-10-24T09:23:22Z",
+      "before" : 3,
+      "beforeAt" : "2026-10-24T09:23:15Z",
+      "brandLike" : false,
+      "country" : "US",
+      "delta" : 0,
+      "depth" : 39,
+      "device" : "iphone",
+      "difficulty" : 57,
+      "gain" : 0,
+      "keyword" : "presentation",
+      "tier" : "None",
+      "value" : 0
+    },
+    {
+      "afterAt" : "2026-10-24T09:23:25Z",
+      "beforeAt" : "2026-10-24T09:23:18Z",
+      "brandLike" : false,
+      "country" : "US",
+      "delta" : 0,
+      "depth" : 47,
+      "device" : "iphone",
+      "difficulty" : 60,
+      "gain" : 0,
+      "keyword" : "slides maker",
+      "tier" : "None",
+      "value" : 0
+    }
+  ],
+  "same" : 2,
+  "worsened" : 0
+}
