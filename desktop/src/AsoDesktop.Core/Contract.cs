@@ -1,0 +1,90 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace AsoDesktop.Core;
+
+// The JSON that `aso --json` prints (see docs/CLI.md). Absent values are absent in the JSON and null here:
+// "not measured" is not rank 0, and no popularity source means no popularity.
+
+/// <summary>A tracked app.</summary>
+public sealed record AppRecord(
+    [property: JsonPropertyName("trackID")] long TrackId,
+    [property: JsonPropertyName("bundleID")] string? BundleId,
+    string Name,
+    string SellerName,
+    [property: JsonPropertyName("iconURL")] string? IconUrl,
+    string? PrimaryGenre,
+    string? StoreVersion,
+    DateTimeOffset CreatedAt);
+
+/// <summary>One tracked keyword as reports show it.</summary>
+public sealed record KeywordReportRow(
+    string Keyword,
+    string Country,
+    string Device,
+    string Status,
+    int? Rank,
+    int? ObservedCount,
+    string RankLabel,
+    int? Delta,
+    string DeltaAgainst,
+    double? Difficulty,
+    int? Popularity,
+    double? Opportunity,
+    bool BrandLike,
+    bool Golden,
+    DateTimeOffset? MeasuredAt,
+    string? Failure);
+
+public sealed record AddedKeywords(string Market, IReadOnlyList<string> Added, IReadOnlyList<string> AlreadyTracked);
+
+public sealed record MeasureSummary(int Measured, int Found, int Outside, int Failed);
+
+/// <summary>One line of <c>measure --json</c> progress on stderr.</summary>
+public sealed record MeasureStep(int Completed, int Total, string Market, string Keyword, string Outcome, string Status);
+
+public sealed record SearchResultApp(
+    [property: JsonPropertyName("trackID")] long TrackId,
+    string Name,
+    string SellerName,
+    double? AverageRating,
+    int? RatingCount,
+    string? PrimaryGenre,
+    string? Version);
+
+public sealed record DifficultyComponent(string Name, string Weight, double Value, string Explanation);
+
+public sealed record DifficultyReport(double Score, string Tier, int SampleSize, IReadOnlyList<DifficultyComponent> Components);
+
+public enum ValidationSeverity
+{
+    Info = 0,
+    Warning = 1,
+    Error = 2,
+}
+
+public sealed record ValidationIssue(string Field, ValidationSeverity Severity, string Message);
+
+internal sealed record VersionInfo(string Version);
+
+internal static class Json
+{
+    public static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public static T Parse<T>(string json, string command)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, Options)
+                ?? throw new AsoCliException($"aso {command} printed no result.", exitCode: 0);
+        }
+        catch (JsonException error)
+        {
+            throw new AsoCliException($"aso {command} printed output this version cannot read: {error.Message}", exitCode: 0);
+        }
+    }
+}

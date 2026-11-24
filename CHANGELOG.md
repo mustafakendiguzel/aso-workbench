@@ -6,9 +6,20 @@ The in-app updater shows the section of the new version as its release notes.
 
 ## [Unreleased]
 
+### Added
+- A window for Windows and Linux (`desktop/`, C# and Avalonia) on top of `aso`: tracked apps, keywords with rank, Δ, difficulty and brand verdicts, rank measurement with progress, search, autocomplete, difficulty components and the metadata check. See [docs/DESKTOP.md](docs/DESKTOP.md).
+- `aso measure --json` reports progress as JSON Lines on stderr, and `aso difficulty --json` includes every component with its weight and explanation.
+- `aso`, the engine on the command line: track apps and keywords, measure ranks, list them with Δ, difficulty and brand verdicts, and look up search results, autocomplete, difficulty and metadata limits. Text or `--json` output; its own SQLite data file. See [docs/CLI.md](docs/CLI.md).
+
 ### Changed
 - The AI writer no longer uses em or en dashes as punctuation, and list lines in descriptions and What's New start with "•".
 - Interface text uses commas, colons and periods instead of em dashes.
+
+### Development
+- Continuous integration on macOS builds the whole package, runs the tests and bundles the app for every pull request.
+- `ASOCore` and `ASOProviders` no longer depend on Apple-only frameworks when built elsewhere: on Linux and Windows the package uses Apple's API-compatible swift-crypto instead of CryptoKit and leaves out the macOS app. The macOS build still has no dependencies.
+- Tests pin JWT signing, key fingerprints, screenshot checksums and the HTTP client's allow-list and error mapping.
+- Rank history (Δ and before/after), keyword verdicts (brand, golden, lead) and idea gaps moved from the app's data model into `ASOCore`, with tests, so every platform computes them the same way. Nothing changes in the app.
 
 ### Docs
 - README in English, Turkish, Simplified Chinese, Japanese, Korean, Spanish and German.

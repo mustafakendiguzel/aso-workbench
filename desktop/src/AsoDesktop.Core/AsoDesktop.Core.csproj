@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Everything the window shows, without the window: the aso client, its JSON contract and the view models. -->
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AsoDesktop.Core.Tests" />
+  </ItemGroup>
+</Project>

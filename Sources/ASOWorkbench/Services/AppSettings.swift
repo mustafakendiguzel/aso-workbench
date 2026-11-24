@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import ASOCore
 
 /// Small, UserDefaults-backed preferences. Nothing secret lives here.
 @Observable
