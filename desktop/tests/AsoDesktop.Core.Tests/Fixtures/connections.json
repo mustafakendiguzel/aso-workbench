@@ -1,0 +1,36 @@
+[
+  {
+    "configured" : false,
+    "details" : {
+
+    },
+    "service" : "apple-ads",
+    "title" : "Apple Ads"
+  },
+  {
+    "configured" : true,
+    "details" : {
+      "issuerID" : "00000000-0000-0000-0000-000000000000",
+      "keyFingerprint" : "a40f0f2e2974dc76",
+      "keyID" : "TESTKEY123"
+    },
+    "service" : "asc",
+    "title" : "App Store Connect"
+  },
+  {
+    "configured" : true,
+    "details" : {
+      "key" : "stored"
+    },
+    "service" : "openrouter",
+    "title" : "OpenRouter"
+  },
+  {
+    "configured" : false,
+    "details" : {
+
+    },
+    "service" : "revenuecat",
+    "title" : "RevenueCat"
+  }
+]
