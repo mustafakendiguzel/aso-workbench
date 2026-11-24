@@ -1,0 +1,135 @@
+[
+  {
+    "automatic" : [
+      "Legal footer appended."
+    ],
+    "changes" : [
+      {
+        "after" : "Acme Notizen",
+        "before" : "",
+        "field" : "name"
+      },
+      {
+        "after" : "Tagebuch und Notizen",
+        "before" : "",
+        "field" : "subtitle"
+      },
+      {
+        "after" : "notizen,tagebuch,planer",
+        "before" : "",
+        "field" : "keywords"
+      },
+      {
+        "after" : "Schreib es auf.\n\n,,\nNutzungsbedingungen (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nDatenschutzrichtlinie: https://example.com/privacy",
+        "before" : "",
+        "field" : "description"
+      },
+      {
+        "after" : "Fehlerbehebungen.",
+        "before" : "",
+        "field" : "whatsNew"
+      }
+    ],
+    "draft" : {
+      "description" : "Schreib es auf.\n\n,,\nNutzungsbedingungen (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nDatenschutzrichtlinie: https://example.com/privacy",
+      "keywords" : "notizen,tagebuch,planer",
+      "name" : "Acme Notizen",
+      "promotionalText" : "",
+      "subtitle" : "Tagebuch und Notizen",
+      "whatsNew" : "Fehlerbehebungen."
+    },
+    "editable" : true,
+    "errors" : [
+
+    ],
+    "exists" : false,
+    "locale" : "de-DE",
+    "name" : "German",
+    "version" : "2.0",
+    "versionState" : "PREPARE_FOR_SUBMISSION"
+  },
+  {
+    "automatic" : [
+      "Legal footer appended."
+    ],
+    "changes" : [
+      {
+        "after" : "Journal, diary and memos",
+        "before" : "Journal and diary",
+        "field" : "subtitle"
+      },
+      {
+        "after" : "notes,journal,planner",
+        "before" : "notes,journal,memo",
+        "field" : "keywords"
+      },
+      {
+        "after" : "Write it down.\n\n,,\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPrivacy Policy: https://example.com/privacy",
+        "before" : "Write it down.",
+        "field" : "description"
+      }
+    ],
+    "draft" : {
+      "description" : "Write it down.\n\n,,\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPrivacy Policy: https://example.com/privacy",
+      "keywords" : "notes,journal,planner",
+      "name" : "Acme Notes",
+      "promotionalText" : "",
+      "subtitle" : "Journal, diary and memos",
+      "whatsNew" : "Bug fixes."
+    },
+    "editable" : true,
+    "errors" : [
+
+    ],
+    "exists" : true,
+    "locale" : "en-US",
+    "name" : "English (U.S.)",
+    "version" : "2.0",
+    "versionState" : "PREPARE_FOR_SUBMISSION"
+  },
+  {
+    "automatic" : [
+      "Legal footer appended.",
+      "What's New was empty; the default note in French was used."
+    ],
+    "blocked" : "The draft has validation errors. Fix them before applying.",
+    "changes" : [
+      {
+        "after" : "Acme Notes, le journal intime pour tous les jours",
+        "before" : "",
+        "field" : "name"
+      },
+      {
+        "after" : ",,\nConditions d'utilisation (CLUF): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPolitique de confidentialité: https://example.com/privacy",
+        "before" : "",
+        "field" : "description"
+      },
+      {
+        "after" : "Corrections de bugs et améliorations des performances.",
+        "before" : "",
+        "field" : "whatsNew"
+      }
+    ],
+    "draft" : {
+      "description" : ",,\nConditions d'utilisation (CLUF): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPolitique de confidentialité: https://example.com/privacy",
+      "keywords" : "",
+      "name" : "Acme Notes, le journal intime pour tous les jours",
+      "promotionalText" : "",
+      "subtitle" : "",
+      "whatsNew" : "Corrections de bugs et améliorations des performances."
+    },
+    "editable" : true,
+    "errors" : [
+      {
+        "field" : "name",
+        "message" : "Name is 49 characters / 49 bytes; the limit is 30.",
+        "severity" : 2
+      }
+    ],
+    "exists" : false,
+    "locale" : "fr-FR",
+    "name" : "French",
+    "version" : "2.0",
+    "versionState" : "PREPARE_FOR_SUBMISSION"
+  }
+]

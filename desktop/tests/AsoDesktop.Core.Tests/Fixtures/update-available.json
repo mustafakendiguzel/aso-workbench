@@ -1,0 +1,14 @@
+{
+  "available" : true,
+  "current" : "1.0.0",
+  "latest" : "1.2.0",
+  "release" : {
+    "downloadURL" : "https://github.com/acme/aso/releases/download/v1.2.0/aso-workbench-windows-x86_64.zip",
+    "notes" : "### Added\n- Windows and Linux.",
+    "pageURL" : "https://github.com/acme/aso/releases/tag/v1.2.0",
+    "publishedAt" : "2026-11-20T10:00:00Z",
+    "title" : "ASO Workbench 1.2.0",
+    "version" : "1.2.0"
+  },
+  "skipped" : false
+}

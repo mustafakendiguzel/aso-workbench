@@ -222,8 +222,7 @@ final class ResearchService {
                     switch e {
                     case .published(let value, let p):
                         // Not on Apple's list this month, so it sits below the list floor even if the model says higher.
-                        let capped = floor.map { min($0 - 1, value) } ?? value
-                        obs = PopularityObservation(estimate: max(ModelTrainer.publishedThreshold, capped), confidence: p, upperBound: floor, countryCode: market.countryCode, periodStart: start, periodEnd: end)
+                        obs = PopularityObservation(estimate: PopularityEstimate.capped(value, belowListFloor: floor), confidence: p, upperBound: floor, countryCode: market.countryCode, periodStart: start, periodEnd: end)
                     case .below(let p):
                         obs = PopularityObservation(estimate: nil, confidence: p, upperBound: floor, countryCode: market.countryCode, periodStart: start, periodEnd: end)
                         if let model = models.estimator {

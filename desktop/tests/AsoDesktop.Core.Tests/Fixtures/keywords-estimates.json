@@ -1,0 +1,51 @@
+[
+  {
+    "brandLike" : false,
+    "country" : "US",
+    "deltaAgainst" : "no measurement",
+    "device" : "iphone",
+    "golden" : false,
+    "keyword" : "habit tracker",
+    "note" : "",
+    "popularityBelow" : 31,
+    "popularityGenre" : "PRODUCTIVITY_UTILITIES",
+    "popularityMonth" : "2026-12-01T00:00:00Z",
+    "popularityProbability" : 0.9550629210014163,
+    "popularitySource" : "estimate",
+    "popularitySubFloor" : 8,
+    "rankLabel" : "—",
+    "status" : "notMeasured"
+  },
+  {
+    "brandLike" : false,
+    "country" : "US",
+    "deltaAgainst" : "no measurement",
+    "device" : "iphone",
+    "golden" : false,
+    "keyword" : "notes",
+    "note" : "",
+    "popularity" : 62,
+    "popularityGenre" : "PRODUCTIVITY_UTILITIES",
+    "popularityMonth" : "2026-12-01T00:00:00Z",
+    "popularitySource" : "list",
+    "rankLabel" : "—",
+    "status" : "notMeasured"
+  },
+  {
+    "brandLike" : false,
+    "country" : "US",
+    "deltaAgainst" : "no measurement",
+    "device" : "iphone",
+    "golden" : false,
+    "keyword" : "zqxv",
+    "note" : "",
+    "popularityBelow" : 31,
+    "popularityGenre" : "PRODUCTIVITY_UTILITIES",
+    "popularityMonth" : "2026-12-01T00:00:00Z",
+    "popularityProbability" : 0.95,
+    "popularitySource" : "estimate",
+    "popularitySubFloor" : 8,
+    "rankLabel" : "—",
+    "status" : "notMeasured"
+  }
+]

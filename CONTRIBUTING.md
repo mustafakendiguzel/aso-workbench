@@ -16,7 +16,7 @@ make test       # unit tests (live Apple tests are opt-in, see Tests/ASOProvider
 make lab        # launch with the developer Lab (model training, URL commands)
 ```
 
-Requirements: macOS 15+, Xcode 26 (Swift 6.2). No third-party dependencies.
+Requirements: macOS 15+, Xcode 26 (Swift 6.2). No third-party dependencies on macOS. `ASOCore` and `ASOProviders` must stay portable to other platforms, see [Platforms](docs/ARCHITECTURE.md#platforms).
 
 ## Ground rules
 

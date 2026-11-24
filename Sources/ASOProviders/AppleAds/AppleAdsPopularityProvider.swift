@@ -178,11 +178,10 @@ public actor AppleAdsPopularityProvider: PopularityProvider {
 
     // MARK: Helpers
 
-    public static func lastFullMonth(monthsBack: Int) -> (Date, Date) {
+    public static func lastFullMonth(monthsBack: Int, now: Date = Date()) -> (Date, Date) {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
-        let today = Date()
-        let firstOfThisMonth = cal.date(from: cal.dateComponents([.year, .month], from: today))!
+        let firstOfThisMonth = cal.date(from: cal.dateComponents([.year, .month], from: now))!
         let start = cal.date(byAdding: .month, value: -max(1, monthsBack), to: firstOfThisMonth)!
         let end = cal.date(byAdding: .day, value: -1, to: cal.date(byAdding: .month, value: 1, to: start)!)!
         return (start, end)

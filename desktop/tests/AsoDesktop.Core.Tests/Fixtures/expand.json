@@ -1,0 +1,66 @@
+{
+  "appleAds" : false,
+  "candidates" : 0,
+  "countries" : [
+    "GB",
+    "DE"
+  ],
+  "keywords" : 2,
+  "languageChecked" : false,
+  "localizationCost" : [
+
+  ],
+  "rows" : [
+    {
+      "candidate" : false,
+      "country" : "GB",
+      "difficulty" : 36.9,
+      "failed" : false,
+      "leader" : "Keynote: Design Presentations",
+      "leaderRatings" : 18010,
+      "observed" : 152,
+      "rank" : 1,
+      "term" : "keynote",
+      "titleMatches" : 2,
+      "tracked" : false
+    },
+    {
+      "candidate" : false,
+      "country" : "GB",
+      "difficulty" : 26.7,
+      "failed" : false,
+      "leader" : "Google Slides",
+      "leaderRatings" : 23823,
+      "observed" : 178,
+      "term" : "slide deck",
+      "titleMatches" : 3,
+      "tracked" : false
+    },
+    {
+      "candidate" : false,
+      "country" : "DE",
+      "difficulty" : 33.5,
+      "failed" : false,
+      "leader" : "Keynote: Präsentationen",
+      "leaderRatings" : 50111,
+      "observed" : 120,
+      "rank" : 1,
+      "term" : "keynote",
+      "titleMatches" : 1,
+      "tracked" : false
+    },
+    {
+      "candidate" : false,
+      "country" : "DE",
+      "difficulty" : 22.5,
+      "failed" : false,
+      "leader" : "Google Präsentationen",
+      "leaderRatings" : 9083,
+      "observed" : 136,
+      "term" : "slide deck",
+      "titleMatches" : 3,
+      "tracked" : false
+    }
+  ],
+  "tracked" : 0
+}

@@ -1,0 +1,75 @@
+{
+  "competitors" : [
+    {
+      "appearances" : [
+        {
+          "keyword" : "slides maker",
+          "position" : 1
+        },
+        {
+          "keyword" : "presentation",
+          "position" : 2
+        }
+      ],
+      "averagePosition" : 1.5,
+      "averageRating" : 4.67636,
+      "bundleID" : "com.google.Slides",
+      "currentVersionReleaseDate" : "2026-10-20T13:43:49Z",
+      "iconURL" : "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/0e/67/05/0e670519-5f62-be0d-b531-25be8255e8cf/slides_2026_ios-0-0-1x_U007epad-0-0-0-1-0-0-sRGB-0-0-85-220.png/100x100bb.jpg",
+      "keywords" : 2,
+      "name" : "Google Slides",
+      "primaryGenre" : "Productivity",
+      "ratingCount" : 415756,
+      "sellerName" : "Google LLC",
+      "top10" : 2,
+      "trackID" : 879478102
+    },
+    {
+      "appearances" : [
+        {
+          "keyword" : "presentation",
+          "position" : 1
+        },
+        {
+          "keyword" : "slides maker",
+          "position" : 3
+        }
+      ],
+      "averagePosition" : 2,
+      "averageRating" : 4.72647,
+      "bundleID" : "com.microsoft.Office.Powerpoint",
+      "currentVersionReleaseDate" : "2026-10-19T04:03:02Z",
+      "iconURL" : "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/09/f1/a6/09f1a68f-5287-3553-e443-5b1497a993cb/AppIcon-0-0-1x_U007epad-0-1-0-0-sRGB-0-0-0-85-220.png/100x100bb.jpg",
+      "keywords" : 2,
+      "name" : "Microsoft PowerPoint",
+      "primaryGenre" : "Productivity",
+      "ratingCount" : 586854,
+      "sellerName" : "Microsoft Corporation",
+      "top10" : 2,
+      "trackID" : 586449534
+    },
+    {
+      "appearances" : [
+        {
+          "keyword" : "slides maker",
+          "position" : 2
+        }
+      ],
+      "averagePosition" : 2,
+      "averageRating" : 4.66169,
+      "bundleID" : "com.flipagram.ssm",
+      "currentVersionReleaseDate" : "2024-06-10T15:57:22Z",
+      "iconURL" : "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/57/13/89/5713897d-6dea-ca31-48dd-7c8d45d871ed/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/100x100bb.jpg",
+      "keywords" : 1,
+      "name" : "Slide Show Maker ⁺",
+      "primaryGenre" : "Photo & Video",
+      "ratingCount" : 8034,
+      "sellerName" : "Appnap Technologies Limited",
+      "top10" : 1,
+      "trackID" : 1506310391
+    }
+  ],
+  "depth" : 10,
+  "keywordsMeasured" : 2,
+  "market" : "US · iphone"
+}

@@ -1,0 +1,96 @@
+name: Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Swift ${{ matrix.swift }}
+    runs-on: ubuntu-24.04
+    container: swift:${{ matrix.swift }}-noble
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported (swift-tools-version) and newest release.
+        swift: ["6.2", "6.4"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System libraries
+        # The Swift images ship the SQLite runtime but not its header, which ASOEngine builds against.
+        run: apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Test
+        run: swift test --skip-build --skip Live
+
+      - name: Package the aso command (release, Swift runtime linked in)
+        if: matrix.swift == '6.4'
+        run: scripts/package-linux.sh
+
+      - name: Upload the aso command
+        if: matrix.swift == '6.4'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-linux-x86_64
+          path: |
+            dist/aso-linux-x86_64.tar.gz
+            dist/aso-linux-x86_64.sha256
+          if-no-files-found: error
+
+  # The window with that aso next to it, on a plain Ubuntu runner (the .NET SDK is not in the Swift image).
+  package-window:
+    name: Window package
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: desktop/global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: aso-linux-x86_64
+          path: engine
+
+      - name: Package the window
+        run: |
+          tar -xzf engine/aso-linux-x86_64.tar.gz -C engine
+          # The packaged aso finds the popularity models next to itself.
+          engine/aso --version --json | grep -q '"models" : ".*engine/models"' || { echo "aso does not find its models"; exit 1; }
+          scripts/package-linux.sh --aso engine/aso --window
+          # Both executables keep their executable bit in the archive, and the models travel with them.
+          listing="$(tar -tvzf dist/aso-workbench-linux-x86_64.tar.gz)"
+          for file in ASOWorkbench aso; do grep -Eq "^-rwx.* aso-workbench-linux-x86_64/$file$" <<< "$listing" || { echo "$file is not executable"; exit 1; }; done
+          grep -q "aso-workbench-linux-x86_64/models/popularity-regressor.mlmodel$" <<< "$listing" || { echo "The models are missing"; exit 1; }
+
+      - name: Upload the window
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-workbench-linux-x86_64
+          path: |
+            dist/aso-workbench-linux-x86_64.tar.gz
+            dist/aso-workbench-linux-x86_64.sha256
+          if-no-files-found: error

@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.WhatsNewDialog"
+        x:DataType="vm:WhatsNewViewModel"
+        Title="What's New for all locales"
+        Width="820" Height="680" MinWidth="600" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="What's New for all locales" />
+      <TextBlock Classes="hint"
+                 Text="Write the release notes once. They are saved into that locale's draft and translated into each chosen locale (same facts, natural phrasing); locales of the same language get them as they are." />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock VerticalAlignment="Center" Text="Written in" />
+        <ComboBox MinWidth="160" ItemsSource="{Binding SourceLocales}" SelectedItem="{Binding SourceLocale}" />
+      </StackPanel>
+      <TextBox Text="{Binding Source}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="220"
+               PlaceholderText="• What changed in this version, one item per line" />
+      <TextBlock Classes="hint" Text="{Binding Counter}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Translate and save" Command="{Binding TranslateCommand}" IsEnabled="{Binding !IsBusy}" />
+        <ProgressBar Width="160" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+      </StackPanel>
+      <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Outcome}" IsVisible="{Binding Outcome, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Close" IsCancel="True" Click="CloseDialog" />
+    </StackPanel>
+
+    <ScrollViewer Margin="0,12,0,0">
+      <ItemsControl ItemsSource="{Binding Targets}" Margin="0,0,18,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:WhatsNewTarget">
+            <StackPanel Margin="0,0,0,6">
+              <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+              <SelectableTextBlock Margin="28,0,0,0" TextWrapping="Wrap" FontSize="12" Text="{Binding Result}"
+                                   IsVisible="{Binding Result, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

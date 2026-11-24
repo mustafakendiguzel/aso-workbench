@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.WriteAllDialog"
+        x:DataType="vm:WriteAllViewModel"
+        Title="Write all locales with AI"
+        Width="980" Height="700" MinWidth="680" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="Write all locales with AI" />
+      <TextBlock Classes="hint"
+                 Text="Each chosen locale is written in turn from its market's evidence, the market's own language first so the others on the same storefront avoid its words. The best proposal of each locale is saved as its draft; nothing reaches Apple." />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <RadioButton GroupName="Strategy" Content="Feature words first" IsChecked="{Binding !BrandFirst}" />
+        <RadioButton GroupName="Strategy" Content="Brand first (demand comes from the brand)" IsChecked="{Binding BrandFirst}" />
+        <TextBlock VerticalAlignment="Center" Text="Brand" />
+        <TextBox Width="200" Text="{Binding Brand}" />
+      </StackPanel>
+      <TextBox PlaceholderText="Notes for the writer (tone, features to stress, words to avoid)" Text="{Binding Notes}" />
+      <ItemsControl ItemsSource="{Binding Locales}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:BatchLocaleLine">
+            <CheckBox Margin="0,0,16,0" Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Classes="hint" Text="{Binding CostHint}" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="Write and save drafts" Command="{Binding WriteCommand}" IsEnabled="{Binding !IsBusy}" />
+        <ProgressBar Width="160" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+        <TextBlock VerticalAlignment="Center" Classes="hint" Text="{Binding Step}" />
+      </StackPanel>
+      <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Outcome}" IsVisible="{Binding Outcome, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Close" IsCancel="True" Click="CloseDialog" />
+    </StackPanel>
+
+    <DataGrid Margin="0,12,0,0" ItemsSource="{Binding Results}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Locale" Binding="{Binding Locale}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Market" Binding="{Binding Market}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Score" Binding="{Binding Score}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Covers" Binding="{Binding Covers}" Width="Auto" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Title" Binding="{Binding Title}" Width="*" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Subtitle" Binding="{Binding Subtitle}" Width="*" />
+        <DataGridTextColumn x:DataType="vm:BatchResultLine" Header="Keywords" Binding="{Binding Keywords}" Width="2*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>
