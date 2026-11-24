@@ -1,0 +1,180 @@
+{
+  "difficulty" : {
+    "components" : [
+      {
+        "explanation" : "Rating counts of the top three results, position-weighted",
+        "name" : "Incumbent strength",
+        "value" : 92.6,
+        "weight" : "35%"
+      },
+      {
+        "explanation" : "Median rating count of the top ten",
+        "name" : "Field depth",
+        "value" : 100,
+        "weight" : "20%"
+      },
+      {
+        "explanation" : "How many of the top ten name the term in their title",
+        "name" : "Keyword targeting",
+        "value" : 40,
+        "weight" : "20%"
+      },
+      {
+        "explanation" : "Average age of the top ten (four years = 100)",
+        "name" : "Maturity",
+        "value" : 78,
+        "weight" : "10%"
+      },
+      {
+        "explanation" : "Share of the top ten updated in the last 60 days",
+        "name" : "Activity",
+        "value" : 80,
+        "weight" : "10%"
+      },
+      {
+        "explanation" : "Rating-weighted stars of the top ten",
+        "name" : "Satisfaction",
+        "value" : 79.8,
+        "weight" : "5%"
+      },
+      {
+        "explanation" : "Discount when the list is mostly unrelated apps",
+        "name" : "Result relevance",
+        "value" : 92,
+        "weight" : "×"
+      }
+    ],
+    "sampleSize" : 10,
+    "score" : 57,
+    "tier" : "Hard"
+  },
+  "observations" : [
+    {
+      "fetchedAt" : "2026-10-24T01:48:12Z",
+      "label" : "#3",
+      "observedCount" : 169,
+      "provider" : "itunes-search",
+      "rank" : 3,
+      "status" : "found"
+    }
+  ],
+  "row" : {
+    "brandLike" : false,
+    "country" : "US",
+    "deltaAgainst" : "no release or change yet",
+    "device" : "iphone",
+    "difficulty" : 57,
+    "difficultyTier" : "Hard",
+    "distinctSellersTop10" : 8,
+    "golden" : false,
+    "keyword" : "presentation",
+    "measuredAt" : "2026-10-24T01:48:12Z",
+    "medianRatingsTop10" : 415739,
+    "note" : "Keep in the subtitle",
+    "observedCount" : 169,
+    "provider" : "itunes-search",
+    "rank" : 3,
+    "rankLabel" : "#3",
+    "ratingMass" : "Very high",
+    "status" : "found",
+    "titleMatchesTop10" : 4
+  },
+  "summary" : {
+    "best" : 3,
+    "latest" : 3,
+    "measurements" : 1,
+    "outside" : 0
+  },
+  "topResults" : [
+    {
+      "averageRating" : 4.72646,
+      "isOwnApp" : false,
+      "name" : "Microsoft PowerPoint",
+      "position" : 1,
+      "ratingCount" : 586803,
+      "sellerName" : "Microsoft Corporation",
+      "trackID" : 586449534
+    },
+    {
+      "averageRating" : 4.67637,
+      "isOwnApp" : false,
+      "name" : "Google Slides",
+      "position" : 2,
+      "ratingCount" : 415739,
+      "sellerName" : "Google LLC",
+      "trackID" : 879478102
+    },
+    {
+      "averageRating" : 4.39706,
+      "isOwnApp" : true,
+      "name" : "Keynote: Design Presentations",
+      "position" : 3,
+      "ratingCount" : 83875,
+      "sellerName" : "Apple Inc.",
+      "trackID" : 361285480
+    },
+    {
+      "averageRating" : 4.19855,
+      "isOwnApp" : false,
+      "name" : "Presentation ®",
+      "position" : 4,
+      "ratingCount" : 1390,
+      "sellerName" : "SMM service, s.r.o.",
+      "trackID" : 6468995560
+    },
+    {
+      "averageRating" : 4.87354,
+      "isOwnApp" : false,
+      "name" : "Canva AI Photo & Video Editor",
+      "position" : 5,
+      "ratingCount" : 3586834,
+      "sellerName" : "Canva Pty Ltd",
+      "trackID" : 897446215
+    },
+    {
+      "averageRating" : 4.64304,
+      "isOwnApp" : true,
+      "name" : "Pages: Create Documents",
+      "position" : 6,
+      "ratingCount" : 577925,
+      "sellerName" : "Apple Inc.",
+      "trackID" : 361309726
+    },
+    {
+      "averageRating" : 4.79025,
+      "isOwnApp" : false,
+      "name" : "Google Docs",
+      "position" : 7,
+      "ratingCount" : 3285649,
+      "sellerName" : "Google LLC",
+      "trackID" : 842842640
+    },
+    {
+      "averageRating" : 4.54913,
+      "isOwnApp" : false,
+      "name" : "Presentation Creator",
+      "position" : 8,
+      "ratingCount" : 173,
+      "sellerName" : "Desygner Pty Ltd",
+      "trackID" : 1492398251
+    },
+    {
+      "averageRating" : 3.28571,
+      "isOwnApp" : false,
+      "name" : "AI Presentation Maker..",
+      "position" : 9,
+      "ratingCount" : 7,
+      "sellerName" : "Barbara Martin",
+      "trackID" : 6757909978
+    },
+    {
+      "averageRating" : 1,
+      "isOwnApp" : false,
+      "name" : "Prezi AI",
+      "position" : 10,
+      "ratingCount" : 1,
+      "sellerName" : "Asad Ullah Ahmed",
+      "trackID" : 6790650970
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "editable" : true,
+  "locales" : [
+    "en-US"
+  ],
+  "privacyURL" : "https://example.com/privacy",
+  "version" : "2.0",
+  "versionState" : "PREPARE_FOR_SUBMISSION"
+}

@@ -1,0 +1,45 @@
+{
+  "before" : 78,
+  "cost" : "$0.0020",
+  "locale" : "en-US",
+  "proposal" : {
+    "charactersUsed" : 104,
+    "covered" : [
+      "notes",
+      "daily journal"
+    ],
+    "fields" : {
+      "description" : "",
+      "keywords" : "ideas,thoughts,writing,record,mood,gratitude,habit,tracker",
+      "name" : "Acme Notes: Daily Journal",
+      "promotionalText" : "",
+      "subtitle" : "Diary, memos, planner",
+      "whatsNew" : ""
+    },
+    "findings" : [
+      {
+        "kind" : "warning",
+        "message" : "Only 104 of the 160 indexed characters are used; every unused character is a lost ranking chance.",
+        "rule" : "Budget"
+      },
+      {
+        "kind" : "warning",
+        "message" : "Keyword field has 42 unused characters.",
+        "rule" : "Keywords"
+      }
+    ],
+    "issues" : [
+
+    ],
+    "label" : "Improved",
+    "missed" : [
+
+    ],
+    "rationale" : "Covers the journal. Rule score 78 → 90.",
+    "repairs" : [
+      "Dropped from keywords (already in title/subtitle or filler): daily, journal, notes."
+    ],
+    "score" : 90
+  },
+  "saved" : true
+}

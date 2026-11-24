@@ -1,0 +1,29 @@
+[
+  {
+    "brandLike" : false,
+    "country" : "US",
+    "deltaAgainst" : "previous measurement",
+    "device" : "iphone",
+    "difficulty" : 57,
+    "golden" : false,
+    "keyword" : "presentation",
+    "measuredAt" : "2026-10-23T23:42:25Z",
+    "observedCount" : 169,
+    "rank" : 3,
+    "rankLabel" : "#3",
+    "status" : "found"
+  },
+  {
+    "brandLike" : true,
+    "country" : "US",
+    "deltaAgainst" : "previous measurement",
+    "device" : "iphone",
+    "difficulty" : 57.7,
+    "golden" : false,
+    "keyword" : "slides maker",
+    "measuredAt" : "2026-10-23T23:42:28Z",
+    "observedCount" : 179,
+    "rankLabel" : "> 179",
+    "status" : "outside"
+  }
+]

@@ -1,0 +1,19 @@
+[
+  {
+    "changes" : 0,
+    "errors" : 1,
+    "hasDraft" : false,
+    "locale" : "de-DE",
+    "market" : "DE",
+    "name" : "German"
+  },
+  {
+    "baseline" : "manual",
+    "changes" : 2,
+    "errors" : 1,
+    "hasDraft" : true,
+    "locale" : "en-US",
+    "market" : "US",
+    "name" : "English (U.S.)"
+  }
+]
