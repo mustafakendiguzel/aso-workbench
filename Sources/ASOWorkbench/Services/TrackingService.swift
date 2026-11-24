@@ -78,19 +78,7 @@ final class TrackingService {
     }
 
     static func observe(keyword: String, storefront: Storefront, device: DeviceContext, ownTrackID: Int, depth: Int, provider: any SearchRankProvider) async -> RankSample {
-        do {
-            let results = try await provider.search(term: keyword, storefront: storefront, device: device, limit: depth)
-            let outcome: RankOutcome
-            if let index = results.firstIndex(where: { $0.trackID == ownTrackID }) {
-                outcome = .found(position: index + 1, observedCount: results.count)
-            } else {
-                outcome = .outsideObservedRange(observedCount: results.count)
-            }
-            return RankSample(keyword: keyword, storefront: storefront.countryCode, device: device, provider: provider.id, outcome: outcome, fetchedAt: .now, results: results)
-        } catch {
-            return RankSample(keyword: keyword, storefront: storefront.countryCode, device: device, provider: provider.id,
-                              outcome: .requestFailed(reason: error.localizedDescription), fetchedAt: .now, results: [])
-        }
+        await RankSample.measure(keyword: keyword, storefront: storefront, device: device, ownTrackID: ownTrackID, depth: depth, provider: provider)
     }
 
     /// Markets whose newest observation is older than `staleHours` (or never measured).

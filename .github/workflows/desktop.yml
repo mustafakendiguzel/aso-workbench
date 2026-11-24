@@ -1,0 +1,43 @@
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The window is for Windows and Linux; macOS keeps its native app.
+        os: [ubuntu-24.04, windows-2025]
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: desktop/global.json
+
+      - name: Build
+        run: dotnet build AsoDesktop.slnx --configuration Release
+
+      - name: Test
+        run: dotnet test --solution AsoDesktop.slnx --configuration Release --no-build
