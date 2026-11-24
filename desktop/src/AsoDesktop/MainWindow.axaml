@@ -1,0 +1,479 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        xmlns:core="using:AsoDesktop.Core"
+        x:Class="AsoDesktop.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="ASO Workbench"
+        Width="1240" Height="780" MinWidth="960" MinHeight="580">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,8,0,2" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="8" />
+      <Setter Property="Fill" Value="#8A8A8A" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Ellipse.dot.on">
+      <Setter Property="Fill" Value="#2E9E4F" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Window.DataTemplates>
+    <!-- What a key unlocks, where its data goes and how to get it -->
+    <DataTemplate DataType="vm:ConnectionGuide">
+      <StackPanel Spacing="4">
+        <ItemsControl ItemsSource="{Binding Unlocks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock TextWrapping="Wrap" Text="{Binding StringFormat='✓ {0}'}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="hint" Text="{Binding DataFlow}" />
+        <TextBlock Classes="hint" FontStyle="Italic" Text="{Binding Availability}" />
+        <Expander Header="How to get it" Margin="0,4,0,0">
+          <StackPanel Spacing="4">
+            <ItemsControl ItemsSource="{Binding Steps}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                  <TextBlock TextWrapping="Wrap" Margin="0,2" Text="{Binding StringFormat='• {0}'}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="{Binding LinkTitle}" Tag="{Binding Link}" Click="OpenLink" IsVisible="{Binding Link, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Expander>
+      </StackPanel>
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <DockPanel>
+    <!-- Status line: what is running, what went wrong -->
+    <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Right" Classes="hint" VerticalAlignment="Center"
+                   Text="{Binding EngineVersion, StringFormat='engine {0}'}" />
+        <ProgressBar DockPanel.Dock="Left" IsIndeterminate="True" Width="80" Margin="0,0,10,0"
+                     IsVisible="{Binding Status.IsBusy}" />
+        <TextBlock Text="{Binding Status.Message}" Classes.error="{Binding Status.IsError}"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+
+    <!-- Tracked apps -->
+    <Border DockPanel.Dock="Left" Width="290" Padding="12" BorderThickness="0,0,1,0"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="heading" Text="Apps" />
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,12,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4" ToolTip.Tip="Keys stored for these services (Settings → Connections)">
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <Ellipse Classes="dot" Classes.on="{Binding Settings.AppleAds.IsConfigured}" />
+              <TextBlock Classes="hint" Text="Apple Ads" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <Ellipse Classes="dot" Classes.on="{Binding Settings.AppStoreConnect.IsConfigured}" />
+              <TextBlock Classes="hint" Text="App Store Connect" />
+            </StackPanel>
+          </StackPanel>
+          <TextBlock Classes="label" Text="Add an app" />
+          <TextBox PlaceholderText="App Store link or app ID" Text="{Binding NewAppReference}" />
+          <DockPanel>
+            <TextBox DockPanel.Dock="Left" Width="64" MaxLength="2" PlaceholderText="US" Text="{Binding NewAppCountry}"
+                     ToolTip.Tip="Store to look the app up in (the link's own country wins)" />
+            <Button Margin="6,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="Add app" Command="{Binding AddAppCommand}" />
+          </DockPanel>
+          <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Remove selected app…"
+                  IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Button.Flyout>
+              <Flyout>
+                <StackPanel Width="240" Spacing="8">
+                  <TextBlock TextWrapping="Wrap"
+                             Text="Stop tracking this app and delete its keywords and measurements? This cannot be undone." />
+                  <Button Content="Remove" Command="{Binding RemoveAppCommand}" CommandParameter="{Binding SelectedApp}" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+        <ListBox ItemsSource="{Binding Apps}" SelectedItem="{Binding SelectedApp}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="core:AppRecord">
+              <StackPanel>
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="hint" Text="{Binding SellerName}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <TabControl Margin="8,4,8,0">
+      <!-- Keywords of the selected app -->
+      <TabItem Header="Keywords">
+        <DockPanel IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,4,0,8">
+            <Button Classes="accent" Content="Measure ranks" Command="{Binding Keywords.MeasureCommand}"
+                    ToolTip.Tip="A fresh App Store search for every keyword, about 3 seconds each" />
+            <Button Content="Stop" Command="{Binding Keywords.MeasureCancelCommand}"
+                    IsVisible="{Binding Keywords.MeasureCommand.IsRunning}" />
+            <Button Content="Refresh" Command="{Binding Keywords.RefreshCommand}" />
+            <TextBlock Text="Δ against" VerticalAlignment="Center" Margin="12,0,0,0" />
+            <ComboBox ItemsSource="{x:Static vm:KeywordsViewModel.DeltaReferences}" SelectedItem="{Binding Keywords.Delta}" />
+            <ProgressBar Width="160" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="12,0,0,0"
+                         Value="{Binding Keywords.MeasureFraction}" IsVisible="{Binding Keywords.MeasureCommand.IsRunning}" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding Keywords.MeasureStepText}" />
+          </StackPanel>
+
+          <Border DockPanel.Dock="Right" Width="270" Margin="10,0,0,0" Padding="12" CornerRadius="6"
+                  Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="heading" Text="Add keywords" />
+              <TextBox AcceptsReturn="True" Height="140" TextWrapping="Wrap" Text="{Binding Keywords.NewKeywords}"
+                       PlaceholderText="One per line or separated by commas" />
+              <DockPanel>
+                <TextBox DockPanel.Dock="Left" Width="64" MaxLength="2" Text="{Binding Keywords.NewCountry}" PlaceholderText="US" />
+                <ComboBox Margin="6,0,0,0" HorizontalAlignment="Stretch"
+                          ItemsSource="{x:Static vm:KeywordsViewModel.Devices}" SelectedItem="{Binding Keywords.NewDevice}" />
+              </DockPanel>
+              <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Add"
+                      Command="{Binding Keywords.AddKeywordsCommand}" />
+
+              <TextBlock Classes="heading" Text="Selected" Margin="0,16,0,4" />
+              <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding Keywords.SelectedRow.Keyword, FallbackValue=''}" />
+              <TextBlock Classes="hint" Text="{Binding Keywords.SelectedRow.DeltaAgainst, StringFormat='Δ: {0}', FallbackValue=''}" />
+              <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding Keywords.SelectedRow.Failure, FallbackValue=''}" />
+              <Button Content="Remove keyword" Command="{Binding Keywords.RemoveKeywordCommand}"
+                      CommandParameter="{Binding Keywords.SelectedRow}"
+                      IsEnabled="{Binding Keywords.SelectedRow, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <TextBlock Classes="hint" Margin="0,16,0,0"
+                         Text="&quot;&gt; 200&quot; means not in the top 200 results, never rank 201. Popularity needs the Apple Ads key, which this version does not use yet." />
+            </StackPanel>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding Keywords.Rows}" SelectedItem="{Binding Keywords.SelectedRow}"
+                    AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Keyword" Binding="{Binding Keyword}" Width="2*" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Market" Binding="{Binding Market}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Rank" Binding="{Binding Rank}" SortMemberPath="RankOrder" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Δ" Binding="{Binding Delta}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Difficulty" Binding="{Binding Difficulty}"
+                                  SortMemberPath="DifficultyOrder" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Brand" Binding="{Binding Brand}" Width="Auto" />
+              <DataGridTextColumn x:DataType="vm:KeywordRow" Header="Measured" Binding="{Binding Measured}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Look-ups that store nothing -->
+      <TabItem Header="Research">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,4,0,8">
+            <TextBox Width="320" PlaceholderText="Search term" Text="{Binding Research.Term}" />
+            <TextBox Width="64" MaxLength="2" PlaceholderText="US" Text="{Binding Research.Country}" />
+            <ComboBox ItemsSource="{x:Static vm:KeywordsViewModel.Devices}" SelectedItem="{Binding Research.Device}" />
+            <Button Classes="accent" Content="Search" Command="{Binding Research.SearchCommand}" />
+            <Button Content="Difficulty" Command="{Binding Research.DifficultyCommand}" />
+            <Button Content="Autocomplete" Command="{Binding Research.HintsCommand}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="2*,*">
+            <DataGrid ItemsSource="{Binding Research.Results}" AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserSortColumns="True" GridLinesVisibility="Horizontal">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="core:SearchResultApp" Header="App" Binding="{Binding Name}" Width="2*" />
+                <DataGridTextColumn x:DataType="core:SearchResultApp" Header="Seller" Binding="{Binding SellerName}" Width="*" />
+                <DataGridTextColumn x:DataType="core:SearchResultApp" Header="Ratings" Binding="{Binding RatingCount}" Width="Auto" />
+                <DataGridTextColumn x:DataType="core:SearchResultApp" Header="Stars" Binding="{Binding AverageRating, StringFormat='{}{0:0.0}'}" Width="Auto" />
+                <DataGridTextColumn x:DataType="core:SearchResultApp" Header="ID" Binding="{Binding TrackId}" Width="Auto" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <ScrollViewer Grid.Column="1" Margin="12,0,0,0">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="heading" Text="Difficulty" />
+                <TextBlock FontSize="28" FontWeight="SemiBold"
+                           Text="{Binding Research.Difficulty.Score, StringFormat='{}{0:0} / 100', FallbackValue='—'}" />
+                <TextBlock Classes="hint" Text="{Binding Research.Difficulty.Tier, FallbackValue='From the top ten results of a fresh search.'}" />
+                <ItemsControl ItemsSource="{Binding Research.Difficulty.Components, FallbackValue={x:Null}}" Margin="0,8,0,0">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="core:DifficultyComponent">
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2" ToolTip.Tip="{Binding Explanation}">
+                        <TextBlock Text="{Binding Name}" />
+                        <TextBlock Grid.Column="1" Classes="hint" Margin="8,0" Text="{Binding Weight}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat='{}{0:0}'}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Classes="heading" Text="Autocomplete" Margin="0,20,0,4" />
+                <ItemsControl ItemsSource="{Binding Research.Hints}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <Button Margin="0,2" Content="{Binding}" ToolTip.Tip="Use as the search term"
+                              Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Research.UseHintCommand}"
+                              CommandParameter="{Binding}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Metadata rules -->
+      <TabItem Header="Metadata">
+        <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
+          <StackPanel Spacing="4" Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="{Binding Metadata.TitleLength, StringFormat='Title · {0} characters'}" />
+            <TextBox Text="{Binding Metadata.Title}" />
+            <TextBlock Classes="label" Text="{Binding Metadata.SubtitleLength, StringFormat='Subtitle · {0} characters'}" />
+            <TextBox Text="{Binding Metadata.Subtitle}" />
+            <TextBlock Classes="label" Text="{Binding Metadata.KeywordsLength, StringFormat='Keyword field · {0} characters'}" />
+            <TextBox Text="{Binding Metadata.Keywords}" PlaceholderText="comma,separated,no,spaces" />
+            <Button Classes="accent" Margin="0,12,0,0" Content="Check" Command="{Binding Metadata.CheckCommand}" />
+            <TextBlock Classes="hint" Margin="0,8,0,0"
+                       Text="Checked by the engine against the App Store limits: length in characters and bytes, repeats, wasted room." />
+          </StackPanel>
+          <ScrollViewer Grid.Column="1">
+            <ItemsControl ItemsSource="{Binding Metadata.Issues}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="core:ValidationIssue">
+                  <Border Margin="0,0,0,8" Padding="10" CornerRadius="6"
+                          Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold">
+                        <Run Text="{Binding Severity}" />
+                        <Run Text=" · " />
+                        <Run Text="{Binding Field}" />
+                      </TextBlock>
+                      <TextBlock TextWrapping="Wrap" Text="{Binding Message}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </TabItem>
+
+      <!-- Preferences and keys, as the macOS Settings window has them -->
+      <TabItem Header="Settings">
+        <TabControl TabStripPlacement="Left" Margin="0,4,0,0">
+          <TabItem Header="General">
+            <ScrollViewer>
+              <StackPanel Spacing="4" MaxWidth="720" HorizontalAlignment="Left" Margin="8,0">
+                <TextBlock Classes="heading" Text="ASO Workbench" />
+                <TextBlock Classes="hint" Text="App Store Optimization with honest numbers. This window drives the aso engine; the numbers come from it." />
+                <TextBlock Classes="label" Text="Engine" />
+                <TextBlock Text="{Binding EngineVersion, StringFormat='aso {0}', FallbackValue='—'}" />
+                <TextBlock Classes="label" Text="Data" />
+                <SelectableTextBlock TextWrapping="Wrap" Text="{Binding DataDirectory, FallbackValue='—'}" />
+                <TextBlock Classes="hint"
+                           Text="engine.sqlite holds apps, keywords and measurements; settings.json the preferences; credentials.json the keys. Back them up by copying the folder while the app is closed." />
+                <Button Margin="0,6,0,0" Content="Open data folder" Click="OpenDataFolder"
+                        IsEnabled="{Binding DataDirectory, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Measurement">
+            <ScrollViewer>
+              <StackPanel Spacing="4" MaxWidth="720" HorizontalAlignment="Left" Margin="8,0">
+                <TextBlock Classes="heading" Text="Public search" />
+                <DockPanel>
+                  <TextBlock Text="Results inspected per keyword" VerticalAlignment="Center" />
+                  <ComboBox DockPanel.Dock="Right" HorizontalAlignment="Right" Width="120"
+                            ItemsSource="{x:Static vm:SettingsViewModel.ResultDepths}" SelectedItem="{Binding Settings.ResultDepth}" />
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <TextBlock Text="{Binding Settings.PacingSeconds, StringFormat='Seconds between requests: {0:0.0}'}" VerticalAlignment="Center" />
+                  <Slider DockPanel.Dock="Right" HorizontalAlignment="Right" Width="240" Minimum="1" Maximum="6"
+                          TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding Settings.PacingSeconds}" />
+                </DockPanel>
+                <TextBlock Classes="hint" Text="The public search API allows roughly 20 requests a minute; going faster risks being blocked for a while." />
+
+                <TextBlock Classes="heading" Text="Golden keywords" Margin="0,16,0,4" />
+                <DockPanel>
+                  <TextBlock Text="Popularity at least" VerticalAlignment="Center" />
+                  <NumericUpDown DockPanel.Dock="Right" HorizontalAlignment="Right" Width="140" Minimum="5" Maximum="100" Increment="5"
+                                 FormatString="0" Value="{Binding Settings.GoldenMinPopularity}" />
+                </DockPanel>
+                <DockPanel>
+                  <TextBlock Text="Difficulty at most" VerticalAlignment="Center" />
+                  <NumericUpDown DockPanel.Dock="Right" HorizontalAlignment="Right" Width="140" Minimum="5" Maximum="100" Increment="5"
+                                 FormatString="0" Value="{Binding Settings.GoldenMaxDifficulty}" />
+                </DockPanel>
+                <DockPanel>
+                  <TextBlock Text="Writer tier A (winnable now): difficulty at most" VerticalAlignment="Center" />
+                  <NumericUpDown DockPanel.Dock="Right" HorizontalAlignment="Right" Width="140" Minimum="5" Maximum="100" Increment="5"
+                                 FormatString="0" Value="{Binding Settings.WriterEasyDifficulty}" />
+                </DockPanel>
+                <DockPanel>
+                  <TextBlock Text="Writer tier B (reachable): difficulty at most" VerticalAlignment="Center" />
+                  <NumericUpDown DockPanel.Dock="Right" HorizontalAlignment="Right" Width="140" Minimum="5" Maximum="100" Increment="5"
+                                 FormatString="0" Value="{Binding Settings.WriterMaxDifficulty}" />
+                </DockPanel>
+                <DockPanel>
+                  <TextBlock Text="Δ compares against" VerticalAlignment="Center" />
+                  <ComboBox DockPanel.Dock="Right" HorizontalAlignment="Right" Width="180"
+                            ItemsSource="{x:Static vm:SettingsViewModel.DeltaReferences}" SelectedItem="{Binding Settings.DeltaReference}" />
+                </DockPanel>
+                <TextBlock Classes="hint" Text="lastMarker: since the last release or change (the first measurement until one is recorded)." />
+
+                <TextBlock Classes="heading" Text="Automatic refresh" Margin="0,16,0,4" />
+                <CheckBox Content="Measure markets not measured recently when the app opens" IsChecked="{Binding Settings.AutoMeasureOnLaunch}" />
+                <DockPanel>
+                  <TextBlock Text="A market counts as not measured recently after (hours)" VerticalAlignment="Center" />
+                  <NumericUpDown DockPanel.Dock="Right" HorizontalAlignment="Right" Width="140" Minimum="6" Maximum="72" Increment="2"
+                                 FormatString="0" Value="{Binding Settings.StaleHours}" />
+                </DockPanel>
+                <TextBlock Classes="hint" Text="There is no background service: while the computer sleeps or the app is closed, days stay unmeasured and show as gaps." />
+
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                  <Button Classes="accent" Content="Save" Command="{Binding Settings.SaveCommand}" />
+                  <Button Content="Restore defaults" Command="{Binding Settings.ResetCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Connections">
+            <ScrollViewer>
+              <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="8,0">
+                <TextBlock Classes="hint" Margin="0,0,0,12"
+                           Text="Everything works without keys; each key adds something. Keys stay in credentials.json in the data folder, readable only by your account, and go only to their own service. Secrets are never shown again after saving." />
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <DockPanel>
+                      <TextBlock Classes="heading" Text="Apple Ads API" Margin="0" />
+                      <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Text="{Binding Settings.AppleAds.StatusText}" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding Settings.AppleAds.Guide}" />
+                    <TextBox PlaceholderText="Client ID (SEARCHADS.…)" Text="{Binding Settings.AppleAds.ClientId}" />
+                    <TextBox PlaceholderText="Key ID" Text="{Binding Settings.AppleAds.KeyId}" />
+                    <TextBox PlaceholderText="Org ID" Text="{Binding Settings.AppleAds.OrgId}" />
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Margin="6,0,0,0" Content="Choose .pem…" Tag="AppleAds" Click="ChooseKeyFile" />
+                      <TextBox IsReadOnly="True" PlaceholderText="Private key file (aso-ads-private.pem)" Text="{Binding Settings.AppleAds.KeyFilePath}" />
+                    </DockPanel>
+                    <TextBlock Classes="hint" Text="{Binding Settings.AppleAds.Details}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding Settings.AppleAds.LastTest}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="Save" Command="{Binding Settings.AppleAds.SaveCommand}" />
+                      <Button Content="Test connection" Command="{Binding Settings.AppleAds.TestCommand}" />
+                      <Button Content="Remove" Command="{Binding Settings.AppleAds.RemoveCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <DockPanel>
+                      <TextBlock Classes="heading" Text="App Store Connect API" Margin="0" />
+                      <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Text="{Binding Settings.AppStoreConnect.StatusText}" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding Settings.AppStoreConnect.Guide}" />
+                    <TextBox PlaceholderText="Issuer ID" Text="{Binding Settings.AppStoreConnect.IssuerId}" />
+                    <TextBox PlaceholderText="Key ID (optional: read from AuthKey_KEYID.p8)" Text="{Binding Settings.AppStoreConnect.KeyId}" />
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Margin="6,0,0,0" Content="Choose .p8…" Tag="AppStoreConnect" Click="ChooseKeyFile" />
+                      <TextBox IsReadOnly="True" PlaceholderText="Key file (AuthKey_KEYID.p8)" Text="{Binding Settings.AppStoreConnect.KeyFilePath}" />
+                    </DockPanel>
+                    <TextBlock Classes="hint" Text="{Binding Settings.AppStoreConnect.Details}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding Settings.AppStoreConnect.LastTest}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="Save" Command="{Binding Settings.AppStoreConnect.SaveCommand}" />
+                      <Button Content="Test connection" Command="{Binding Settings.AppStoreConnect.TestCommand}" />
+                      <Button Content="Remove" Command="{Binding Settings.AppStoreConnect.RemoveCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <DockPanel>
+                      <TextBlock Classes="heading" Text="OpenRouter (AI)" Margin="0" />
+                      <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Text="{Binding Settings.OpenRouter.StatusText}" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding Settings.OpenRouter.Guide}" />
+                    <DockPanel>
+                      <TextBlock Text="Writer model" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:SettingsViewModel.WriterModels}"
+                                SelectedItem="{Binding Settings.WriterModel}" />
+                    </DockPanel>
+                    <TextBlock Classes="hint" Text="The writer model is a preference; save it on the Measurement page." />
+                    <TextBox PasswordChar="•" PlaceholderText="OpenRouter API key (sk-or-v1-…)" Text="{Binding Settings.OpenRouter.ApiKey}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding Settings.OpenRouter.LastTest}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="Save" Command="{Binding Settings.OpenRouter.SaveCommand}" />
+                      <Button Content="Test connection" Command="{Binding Settings.OpenRouter.TestCommand}" />
+                      <Button Content="Remove" Command="{Binding Settings.OpenRouter.RemoveCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <DockPanel>
+                      <TextBlock Classes="heading" Text="RevenueCat" Margin="0" />
+                      <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Text="{Binding Settings.RevenueCat.StatusText}" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding Settings.RevenueCat.Guide}" />
+                    <TextBox AcceptsReturn="True" Height="70" FontFamily="monospace" PlaceholderText="One secret API key per line"
+                             Text="{Binding Settings.RevenueCat.Keys}" />
+                    <TextBlock Classes="hint" Text="{Binding Settings.RevenueCat.Details}" />
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding Settings.RevenueCat.LastTest}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="Save" Command="{Binding Settings.RevenueCat.SaveCommand}" />
+                      <Button Content="Test connection" Command="{Binding Settings.RevenueCat.TestCommand}" />
+                      <Button Content="Remove" Command="{Binding Settings.RevenueCat.RemoveCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="heading" Text="Apple Ads website session" Margin="0" />
+                    <TextBlock Classes="hint"
+                               Text="Apple's exact popularity index for terms missing from the monthly lists, read through your own Apple Ads login in an embedded browser. Not a documented API. Comes to Windows and Linux in a later version." />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>
