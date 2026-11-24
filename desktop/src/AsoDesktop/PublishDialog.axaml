@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.PublishDialog"
+        x:DataType="vm:PublishViewModel"
+        Title="{Binding Title}"
+        Width="860" Height="700" MinWidth="620" MinHeight="460"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.good">
+      <Setter Property="Foreground" Value="#2E9E4F" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#D13438" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Title}" />
+      <TextBlock Classes="hint"
+                 Text="Read from App Store Connect just now; nothing has been written. Publishing sends the fields below, reads them back and records the change on the timeline. Nothing is submitted for review." />
+      <TextBlock TextWrapping="Wrap" Text="{Binding VersionText}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding NeedsVersion}">
+        <TextBox Width="160" PlaceholderText="Next version, e.g. 2.4" Text="{Binding NewVersion}" />
+        <Button Content="Create version on App Store Connect" Command="{Binding CreateVersionCommand}" />
+      </StackPanel>
+      <CheckBox Content="Create the language on App Store Connect if it does not exist yet" IsChecked="{Binding CreateMissing}"
+                IsVisible="{Binding CanChooseCreateMissing}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasNewLocales}">
+        <TextBlock VerticalAlignment="Center" Text="Screenshots for new languages:" />
+        <ComboBox MinWidth="220" ItemsSource="{Binding CopySources}" SelectedItem="{Binding CopyScreenshotsFrom}" />
+        <TextBlock VerticalAlignment="Center" Classes="hint" Text="copied from that language (sets that already hold screenshots are left alone)" />
+      </StackPanel>
+      <TextBlock Classes="bad" TextWrapping="Wrap" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Outcome}" IsVisible="{Binding Outcome, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+    </StackPanel>
+
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Classes="hint" Text="{Binding SelectedCount, StringFormat='{}{0} locale(s) chosen'}" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="Close" IsCancel="True" Click="CloseDialog" />
+        <Button Classes="accent" Content="Publish to App Store Connect" Command="{Binding PublishCommand}" />
+      </StackPanel>
+    </DockPanel>
+
+    <ScrollViewer Margin="0,12,0,0">
+      <ItemsControl ItemsSource="{Binding Lines}" Margin="0,0,18,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PublishLocaleLine">
+            <Border BorderThickness="1" BorderBrush="#33808080" CornerRadius="6" Padding="10" Margin="0,0,0,8">
+              <StackPanel Spacing="4">
+                <CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsReady}">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Header}" />
+                </CheckBox>
+                <TextBlock TextWrapping="Wrap" Text="{Binding Summary}" Classes.bad="{Binding !IsReady}" />
+                <ItemsControl ItemsSource="{Binding Changes}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MetadataChangeLine">
+                      <StackPanel Margin="0,4,0,0">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                        <TextBlock Classes="hint" Text="{Binding BeforeText, StringFormat='Now: {0}'}" MaxHeight="80" />
+                        <TextBlock TextWrapping="Wrap" Text="{Binding AfterText, StringFormat='New: {0}'}" MaxHeight="120" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding ResultText}" IsVisible="{Binding HasResult}"
+                           Classes.good="{Binding Succeeded}" Classes.bad="{Binding Failed}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

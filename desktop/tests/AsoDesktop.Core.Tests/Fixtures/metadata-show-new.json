@@ -1,0 +1,57 @@
+{
+  "changes" : [
+
+  ],
+  "draft" : {
+    "description" : "",
+    "keywords" : "",
+    "name" : "",
+    "promotionalText" : "",
+    "subtitle" : "",
+    "whatsNew" : ""
+  },
+  "issues" : [
+    {
+      "field" : "name",
+      "message" : "Name is required.",
+      "severity" : 2
+    }
+  ],
+  "legal" : {
+    "effectiveEULA" : "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+    "inDescription" : false,
+    "settings" : {
+      "enabled" : true,
+      "eulaURL" : "",
+      "note" : "",
+      "privacyURL" : "https://example.com/privacy"
+    }
+  },
+  "locale" : "de-DE",
+  "market" : "DE",
+  "name" : "German",
+  "rules" : {
+    "charactersUsed" : 0,
+    "findings" : [
+      {
+        "kind" : "error",
+        "message" : "Title is empty.",
+        "rule" : "Title"
+      },
+      {
+        "kind" : "warning",
+        "message" : "Only 0 of the 160 indexed characters are used; every unused character is a lost ranking chance.",
+        "rule" : "Budget"
+      },
+      {
+        "kind" : "warning",
+        "message" : "Subtitle is empty; it is both an indexed field and the first line users read in results.",
+        "rule" : "Subtitle"
+      }
+    ],
+    "indexedWords" : [
+
+    ],
+    "score" : 78
+  }
+}

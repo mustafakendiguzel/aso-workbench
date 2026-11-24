@@ -1,0 +1,39 @@
+{
+  "automatic" : [
+    "Legal footer appended."
+  ],
+  "changes" : [
+    {
+      "after" : "Journal, diary and memos",
+      "before" : "Journal and diary",
+      "field" : "subtitle"
+    },
+    {
+      "after" : "notes,journal,planner",
+      "before" : "notes,journal,memo",
+      "field" : "keywords"
+    },
+    {
+      "after" : "Write it down.\n\n,,\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPrivacy Policy: https://example.com/privacy",
+      "before" : "Write it down.",
+      "field" : "description"
+    }
+  ],
+  "draft" : {
+    "description" : "Write it down.\n\n,,\nTerms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nPrivacy Policy: https://example.com/privacy",
+    "keywords" : "notes,journal,planner",
+    "name" : "Acme Notes",
+    "promotionalText" : "",
+    "subtitle" : "Journal, diary and memos",
+    "whatsNew" : "Bug fixes."
+  },
+  "editable" : true,
+  "errors" : [
+
+  ],
+  "exists" : true,
+  "locale" : "en-US",
+  "name" : "English (U.S.)",
+  "version" : "2.0",
+  "versionState" : "PREPARE_FOR_SUBMISSION"
+}

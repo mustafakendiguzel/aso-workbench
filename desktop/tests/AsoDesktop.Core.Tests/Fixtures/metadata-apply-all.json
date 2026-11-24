@@ -1,0 +1,37 @@
+[
+  {
+    "changes" : [
+      {
+        "after" : "Tagebuch und Notizen",
+        "before" : "",
+        "field" : "subtitle"
+      },
+      {
+        "after" : "notizen,tagebuch,planer",
+        "before" : "",
+        "field" : "keywords"
+      },
+      {
+        "after" : "Schreib es auf.\n\n,,\nNutzungsbedingungen (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/\nDatenschutzrichtlinie: https://example.com/privacy",
+        "before" : "",
+        "field" : "description"
+      },
+      {
+        "after" : "Fehlerbehebungen.",
+        "before" : "",
+        "field" : "whatsNew"
+      }
+    ],
+    "locale" : "de-DE",
+    "message" : "Applied 4 field(s) to de-DE. Re-read matches the draft. Screenshots: 6 copied in 2 set(s). Legal footer appended.",
+    "screenshots" : {
+      "copied" : 6,
+      "errors" : [
+
+      ],
+      "sets" : 2,
+      "skipped" : 0
+    },
+    "status" : "applied"
+  }
+]

@@ -1,0 +1,80 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported (swift-tools-version) and newest release, each with the Visual Studio of its time:
+        # the C++ headers of Visual Studio 2026 (MSVC 14.51) require Clang 20, newer than the one in Swift 6.2.
+        include:
+          - swift: "6.2.4"
+            os: windows-2022
+          - swift: "6.4.1"
+            os: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: compnerd/gha-setup-swift@v0.5.0
+        with:
+          swift-version: swift-${{ matrix.swift }}-release
+          swift-build: ${{ matrix.swift }}-RELEASE
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Test
+        run: swift test --skip-build --skip Live
+
+      - name: Install .NET (for the window)
+        if: matrix.swift == '6.4.1'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: desktop/global.json
+
+      - name: Package the aso command and the window (release, with their runtimes)
+        if: matrix.swift == '6.4.1'
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+          DOTNET_NOLOGO: "1"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-windows.ps1 -Window
+
+      - name: Upload the aso command
+        if: matrix.swift == '6.4.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-windows-x86_64
+          path: |
+            dist/aso-windows-x86_64.zip
+            dist/aso-windows-x86_64.sha256
+          if-no-files-found: error
+
+      - name: Upload the window
+        if: matrix.swift == '6.4.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aso-workbench-windows-x86_64
+          path: |
+            dist/aso-workbench-windows-x86_64.zip
+            dist/aso-workbench-windows-x86_64.sha256
+          if-no-files-found: error

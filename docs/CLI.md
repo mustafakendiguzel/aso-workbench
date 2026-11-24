@@ -1,0 +1,150 @@
+# Command line (`aso`)
+
+`aso` is the ASO Workbench engine without the macOS interface. It uses the same rules as the app (`ASOCore`) and the same App Store adapters (`ASOProviders`), keeps its own data file, and is the foundation for the Windows and Linux versions. It builds on every platform listed under [Platforms](ARCHITECTURE.md#platforms).
+
+The same honesty rules apply: "> 200" means *not in the top 200 results* (never rank 201), a failed request is stored as a failure, and a number that has no source is left empty instead of guessed.
+
+## Build
+
+```bash
+swift build -c release --product aso
+.build/release/aso --help
+```
+
+See [Platforms](ARCHITECTURE.md#platforms) for the toolchain and system libraries each platform needs.
+
+**Windows:** `scripts\package-windows.ps1` builds `dist\aso-windows-x86_64.zip`: `aso.exe` with exactly the Swift runtime DLLs it loads, checked by running it with nothing but Windows on `PATH`. Unzip it anywhere and run `aso.exe`; no Swift toolchain is needed. CI builds one for every pull request (artifact `aso-windows-x86_64`). With `-Window` the script also packages the window with it ([DESKTOP.md](DESKTOP.md#build-run-test)).
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `aso app search <name, link or ID> [--country CC]` | Finds apps by name, or the app behind a link or ID. Nothing is stored. |
+| `aso app add <App Store link or ID> [--country CC] [--markets US,DE,…] [--device iphone\|ipad\|mac]` | Starts tracking an app (looked up in the link's country, else `--country`, else US), optionally with one market per country. Its Apple Ads genre follows its App Store category. |
+| `aso app list` | Tracked apps. |
+| `aso app genre <app ID> <GENRE\|any>` | The Apple Ads genre whose popularity lists are used (`aso genres` lists them); `any` searches every genre. |
+| `aso app remove <app ID>` | Stops tracking an app and deletes its keywords and measurements. |
+| `aso market add <app ID> --country CC [--device ...]` | Adds a market (one App Store country and device). |
+| `aso market list <app ID>` | The app's markets with their keyword count and last measurement. |
+| `aso market remove <app ID> --country CC [--device ...]` | Removes a market with its keywords and measurements. |
+| `aso storefronts` · `aso genres` · `aso locales` | The App Store countries, the Apple Ads genres and the listing languages, for pickers. |
+| `aso keywords add <app ID> <keyword>... --country CC [--device iphone\|ipad\|mac]` | Tracks keywords in one market. Duplicates (ignoring case and spacing) are skipped. |
+| `aso keywords remove <app ID> <keyword>... --country CC [--device ...]` | Stops tracking keywords. |
+| `aso keywords list <app ID> [--country CC] [--device ...] [--delta lastMarker\|previous\|first\|week] [--csv]` | Latest rank, Δ, popularity, difficulty and brand verdict per keyword. `--csv` writes the macOS app's CSV columns. |
+| `aso keywords show <app ID> <keyword> --country CC [--device ...]` | The inspector: every measurement, latest and best rank, the latest top ten with your app marked, competition signals and difficulty components. |
+| `aso keywords note <app ID> <keyword> --country CC [--device ...] --text TEXT` | Saves a note on the keyword; an empty text clears it. |
+| `aso measure <app ID> [--country CC] [--device ...] [--depth 1-200] [--keywords a,b]` | A fresh rank check for every keyword (or only those listed), about 3 seconds each (Apple limits public search). It first reads the app's ratings, a new release and new reviews in the measured storefronts, as the macOS app does, so the measurement lands after the release marker, and with the Apple Ads keys it refreshes the measured keywords' popularity afterwards. Progress goes to stderr. |
+| `aso popularity <app ID> [--country CC] [--device ...] [--keywords a,b]` | Apple Ads popularity (1–100, relative within the country) for every keyword, or only those listed, from Apple's list for the app's genre (`aso app genre`; with `any`, every genre's list, keeping each term's highest score). The scores describe the last full month, because Apple publishes them with a delay. A term that is not on the list is *below the published range* and is shown as "< N", where N is the list's lowest score that month. With the OpenRouter key and the bundled popularity models, such a term also gets the model's estimate from public signals (autocomplete for the term, its first word and its prefix, its latest results, and Jev), as in the macOS app: "~N" is a published-range value capped under N, or the model's 6–29 demand rank among terms below the range, each with the model's probability. It is an estimate, kept apart from Apple's numbers (`popularitySource` "estimate"). Markets in the same country share one lookup, and every reading is kept. Needs the Apple Ads keys; `measure` runs it for the measured keywords when they are stored. |
+| `aso ratings check <app ID> [--country CC,… \| --all]` | Reads the rating count and average in each storefront: the app's markets, the countries given, or all of them. A reading that repeats the previous one within the hour is not stored. |
+| `aso ratings list <app ID>` | Per storefront: the latest count and average, the change since the previous reading and when a new rating last arrived. |
+| `aso reviews check <app ID> [--country CC,… \| --all]` | Reads the newest written reviews from Apple's public feed. Reviews not seen before are stored and marked new (the app's first check is history, not news); the next check clears the marks. When no storefront answers, nothing changes. |
+| `aso reviews list <app ID> [--country CC] [--min-rating 1-5] [--new] [--search TEXT]` | Stored reviews, newest first, with totals per star. |
+| `aso competitors <app ID> --country CC [--device ...] [--depth 1-50]` | Apps in the latest successful results of the market's tracked keywords (top 10 by default), by how many keywords they appear in, then average position. Only tracked searches count: this is not a competitor's full keyword set. |
+| `aso markers list <app ID>` | The timeline, newest first: App Store releases, notes and listings applied to App Store Connect (`change`). A release is recorded when `measure` or `ratings check` sees a version not looked at before (the first look records the current one), dated with Apple's release date; a removed release is not added back. |
+| `aso markers add <app ID> --title TEXT [--date DATE]` | Pins a note ("keywords updated", "new screenshots") to compare ranks around. `DATE` is `2026-10-20` (midnight UTC) or `2026-10-20T14:30:00Z` (an offset such as `+02:00` works too); now by default, never in the future. |
+| `aso markers remove <app ID> <marker ID>` | Removes a release or note from the timeline; measurements are kept. |
+| `aso impact <app ID> <marker ID>` | Every keyword measured both before and after the marker: the last rank before it, the latest after it, Δ, and what the move is worth. Value = popularity × (1 − (difficulty/100)²) × fit (0 for brands and unrelated terms), gain = visibility change × value / 100, with the totals gained, lost and net. |
+| `aso ads sync [--days 1-90]` | Your own Apple Ads results (Campaign Management API, the same keys as popularity): for every campaign that promotes a tracked app, the keyword report of the last 30 days by default, per keyword and storefront. A sync replaces that campaign's stored rows; campaigns for other apps are skipped. |
+| `aso ads list <app ID>` | The stored results per storefront (impressions, taps, installs, spend, cost per install, tap-to-install rate) and per keyword, biggest spend first. Each keyword's totals for its storefront also appear in `keywords list --json` and `keywords show`. |
+| `aso revenue refresh` | Reads every RevenueCat project the stored secret keys reach (read-only): its App Store apps and its overview metrics, MRR, active subscriptions, revenue and new customers of the last 28 days, and active trials. One snapshot per project and day is kept; a later read the same day replaces it. |
+| `aso revenue show <app ID>` | The app's project, found by bundle ID, then by name, with the latest snapshot, the MRR change since the newest snapshot at least 20 hours older, and up to 14 days of history. |
+| `aso metadata locales <app ID>` | Locales worth writing: each tracked market's store language first, then those with a baseline or a draft, with what each holds, how many fields differ from the baseline and how many errors the draft has. |
+| `aso metadata show <app ID> [--locale L]` | The draft (the baseline until you edit it) with its counters, the ASO rules score and findings, validation, the legal footer state and the changes against the baseline. The rules are read for the tracked market that speaks the locale. Keyword coverage is that market's plan, as the macOS editor and writer rank it: its tracked keywords in tier A (already top ten, or difficulty up to `writerEasyDifficulty`), B (up to `writerMaxDifficulty`) or C (harder, but popularity 50 or more), best first, at most 14, with which ones the draft covers (every word, or its plural, in title, subtitle or keywords); brands, terms that do not fit the app and hard low-demand terms are listed as not for this listing. |
+| `aso metadata draft <app ID> --locale L (--name T \| --subtitle T \| --keywords K \| --promotional-text T \| --description T \| --whats-new T \| --stdin)` | Saves fields of the draft; `--stdin` reads every field as one JSON object (`name`, `subtitle`, `keywords`, `promotionalText`, `description`, `whatsNew`). A draft is only stored once it differs from what the editor starts from. Drafts stay on this computer. |
+| `aso metadata baseline <app ID> --locale L (field options \| --stdin)` | What is live on the App Store today, typed in, so drafts can be compared against it without App Store Connect. |
+| `aso metadata reset <app ID> --locale L` | Drops the draft; the locale shows its baseline again. |
+| `aso metadata legal <app ID> [--on \| --off] [--eula URL] [--privacy URL] [--note TEXT]` | The Terms of Use (empty: Apple's standard EULA) and Privacy Policy links, and an optional note, for the app's descriptions. On for every app until turned off. |
+| `aso metadata footer <app ID> [--locale L]` | Appends those links to the drafts of every locale (or one), labelled in each locale's language. The block is re-generated, never duplicated; a description that would pass 4000 characters is trimmed at a line. |
+| `aso metadata fill-whats-new <app ID>` | Gives every draft without release notes the default note in its language: App Store Connect refuses a version with an empty What's New. |
+| `aso metadata write <app ID> --locale L [--strategy feature\|brand] [--brand B] [--notes T] [--rewrite-copy] [--save]` | The AI writer (OpenRouter key; the model is the `writerModel` setting): three proposals for the locale, as the macOS app writes them, from the keyword plan and evidence of the market that speaks it, the competitors in its tracked queries, the App Store description and the app's other locales indexed on the same storefront. Each is repaired (title and subtitle fitted to 30 characters, the keyword field rebuilt and topped up) and scored by the rules, best first, with the phrases it covers and misses. Promotional text and description are written when empty or with `--rewrite-copy`; the brand is the app name up to the first colon unless given. `--save` keeps the best as the draft. Each request costs a little on your OpenRouter account. |
+| `aso metadata improve <app ID> --locale L [--brand B] [--save]` | Make better: the draft's rule findings and uncovered priority phrases become the model's instructions. Refused when the result would score lower than the draft (rules score plus coverage weighted by tier). |
+| `aso metadata write-all <app ID> [--locales a,b] [--strategy feature\|brand] [--brand B] [--notes T]` | Writes every locale worth writing (or the listed ones) in turn, market languages first, and saves each best proposal as its draft; a locale that fails is reported and the rest go on. With `--json`, each locale is announced on stderr as a JSON line. |
+| `aso metadata whats-new <app ID> --from L (--text T \| --stdin) [--locales a,b]` | Saves the release notes into the `--from` locale's draft and translates them (same facts, native phrasing) into every other locale worth writing, or the listed ones; locales of the same language get them as they are. |
+| `aso metadata pull <app ID>` | Reads every locale of the editable version (else the newest) and of the app info from App Store Connect and keeps them as the baselines; typed-in baselines of other locales stay. The app is found on App Store Connect by its bundle ID once. When the legal footer has no Privacy Policy address, Apple's is used. Nothing is written to Apple. |
+| `aso metadata versions <app ID>` | The app's iOS versions on App Store Connect, newest first, and whether their listing can still be edited. |
+| `aso metadata create-version <app ID> <version> --yes` | Creates the next iOS version in Prepare for Submission so its listing can be written while the live one stays untouched; refused while a version can still be edited. Upload the build separately (from Xcode). |
+| `aso metadata plan <app ID> (--locale L \| --all) [--create-missing] [--copy-screenshots-from L]` | The confirm step, read from App Store Connect without writing: the draft as it would be sent (with the legal footer and a default What's New added when missing), each field before and after, and why applying would be refused: validation errors, a listing that changed on Apple since the pull, no editable version, a locale that does not exist without `--create-missing`, or nothing to send. `--all` plans every locale with a draft. |
+| `aso metadata apply <app ID> --locale L [--create-missing] [--copy-screenshots-from L] --yes` | Writes the draft after the same checks, then re-reads the locale: the re-read becomes the baseline, and the attempt goes into the change log, an applied one onto the timeline as a `change` marker. `--create-missing` creates the locale on the editable version and the app info; `--copy-screenshots-from` then copies another locale's screenshots into it (downloaded and uploaded again; sets that already hold screenshots are left alone). Without `--yes` it prints the plan, sends nothing and exits with 1, as it does when the write is refused or fails. |
+| `aso metadata apply-all <app ID> [--locales a,b] [--copy-screenshots-from L] --yes` | Applies every locale with a draft (or the listed ones) in turn, creating those App Store Connect does not have; one line per locale. |
+| `aso metadata log <app ID>` | Every attempt to write the listing, newest first: applied, partial (Apple's re-read differs from the draft) or failed, with the fields and a note. |
+| `aso expand <app ID> [--from CC] [--countries GB,DE,…] [--keywords a,b] [--device ...] [--depth 1-200] [--track] [--no-local-forms]` | Tries the market's keywords (the source market's first 20 by default, or `--keywords`) in other storefronts in one pass, as the macOS app's Try keywords in other countries: GB, DE, FR, ES, IT, BR, JP and KR by default, without the source market's country. Each cell gets its rank and difficulty from a public search, Apple's popularity (with the Apple Ads keys) and Jev's language fit (with the OpenRouter key). Where the store speaks another language, the writer's model first proposes up to three local search forms per keyword, which are measured like the rest (`--no-local-forms` skips them). A candidate (★) has popularity 30 or more, a top-30 rank or difficulty 45 or less, and a language people search there. `--track` keeps every measured cell as a tracked keyword in its storefront with the measurement and popularity, creating the market when missing; a local form is noted as such. With `--json`, progress goes to stderr as JSON Lines. |
+| `aso discover <app ID> --country CC [--device ...] [--competitor LINK\|ID] [--seeds a,b] [--difficulty 0-60]` | Golden keyword candidates, as the macOS app's finder: App Store autocomplete around the seeds (by default the market's most popular tracked keywords and the app's title words) and Apple Ads suggestions, or the words and two-word phrases of a competitor's title and description. Candidates get Apple popularity, Jev (with the OpenRouter key) drops other brands and unnatural phrases and judges the fit against your app's description, and the most promising untracked ones (25 by default) are searched for difficulty, about 3 seconds each. Golden: popularity and difficulty within the settings, not a brand, and a fit; a *lead* passes the numbers but does not fit your app. Without the Apple Ads keys nothing has popularity, so nothing is golden. Nothing is stored; add keywords with `keywords add`. With `--json`, progress goes to stderr as JSON Lines. |
+| `aso search <term> --country CC [--device ...] [--limit 1-200]` | Top results for a term right now. Nothing is stored. |
+| `aso hints <seed> --country CC` | App Store autocomplete for a prefix. |
+| `aso difficulty <term> --country CC [--device ...]` | Difficulty (0–100) from the top ten results, with every component. |
+| `aso validate [--title T] [--subtitle S] [--keywords K]` | Checks metadata against the App Store limits; exits with 1 when a hard limit is broken. |
+
+A quick start:
+
+```bash
+aso app add "https://apps.apple.com/us/app/keynote/id361285480"
+aso keywords add 361285480 "presentation" "slides maker" --country US
+aso measure 361285480
+aso keywords list 361285480
+```
+
+Keywords that start with `-` go after `--`: `aso keywords add 361285480 --country US -- -keyword`.
+
+## Output and exit codes
+
+- Text by default; `--json` prints machine-readable JSON on stdout (dates in ISO 8601; an absent value, such as the rank of a keyword outside the results, is left out rather than written as a number). Progress, warnings and errors always go to stderr, so JSON output can be piped.
+- With `--json`, `measure` writes its progress to stderr as JSON Lines, one object per measured keyword:
+  `{"completed":1,"keyword":"notes","market":"US · iphone","outcome":"#12","status":"found","total":20}` (`status` is `found`, `outside`, `failed` or `notChecked`).
+- `difficulty --json` gives the score, its tier, the sample size and every component with its name, weight and explanation, exactly as the engine weighs them.
+- Exit codes: `0` success, `1` the command failed (the message says why), `64` the command was called wrongly (the usage follows). `validate` exits with `1` when a hard limit is broken and still prints the issues.
+- Global options (`--json`, `--data-dir`) may come before the command; keywords and terms that start with `-` go after `--`.
+
+## Settings
+
+`aso settings` shows the preferences with what each accepts; `aso settings set <setting> <value>` changes one; `aso settings reset` restores the defaults. They are the macOS app's preferences with its defaults, stored in `settings.json`:
+
+| Setting | Default | Used by |
+|---|---|---|
+| `resultDepth` | 200 (50, 100 or 200) | `measure`, unless `--depth` says otherwise |
+| `pacingSeconds` | 3.1 (1–6) | every public search; the API allows roughly 20 requests a minute |
+| `goldenMinPopularity`, `goldenMaxDifficulty` | 30, 45 | the golden verdict in `keywords list` |
+| `writerEasyDifficulty`, `writerMaxDifficulty` | 35, 55 | the metadata writer's tiers |
+| `deltaReference` | `lastMarker` (`previous`, `first`, `week`) | Δ in `keywords list`, unless `--delta` says otherwise |
+| `autoMeasureOnLaunch`, `staleHours` | false, 20 (6–72) | front ends at start-up; `measure --stale` |
+| `writerModel` | `deepseek/deepseek-v4-pro` | the metadata writer |
+| `adsReferenceAppID` | empty | the macOS app's Apple Ads website session (stored here so both share the setting) |
+| `checkForUpdates`, `skippedVersion` | true, empty | front ends at start-up (`update check --automatic`) |
+
+`aso measure --stale [--stale-hours N]` measures every market, across all apps, whose newest measurement is older than `staleHours` (or that was never measured).
+
+## Connections
+
+`aso connections` lists which services have keys, with their identifiers and the public-key fingerprint, never a secret. Keys are read from a file or from standard input, **never from arguments**, because other users of the computer can see a process's arguments:
+
+```bash
+aso connections set apple-ads --client-id SEARCHADS.… --key-id … --org-id … --key-file aso-ads-private.pem
+aso connections set asc --issuer-id … --key-file AuthKey_2X9R4HXF34.p8      # the key ID is read from Apple's file name
+aso connections set openrouter --key-stdin < openrouter.txt
+aso connections set revenuecat --keys-file revenuecat-keys.txt               # one key per line
+aso connections verify apple-ads
+aso connections remove openrouter
+```
+
+Keys are checked before they are stored (identifiers present, private keys parsed as P-256 keys). They live in `credentials.json` in the data folder, in the same shape the macOS app writes, readable only by your user (folder 0700 and file 0600 on macOS and Linux; on Windows the contents are encrypted with DPAPI for your Windows account, so the file is useless to other accounts and on other computers), and each goes only to its own service. The Apple Ads keys power `aso popularity`, `aso ads` and the popularity in `aso discover`, the App Store Connect key `aso metadata pull`, `plan` and `apply`, the OpenRouter key the brand and fit checks in `aso discover` and the metadata writer, and the RevenueCat keys `aso revenue`.
+
+## Data
+
+The data file is `engine.sqlite` in the data folder:
+
+| Platform | Default folder |
+|---|---|
+| macOS | `~/Library/Application Support/ASO Workbench/` |
+| Linux | `$XDG_DATA_HOME/ASO Workbench/` (usually `~/.local/share/ASO Workbench/`) |
+| Windows | `%LOCALAPPDATA%\ASO Workbench\` |
+
+`ASO_DATA_DIR` or `--data-dir PATH` choose another folder. The file is plain SQLite: back it up by copying it while `aso` is not running, start over by deleting it. On macOS it sits next to the app's `store.sqlite` but never shares its format; the app does not read it.
+
+The schema is versioned (`PRAGMA user_version`) and migrated forward automatically; before a data file written by an older version is migrated, a copy goes to `Backups/` in the data folder (the newest five are kept). A data file written by a newer version is refused rather than rewritten.
+
+## Updates
+
+`aso update check` asks GitHub for the latest release of ASO Workbench (one unauthenticated request; nothing about you or your data is sent) and shows it when it is newer than the running version, with its notes (the version's CHANGELOG section), the release page and the package for this platform. `--automatic` is the check a front end makes at start-up: nothing when `checkForUpdates` is false, and a release skipped with `aso update skip <version>` is not offered again (a check you run yourself still shows it). Nothing is downloaded or installed.
+
+## Not yet in the command line
+
+Of the macOS app's popularity layers, the command line has Apple's lists, the "< N" bound and the model estimate; the Apple Ads website's exact-term index stays in the macOS app, which signs in to the Apple Ads website in an embedded browser to read it (an undocumented endpoint behind Apple's session); here a term off the list gets the model estimate instead. The models are read from `ASO_MODELS_DIR`, else the data folder's `models/` (where the macOS app keeps models trained in its Lab), else `models/` next to `aso` or `share/aso-workbench/models` beside its folder, else `Resources/models` in a checkout; they are the macOS app's CoreML files, evaluated without CoreML. They know the storefronts DE, FR, GB, TR and US and Jev's genres, and give no estimate elsewhere, as in the app. Without the Apple Ads keys `popularity` is left out, no keyword is marked golden, because golden needs a popularity value, and every keyword in `aso impact` is worth 0, so its totals stay at 0 while the rank moves are still listed. Metadata applied from the macOS app is not on the command line's timeline.

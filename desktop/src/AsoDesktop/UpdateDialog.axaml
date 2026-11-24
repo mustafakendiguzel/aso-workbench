@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AsoDesktop.Core.ViewModels"
+        x:Class="AsoDesktop.UpdateDialog"
+        x:DataType="vm:UpdatesViewModel"
+        Title="Update available"
+        Width="640" Height="560" MinWidth="480" MinHeight="380"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="4">
+      <TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding Banner}" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding Heading}" />
+      <TextBlock Opacity="0.65" FontSize="12" Text="{Binding Published}" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Spacing="10" Margin="0,12,0,0">
+      <TextBlock Opacity="0.65" FontSize="12" TextWrapping="Wrap"
+                 Text="How to update: download the package, close this window, and replace the folder you run it from with the new one. The data folder stays where it is; the engine copies it to Backups before changing its format." />
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
+          <Button Content="Skip this version" Click="Skip" />
+          <Button Content="Later" Click="Later" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+          <Button Content="Release page" Click="OpenReleasePage" />
+          <Button Classes="accent" Content="Download" Click="Download" IsEnabled="{Binding CanDownload}" />
+        </StackPanel>
+      </DockPanel>
+    </StackPanel>
+
+    <Border Margin="0,12,0,0" BorderThickness="1" BorderBrush="#33808080" CornerRadius="6" Padding="10">
+      <ScrollViewer>
+        <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Notes}" />
+      </ScrollViewer>
+    </Border>
+  </DockPanel>
+</Window>
