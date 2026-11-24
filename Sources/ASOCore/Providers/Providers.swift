@@ -19,6 +19,11 @@ public protocol SuggestionProvider: Sendable {
     func suggestions(seed: String, storefront: Storefront) async throws -> [KeywordSuggestion]
 }
 
+/// Written customer reviews of one app in one storefront, newest first.
+public protocol CustomerReviewProvider: Sendable {
+    func reviews(trackID: Int, storefront: Storefront, page: Int) async throws -> [CustomerReview]
+}
+
 /// Official popularity data (Apple Ads Platform API v1).
 public protocol PopularityProvider: Sendable {
     var id: ProviderID { get }

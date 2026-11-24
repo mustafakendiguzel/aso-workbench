@@ -42,13 +42,11 @@ final class RevenueService {
         AppLog.write("[revenue] \(lastMessage ?? "")")
     }
 
-    /// Snapshots for the project that holds this app (matched by bundle id, then by name), newest first.
+    /// Snapshots for the project that holds this app (matched by bundle id, then by name; the rule is in ASOCore), newest first.
     static func snapshots(for app: TrackedApp, context: ModelContext) -> [RevenueSnapshot] {
         let all = (try? context.fetch(FetchDescriptor<RevenueSnapshot>(sortBy: [SortDescriptor(\.fetchedAt, order: .reverse)]))) ?? []
-        let bundle = app.bundleID ?? ""
-        let byBundle = all.filter { !bundle.isEmpty && $0.bundleIDs.split(separator: "|").contains { $0 == bundle[...] } }
-        if !byBundle.isEmpty { return byBundle }
-        let first = app.name.split(separator: ":").first.map { String($0).lowercased().replacingOccurrences(of: " ", with: "") } ?? ""
-        return all.filter { s in !first.isEmpty && (s.projectName.lowercased().replacingOccurrences(of: " ", with: "").contains(first) || s.appNames.lowercased().replacingOccurrences(of: " ", with: "").contains(first)) }
+        return RevenueMatch.select(all, bundleID: app.bundleID, appName: app.name,
+                                   bundleIDs: { $0.bundleIDs.split(separator: "|").map(String.init) }, projectName: \.projectName,
+                                   appNames: { $0.appNames.split(separator: "|").map(String.init) }).matches
     }
 }

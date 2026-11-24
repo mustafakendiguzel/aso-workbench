@@ -10,6 +10,14 @@ public actor AppleAdsCampaignProvider {
         public let status: String
         public let adamID: Int?
         public let countries: [String]
+
+        public init(id: Int, name: String, status: String, adamID: Int?, countries: [String]) {
+            self.id = id
+            self.name = name
+            self.status = status
+            self.adamID = adamID
+            self.countries = countries
+        }
     }
 
     /// One keyword × storefront row of a keyword report (a date range summed up).
@@ -34,6 +42,30 @@ public actor AppleAdsCampaignProvider {
         public let avgCPI: Double?
         public let bidMin: Double?
         public let bidMax: Double?
+
+        public init(campaignID: Int, adGroupName: String, keywordID: Int, keyword: String, matchType: String, status: String, country: String,
+                    bid: Double?, currency: String, impressions: Int, taps: Int, installs: Int, spend: Double, ttr: Double?,
+                    conversionRate: Double?, avgCPT: Double?, avgCPI: Double?, bidMin: Double?, bidMax: Double?) {
+            self.campaignID = campaignID
+            self.adGroupName = adGroupName
+            self.keywordID = keywordID
+            self.keyword = keyword
+            self.matchType = matchType
+            self.status = status
+            self.country = country
+            self.bid = bid
+            self.currency = currency
+            self.impressions = impressions
+            self.taps = taps
+            self.installs = installs
+            self.spend = spend
+            self.ttr = ttr
+            self.conversionRate = conversionRate
+            self.avgCPT = avgCPT
+            self.avgCPI = avgCPI
+            self.bidMin = bidMin
+            self.bidMax = bidMax
+        }
     }
 
     private let http = HTTPClient(serviceName: "Apple Ads campaigns", allowedHosts: ["appleid.apple.com", "api.searchads.apple.com"])
