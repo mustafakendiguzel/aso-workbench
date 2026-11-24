@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AsoDesktop.Core\AsoDesktop.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Real JSON output of the aso command, captured from the engine, so the contract cannot drift silently. -->
+    <None Include="Fixtures\*.json;Fixtures\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

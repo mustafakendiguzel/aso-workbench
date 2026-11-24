@@ -1,0 +1,14 @@
+[
+  {
+    "date" : "2026-10-24T18:30:12Z",
+    "id" : 2,
+    "kind" : "change",
+    "title" : "Applied Subtitle, Keywords, Description, What's New (de-DE)"
+  },
+  {
+    "date" : "2026-10-24T18:30:12Z",
+    "id" : 1,
+    "kind" : "change",
+    "title" : "Applied Subtitle, Keywords, Description (en-US)"
+  }
+]

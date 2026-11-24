@@ -1,0 +1,62 @@
+[
+  {
+    "id" : "BUSINESS",
+    "name" : "Business"
+  },
+  {
+    "id" : "EDUCATION",
+    "name" : "Education"
+  },
+  {
+    "id" : "ENTERTAINMENT",
+    "name" : "Entertainment"
+  },
+  {
+    "id" : "FINANCE",
+    "name" : "Finance"
+  },
+  {
+    "id" : "FOOD_DRINK",
+    "name" : "Food & Drink"
+  },
+  {
+    "id" : "GAMES",
+    "name" : "Games"
+  },
+  {
+    "id" : "HEALTH_FITNESS",
+    "name" : "Health & Fitness"
+  },
+  {
+    "id" : "LIFESTYLE",
+    "name" : "Lifestyle"
+  },
+  {
+    "id" : "NEW_PUBLICATION",
+    "name" : "News & Publications"
+  },
+  {
+    "id" : "PHOTO_VIDEO",
+    "name" : "Photo & Video"
+  },
+  {
+    "id" : "PRODUCTIVITY_UTILITIES",
+    "name" : "Productivity & Utilities"
+  },
+  {
+    "id" : "SHOPPING",
+    "name" : "Shopping"
+  },
+  {
+    "id" : "SOCIAL_NETWORKING",
+    "name" : "Social Networking"
+  },
+  {
+    "id" : "SPORTS",
+    "name" : "Sports"
+  },
+  {
+    "id" : "TRAVEL",
+    "name" : "Travel"
+  }
+]

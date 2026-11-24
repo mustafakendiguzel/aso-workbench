@@ -13,6 +13,15 @@ public actor RevenueCatProvider {
         public let newCustomers28d: Int
         public let activeTrials: Int
         public let activeUsers28d: Int
+
+        public init(mrr: Double, activeSubscriptions: Int, revenue28d: Double, newCustomers28d: Int, activeTrials: Int, activeUsers28d: Int) {
+            self.mrr = mrr
+            self.activeSubscriptions = activeSubscriptions
+            self.revenue28d = revenue28d
+            self.newCustomers28d = newCustomers28d
+            self.activeTrials = activeTrials
+            self.activeUsers28d = activeUsers28d
+        }
     }
 
     private let http = HTTPClient(serviceName: "RevenueCat", allowedHosts: ["api.revenuecat.com"])
